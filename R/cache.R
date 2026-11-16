@@ -53,10 +53,18 @@
 #'   (reads a metadata CSV into a data.frame; \code{...} goes to
 #'   \code{data.table::fread}).
 #' @examples
-#' \dontrun{
-#' cache <- abc_cache_connect()
-#' donors <- cache$get_metadata_dataframe("ASAP-PMDBS-10X", "donor")
-#' }
+#' example_dir <- system.file(
+#'   "extdata", "ex",
+#'   package = "importABCatlas"
+#' )
+#'
+#' cache <- abc_cache_connect(
+#'   example_dir,
+#'   offline = TRUE,
+#'   release = "20250101"
+#' )
+#' cache
+#'
 #' @export
 abc_cache_connect <- function(download_base = NULL, offline = FALSE,
                               release = .abc_default_release) {

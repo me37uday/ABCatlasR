@@ -10,8 +10,15 @@ vignette: >
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>",
-  eval = FALSE
+  comment = "#>"
+)
+
+example_dir <- system.file(
+  "extdata", "ex",
+  package = "importABCatlas"
+)
+example_data <- readRDS(
+  file.path(example_dir, "example-data.rds")
 )
 ```
 
@@ -32,7 +39,7 @@ No Python installation is required.
 
 Load the installed package normally:
 
-```{r}
+```{r library}
 library(importABCatlas)
 ```
 
@@ -44,7 +51,7 @@ when those output types are requested.
 
 Use `list_datasets()` to inspect the curated routes supported by the package:
 
-```{r}
+```{r list-datasets}
 datasets <- list_datasets()
 datasets
 ```
@@ -54,7 +61,7 @@ representation and available expression representations.
 
 It is also an ordinary data frame:
 
-```{r}
+```{r spatial-datasets}
 datasets[datasets$spatial, ]
 ```
 
@@ -75,7 +82,7 @@ The cache directory is resolved in this order:
 
 For example:
 
-```{r}
+```{r cache-location, eval=FALSE}
 options(importABCatlas.download_base = "/data/abc_atlas")
 abc_download_dir()
 ```
@@ -83,7 +90,7 @@ abc_download_dir()
 The package is release-aware. A release can be pinned explicitly for
 reproducible analyses:
 
-```{r}
+```{r load-release, eval=FALSE}
 abc <- load_data(
   "AgingMouse",
   release = "20260711"
@@ -97,14 +104,14 @@ After required files are cached, `offline = TRUE` prevents network access.
 `load_data()` loads and assembles cell and gene metadata. It does not fetch the
 large expression matrices.
 
-```{r}
+```{r load-data, eval=FALSE}
 abc <- load_data("AgingMouse")
 abc
 ```
 
 The result is an `abc_data` object containing:
 
-```{r}
+```{r inspect-metadata, eval=FALSE}
 abc$cell_metadata
 abc$gene_data
 abc$unique_values
@@ -121,7 +128,7 @@ Selection can happen during `load_data()`.
 
 `filters` is a named list of metadata columns and accepted values:
 
-```{r}
+```{r filter-cells, eval=FALSE}
 abc <- load_data(
   "AgingMouse",
   filters = list(
@@ -137,7 +144,7 @@ metadata condition.
 
 Use `cell_ids` when an exact set of cells is already known:
 
-```{r}
+```{r select-cell-ids, eval=FALSE}
 abc <- load_data(
   "AgingMouse",
   cell_ids = my_cell_labels
@@ -151,7 +158,7 @@ after filtering are errors rather than silently altered selections.
 
 Use `n_cells` to sample after filtering and exact-cell selection:
 
-```{r}
+```{r sample-cells, eval=FALSE}
 abc <- load_data(
   "AgingMouse",
   filters = list(
@@ -169,7 +176,7 @@ Sampling is reproducible for a fixed `seed`.
 Expression files can be several gigabytes. Before downloading them, inspect the
 request with `plan_fetch()`:
 
-```{r}
+```{r plan-fetch, eval=FALSE}
 genes <- c(
   "P2ry12",
   "Cx3cr1",
@@ -201,7 +208,7 @@ A fetch plan reports:
 
 Pass the `abc_data` object directly:
 
-```{r}
+```{r fetch-matrix, eval=FALSE}
 x <- fetch_data(
   abc,
   genes = genes,
@@ -219,7 +226,7 @@ Four output formats are available.
 
 ### Sparse matrix bundle
 
-```{r}
+```{r inspect-matrix-result, eval=FALSE}
 x <- fetch_data(
   abc,
   genes = genes,
@@ -237,7 +244,7 @@ metadata and provenance without requiring an analysis-framework package.
 
 ### Seurat
 
-```{r}
+```{r fetch-seurat, eval=FALSE}
 x <- fetch_data(
   abc,
   genes = genes,
@@ -251,7 +258,7 @@ counts.
 
 ### SingleCellExperiment
 
-```{r}
+```{r fetch-sce, eval=FALSE}
 x <- fetch_data(
   abc,
   genes = genes,
@@ -266,7 +273,7 @@ Raw expression uses a `counts` assay. Upstream transformed expression uses a
 
 For a spatial route:
 
-```{r}
+```{r fetch-spatial, eval=FALSE}
 spatial_abc <- load_data(
   "MERFISH",
   n_cells = 1000,
@@ -285,7 +292,7 @@ Spatial coordinates are attached to the SpatialExperiment.
 Automatic coordinate inference is restricted to routes declared spatial. For
 other metadata, verified coordinate columns must be supplied explicitly:
 
-```{r}
+```{r fetch-spatial-coordinates, eval=FALSE}
 x <- fetch_data(
   abc,
   genes = genes,
@@ -307,8 +314,8 @@ transformations performed by `importABCatlas`.
 
 Inspect them with:
 
-```{r}
-list_datasets()[
+```{r data-types}
+as.data.frame(list_datasets())[
   ,
   c(
     "dataset",
@@ -332,7 +339,7 @@ available representation is `log2`.
 
 Expression rows are keyed by canonical `gene_identifier`.
 
-```{r}
+```{r inspect-genes, eval=FALSE}
 head(
   abc$gene_data[
     ,
@@ -347,7 +354,7 @@ head(
 Gene symbols remain available as annotation and can be supplied to `genes`
 when they resolve uniquely:
 
-```{r}
+```{r fetch-selected-genes, eval=FALSE}
 fetch_data(
   abc,
   genes = c(
@@ -373,13 +380,13 @@ selected dimensions.
 
 Matrix output stores it directly:
 
-```{r}
+```{r inspect-provenance, eval=FALSE}
 x$provenance
 ```
 
 Seurat output stores it under:
 
-```{r}
+```{r seurat-provenance, eval=FALSE}
 x@misc$importABCatlas
 ```
 
@@ -391,7 +398,7 @@ columns used.
 
 Once required files are cached:
 
-```{r}
+```{r offline-workflow, eval=FALSE}
 abc <- load_data(
   "AgingMouse",
   offline = TRUE
@@ -412,7 +419,7 @@ In offline mode, missing files are errors rather than triggering downloads.
 `abc_cache_connect()` provides lower-level access to files in the release
 manifest:
 
-```{r}
+```{r cache-metadata, eval=FALSE}
 cache <- abc_cache_connect()
 
 donors <- cache$get_metadata_dataframe(
@@ -426,7 +433,7 @@ when necessary unless the cache is offline.
 
 ## Recommended workflow
 
-```{r}
+```{r complete-workflow, eval=FALSE}
 list_datasets()
 
 abc <- load_data(
@@ -461,3 +468,9 @@ x <- fetch_data(
 This workflow keeps metadata discovery and cell selection separate from large
 expression downloads, makes transfer requirements inspectable in advance, and
 preserves source representation and provenance in the returned R object.
+
+## Session information
+
+```{r session-info}
+sessionInfo()
+```

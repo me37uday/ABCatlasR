@@ -27,15 +27,7 @@ absolute path. This lets users point downloads at a custom folder without
 depending on the working directory.
 }
 \examples{
-\dontrun{
-# Use a custom folder for this call only
-load_data("WHB", download_base = "/data/abc_atlas")
-
-# Or set it once for the whole session
-options(importABCatlas.download_base = "/data/abc_atlas")
-
-# Or from outside R, before launching:  export ABC_ATLAS_CACHE=/data/abc_atlas
-
-abc_download_dir()  # see where data will go
-}
+# Use a temporary cache directory.
+cache_dir <- file.path(tempdir(), "importABCatlas-example")
+abc_download_dir(cache_dir)
 }

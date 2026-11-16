@@ -4,3 +4,4 @@
 ^vignettes/.*\.orig$
 ^vignettes/precompile\.R$
 ^\.github$
+^bioc-validation-evidence$

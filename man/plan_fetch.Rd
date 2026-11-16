@@ -46,3 +46,22 @@ expression files required to produce it.
 Applies the same cell filtering, gene selection and expression-file routing
 as \code{\link[=fetch_data]{fetch_data()}}, but does not download or read expression matrices.
 }
+\examples{
+example_dir <- system.file(
+  "extdata", "ex",
+  package = "importABCatlas"
+)
+example_data <- readRDS(
+  file.path(example_dir, "example-data.rds")
+)
+
+plan <- plan_fetch(
+  download_base = example_dir,
+  metadata = example_data$cells,
+  gene_data = example_data$genes,
+  genes = c("G1", "G4"),
+  offline = TRUE,
+  release = "20250101"
+)
+plan
+}

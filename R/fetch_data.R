@@ -443,6 +443,25 @@
 #'   supply another release explicitly.
 #' @return The requested expression representation: a sparse matrix bundle,
 #'   Seurat object, SingleCellExperiment, or SpatialExperiment.
+#' @examples
+#' example_dir <- system.file(
+#'   "extdata", "ex",
+#'   package = "importABCatlas"
+#' )
+#' example_data <- readRDS(
+#'   file.path(example_dir, "example-data.rds")
+#' )
+#'
+#' x <- fetch_data(
+#'   download_base = example_dir,
+#'   metadata = example_data$cells,
+#'   gene_data = example_data$genes,
+#'   genes = c("G1", "G4"),
+#'   return_type = "matrix",
+#'   offline = TRUE,
+#'   release = "20250101"
+#' )
+#' x$expression
 #' @export
 fetch_data <- function(data = NULL,
                        metadata = NULL,
@@ -552,6 +571,24 @@ fetch_data <- function(data = NULL,
 #' @param release ABC Atlas release. Defaults to the package-validated release.
 #' @return An `abc_fetch_plan` object describing the requested output and
 #'   expression files required to produce it.
+#' @examples
+#' example_dir <- system.file(
+#'   "extdata", "ex",
+#'   package = "importABCatlas"
+#' )
+#' example_data <- readRDS(
+#'   file.path(example_dir, "example-data.rds")
+#' )
+#'
+#' plan <- plan_fetch(
+#'   download_base = example_dir,
+#'   metadata = example_data$cells,
+#'   gene_data = example_data$genes,
+#'   genes = c("G1", "G4"),
+#'   offline = TRUE,
+#'   release = "20250101"
+#' )
+#' plan
 #' @export
 plan_fetch <- function(data = NULL, metadata = NULL, filters = list(),
                        gene_data = NULL, genes = NULL, data_type = NULL,
@@ -899,45 +936,13 @@ print.abc_fetch_plan <- function(x, ...) {
         stop("seed must be a single non-missing value.", call. = FALSE)
       }
 
-      old_seed_exists <- exists(
-        ".Random.seed",
-        envir = .GlobalEnv,
-        inherits = FALSE
-      )
-
-      if (old_seed_exists) {
-        old_seed <- get(
-          ".Random.seed",
-          envir = .GlobalEnv,
-          inherits = FALSE
+      keep <- withr::with_seed(
+        seed,
+        sample.int(
+          nrow(out),
+          size = n_cells,
+          replace = FALSE
         )
-      }
-
-      on.exit(
-        {
-          if (old_seed_exists) {
-            assign(
-              ".Random.seed",
-              old_seed,
-              envir = .GlobalEnv
-            )
-          } else if (exists(
-            ".Random.seed",
-            envir = .GlobalEnv,
-            inherits = FALSE
-          )) {
-            rm(".Random.seed", envir = .GlobalEnv)
-          }
-        },
-        add = TRUE
-      )
-
-      set.seed(seed)
-
-      keep <- sample.int(
-        nrow(out),
-        size = n_cells,
-        replace = FALSE
       )
 
       out <- out[keep, , drop = FALSE]

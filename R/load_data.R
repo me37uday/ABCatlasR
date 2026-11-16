@@ -650,7 +650,7 @@
 #' @return An \code{abc_data} object containing \code{cell_metadata},
 #'   \code{gene_data}, \code{unique_values}, and dataset/cache provenance.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' WHB <- load_data("WHB")
 #' names(WHB$unique_values)
 #' }

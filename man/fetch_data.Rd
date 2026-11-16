@@ -67,3 +67,23 @@ Seurat object, SingleCellExperiment, or SpatialExperiment.
 \description{
 Fetch selected ABC Atlas expression into an R analysis representation
 }
+\examples{
+example_dir <- system.file(
+  "extdata", "ex",
+  package = "importABCatlas"
+)
+example_data <- readRDS(
+  file.path(example_dir, "example-data.rds")
+)
+
+x <- fetch_data(
+  download_base = example_dir,
+  metadata = example_data$cells,
+  gene_data = example_data$genes,
+  genes = c("G1", "G4"),
+  return_type = "matrix",
+  offline = TRUE,
+  release = "20250101"
+)
+x$expression
+}

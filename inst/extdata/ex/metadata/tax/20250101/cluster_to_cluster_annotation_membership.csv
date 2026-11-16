@@ -1,0 +1,5 @@
+"cluster_alias","cluster_annotation_term_set_name","cluster_annotation_term_name","color_hex_triplet"
+1,"cluster","cl1","#aa0000"
+1,"supercluster","sup1","#bb0000"
+2,"cluster","cl2","#cc0000"
+2,"supercluster",,"#dd0000"

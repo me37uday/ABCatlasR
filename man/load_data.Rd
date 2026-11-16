@@ -51,7 +51,7 @@ interest) is described declaratively in an internal registry rather than in
 per-dataset functions.
 }
 \examples{
-\dontrun{
+\donttest{
 WHB <- load_data("WHB")
 names(WHB$unique_values)
 }

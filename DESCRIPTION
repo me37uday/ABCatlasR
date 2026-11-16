@@ -1,6 +1,6 @@
 Package: importABCatlas
 Title: Release-Aware Access to Allen Brain Cell Atlas Data in R
-Version: 0.0.0.9000
+Version: 0.99.0
 Authors@R: c(
     person("Uday", "Rangaswamy",  role = c("aut", "cre"),
            email = "uday.rangaswamy@ieo.it"),
@@ -16,8 +16,12 @@ Description: Provides an R-native, release-aware interface to the Allen Brain
     upstream transformed or imputed expression, and requires no Python
     installation.
 License: MIT + file LICENSE
+URL: https://github.com/me37uday/importABCatlas
+BugReports: https://github.com/me37uday/importABCatlas/issues
+biocViews: DataImport, DataRepresentation, GeneExpression, SingleCell,
+    Spatial, Transcriptomics
 Depends:
-    R (>= 4.4.0)
+    R (>= 4.6.0)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 SystemRequirements: An internet connection the first time each file is used.
@@ -32,6 +36,7 @@ Imports:
     rhdf5,
     stats,
     tools,
+    withr,
     xml2
 Suggests:
     knitr,
@@ -41,9 +46,8 @@ Suggests:
     SpatialExperiment,
     SummarizedExperiment,
     S4Vectors,
-    testthat (>= 3.0.0),
-    withr
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/testthat/reporter: progress
-Config/roxygen2/version: 8.1.0
+Config/roxygen2/version: 8.1.1

@@ -46,8 +46,16 @@ exists), otherwise the latest release. The directory layout is also the same,
 so a download directory can be shared with the Python package.
 }
 \examples{
-\dontrun{
-cache <- abc_cache_connect()
-donors <- cache$get_metadata_dataframe("ASAP-PMDBS-10X", "donor")
-}
+example_dir <- system.file(
+  "extdata", "ex",
+  package = "importABCatlas"
+)
+
+cache <- abc_cache_connect(
+  example_dir,
+  offline = TRUE,
+  release = "20250101"
+)
+cache
+
 }

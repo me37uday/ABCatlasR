@@ -1,0 +1,7 @@
+"cell_label","feature_matrix_label","dataset_label","donor_sex","region_of_interest_label","cluster_alias"
+"c1","TEST-A","TEST-10X","M","R1",1
+"c2","TEST-A","TEST-10X","F","R2",2
+"c3","TEST-A","TEST-10X","M","R1",1
+"c4","TEST-B","TEST-10X","F","R2",2
+"c5","TEST-B","TEST-10X",,"R1",2
+"c6","TEST-B","TEST-10X","M","R1",1

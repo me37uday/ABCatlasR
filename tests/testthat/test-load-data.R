@@ -1588,3 +1588,83 @@ test_that("cell selection preserves ABC routing provenance", {
     FALSE
   )
 })
+
+test_that("cell sampling preserves an existing RNG state", {
+  metadata <- data.frame(
+    cell_label = paste0("c", seq_len(20L)),
+    stringsAsFactors = FALSE
+  )
+
+  set.seed(123L)
+  before <- .Random.seed
+
+  .abc_select_cells(
+    metadata,
+    n_cells = 5L,
+    seed = 42L
+  )
+
+  expect_identical(.Random.seed, before)
+})
+
+test_that("cell sampling does not create a persistent RNG state", {
+  had_seed <- exists(
+    ".Random.seed",
+    envir = .GlobalEnv,
+    inherits = FALSE
+  )
+
+  if (had_seed) {
+    old_seed <- get(
+      ".Random.seed",
+      envir = .GlobalEnv,
+      inherits = FALSE
+    )
+  }
+
+  on.exit(
+    {
+      if (had_seed) {
+        assign(
+          ".Random.seed",
+          old_seed,
+          envir = .GlobalEnv
+        )
+      } else if (exists(
+        ".Random.seed",
+        envir = .GlobalEnv,
+        inherits = FALSE
+      )) {
+        rm(".Random.seed", envir = .GlobalEnv)
+      }
+    },
+    add = TRUE
+  )
+
+  if (exists(
+    ".Random.seed",
+    envir = .GlobalEnv,
+    inherits = FALSE
+  )) {
+    rm(".Random.seed", envir = .GlobalEnv)
+  }
+
+  metadata <- data.frame(
+    cell_label = paste0("c", seq_len(20L)),
+    stringsAsFactors = FALSE
+  )
+
+  .abc_select_cells(
+    metadata,
+    n_cells = 5L,
+    seed = 42L
+  )
+
+  expect_false(
+    exists(
+      ".Random.seed",
+      envir = .GlobalEnv,
+      inherits = FALSE
+    )
+  )
+})
