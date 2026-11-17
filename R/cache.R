@@ -55,7 +55,7 @@
 #' @examples
 #' example_dir <- system.file(
 #'   "extdata", "ex",
-#'   package = "importABCatlas"
+#'   package = "ABCatlas"
 #' )
 #'
 #' cache <- abc_cache_connect(
@@ -172,26 +172,141 @@ print.abc_cache <- function(x, ...) {
        method = "radix")
 }
 
+.abc_fetch_memory_retry <- function(
+    url,
+    max_tries = 5L,
+    connect_timeout = 10,
+    timeout = 30
+) {
+  max_tries <- as.integer(max_tries)
+
+  if (is.na(max_tries) || max_tries < 1L) {
+    stop(
+      "`max_tries` must be a positive integer.",
+      call. = FALSE
+    )
+  }
+
+  last_error <- NULL
+
+  for (attempt in seq_len(max_tries)) {
+    handle <- curl::new_handle()
+
+    curl::handle_setopt(
+      handle,
+      connecttimeout = connect_timeout,
+      timeout = timeout
+    )
+
+    result <- tryCatch(
+      curl::curl_fetch_memory(
+        url,
+        handle = handle
+      ),
+      error = function(e) {
+        e
+      }
+    )
+
+    if (!inherits(result, "error")) {
+      return(result)
+    }
+
+    last_error <- result
+
+    if (attempt < max_tries) {
+      message(
+        "Request attempt ",
+        attempt,
+        " failed: ",
+        conditionMessage(result),
+        ". Retrying."
+      )
+    }
+  }
+
+  stop(
+    "Request failed after ",
+    max_tries,
+    " attempts: ",
+    conditionMessage(last_error),
+    call. = FALSE
+  )
+}
+
 # Manifests published on S3 (every .json key under releases/), sorted.
 .abc_remote_manifests <- function() {
-  keys <- character()
+  manifests <- character()
   token <- NULL
+
   repeat {
-    url <- paste0(.abc_bucket_url, "/?list-type=2&prefix=releases/")
+    url <- paste0(
+      .abc_bucket_url,
+      "/?list-type=2",
+      "&prefix=releases/",
+      "&delimiter=/"
+    )
+
     if (!is.null(token)) {
-      url <- paste0(url, "&continuation-token=", curl::curl_escape(token))
+      url <- paste0(
+        url,
+        "&continuation-token=",
+        curl::curl_escape(token)
+      )
     }
-    resp <- curl::curl_fetch_memory(url)
+
+    resp <- .abc_fetch_memory_retry(url)
+
     if (resp$status_code != 200L) {
-      stop("Could not list ABC Atlas releases (HTTP ", resp$status_code, ").")
+      stop(
+        "Could not list ABC Atlas releases (HTTP ",
+        resp$status_code,
+        ").",
+        call. = FALSE
+      )
     }
-    doc <- xml2::xml_ns_strip(xml2::read_xml(resp$content))
-    keys <- c(keys, xml2::xml_text(xml2::xml_find_all(doc, "//Contents/Key")))
-    if (xml2::xml_text(xml2::xml_find_first(doc, "//IsTruncated")) != "true") break
-    token <- xml2::xml_text(xml2::xml_find_first(doc, "//NextContinuationToken"))
+
+    doc <- xml2::xml_ns_strip(
+      xml2::read_xml(resp$content)
+    )
+
+    prefixes <- xml2::xml_text(
+      xml2::xml_find_all(
+        doc,
+        "//CommonPrefixes/Prefix"
+      )
+    )
+
+    manifests <- c(
+      manifests,
+      paste0(prefixes, "manifest.json")
+    )
+
+    truncated <- xml2::xml_text(
+      xml2::xml_find_first(
+        doc,
+        "//IsTruncated"
+      )
+    )
+
+    if (!identical(truncated, "true")) {
+      break
+    }
+
+    token <- xml2::xml_text(
+      xml2::xml_find_first(
+        doc,
+        "//NextContinuationToken"
+      )
+    )
   }
-  sort(keys[endsWith(keys, ".json")], method = "radix")
+
+  sort(
+    unique(manifests),
+    method = "radix"
+  )
 }
+
 
 # Pick the manifest to load: the one last used with this cache if still valid,
 # otherwise the latest available. Warns as abc_atlas_access does when that is
@@ -378,8 +493,128 @@ print.abc_cache <- function(x, ...) {
 # Download `url` to `dest` through a ".part" file that is resumed across retries
 # and only moved into place once complete (and matching `md5`, if given).
 .abc_download_progress <- function() {
-  isTRUE(getOption("importABCatlas.download_progress", TRUE))
+  isTRUE(getOption("ABCatlas.download_progress", TRUE))
 }
+.abc_stop_if_download_interrupted <- function(
+    result,
+    part
+) {
+  if (
+    length(result$success) != 1L ||
+    !is.na(result$success)
+  ) {
+    return(invisible(FALSE))
+  }
+
+  partial_bytes <- if (file.exists(part)) {
+    file.info(part)$size
+  } else {
+    0
+  }
+
+  partial_detail <- if (partial_bytes > 0) {
+    sprintf(
+      " (%s)",
+      .abc_format_size(partial_bytes)
+    )
+  } else {
+    ""
+  }
+
+  stop(
+    "Download interrupted. Partial download retained for later resume",
+    partial_detail,
+    ".",
+    call. = FALSE
+  )
+}
+
+.abc_finalize_download_attempt <- function(
+    result,
+    part,
+    dest,
+    md5
+) {
+  ok <- isTRUE(result$success)
+
+  if (
+    ok &&
+    !is.null(md5) &&
+    unname(tools::md5sum(part)) != md5
+  ) {
+    message(
+      "Checksum mismatch for ",
+      basename(dest),
+      "; downloading again."
+    )
+
+    unlink(part)
+    return(FALSE)
+  }
+
+  if (!ok) {
+    return(FALSE)
+  }
+
+  if (!file.rename(part, dest)) {
+    stop(
+      "Downloaded file could not be moved into place: ",
+      dest,
+      call. = FALSE
+    )
+  }
+
+  TRUE
+}
+
+.abc_download_error_detail <- function(result) {
+  if (
+    !is.null(result$error) &&
+    !is.na(result$error)
+  ) {
+    return(
+      sprintf(
+        ": %s",
+        result$error
+      )
+    )
+  }
+
+  ""
+}
+
+.abc_report_download_retry <- function(
+    attempt,
+    result
+) {
+  message(
+    "Download attempt ",
+    attempt,
+    " failed",
+    .abc_download_error_detail(result),
+    ". Retrying from the partial download."
+  )
+
+  invisible(NULL)
+}
+
+.abc_stop_download_failed <- function(
+    url,
+    max_tries,
+    result
+) {
+  stop(
+    "Could not download ",
+    url,
+    " in ",
+    max_tries,
+    " attempts",
+    .abc_download_error_detail(result),
+    ".",
+    call. = FALSE
+  )
+}
+
 .abc_download <- function(url, dest, md5 = NULL, max_tries = 10L) {
   dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
   part <- paste0(dest, ".part")
@@ -392,83 +627,176 @@ print.abc_cache <- function(x, ...) {
       progress = .abc_download_progress()
     )
 
-    # curl::multi_download() catches R interrupts internally. If the
-    # transfer is interrupted before either its success or failure
-    # callback runs, `success` remains NA. Do not treat this as a
-    # retryable network failure: retain the partial file and return
-    # control to the user.
-    if (length(res$success) == 1L && is.na(res$success)) {
-      partial_bytes <- if (file.exists(part)) file.info(part)$size else 0
+    .abc_stop_if_download_interrupted(
+      result = res,
+      part = part
+    )
 
-      stop(
-        "Download interrupted. Partial download retained for later resume",
-        if (partial_bytes > 0) {
-          paste0(" (", .abc_format_size(partial_bytes), ")")
-        } else {
-          ""
-        },
-        ".",
-        call. = FALSE
-      )
-    }
-
-    ok <- isTRUE(res$success)
-
-    if (ok && !is.null(md5) && unname(tools::md5sum(part)) != md5) {
-      message(
-        "Checksum mismatch for ",
-        basename(dest),
-        "; downloading again."
-      )
-      unlink(part)
-      ok <- FALSE
-    }
-
-    if (ok) {
-      if (!file.rename(part, dest)) {
-        stop(
-          "Downloaded file could not be moved into place: ",
-          dest,
-          call. = FALSE
-        )
-      }
+    if (.abc_finalize_download_attempt(
+      result = res,
+      part = part,
+      dest = dest,
+      md5 = md5
+    )) {
       return(invisible(dest))
     }
 
     if (i < max_tries) {
-      message(
-        "Download attempt ",
-        i,
-        " failed",
-        if (!is.null(res$error) && !is.na(res$error)) {
-          paste0(": ", res$error)
-        } else {
-          ""
-        },
-        ". Retrying from the partial download."
+      .abc_report_download_retry(
+        attempt = i,
+        result = res
       )
     }
   }
 
-  stop(
-    "Could not download ",
-    url,
-    " in ",
-    max_tries,
-    " attempts",
-    if (!is.null(res$error) && !is.na(res$error)) {
-      paste0(": ", res$error)
-    } else {
-      ""
-    },
-    ".",
-    call. = FALSE
+  .abc_stop_download_failed(
+    url = url,
+    max_tries = max_tries,
+    result = res
   )
 }
 
 .abc_format_size <- function(bytes) {
   format(structure(as.numeric(bytes), class = "object_size"), units = "auto",
          standard = "SI")
+}
+
+.abc_available_space <- function(path = getwd()) {
+  path <- path.expand(path)
+
+  if (!dir.exists(path)) {
+    stop(
+      "Path does not exist: ",
+      path,
+      call. = FALSE
+    )
+  }
+
+  path <- normalizePath(
+    path,
+    winslash = "/",
+    mustWork = TRUE
+  )
+
+  if (.Platform$OS.type == "windows") {
+    return(.abc_available_space_windows(path))
+  }
+
+  if (identical(Sys.info()[["sysname"]], "Darwin")) {
+    return(.abc_available_space_macos(path))
+  }
+
+  .abc_available_space_unix(path)
+}
+
+.abc_available_space_macos <- function(path) {
+  out <- tryCatch(
+    suppressWarnings(
+      system2(
+        "df",
+        c("-k", path),
+        stdout = TRUE,
+        stderr = FALSE
+      )
+    ),
+    error = function(e) character()
+  )
+
+  if (length(out) < 2L) {
+    return(NA_real_)
+  }
+
+  fields <- strsplit(
+    trimws(out[length(out)]),
+    "[[:space:]]+"
+  )[[1L]]
+
+  if (length(fields) < 4L) {
+    return(NA_real_)
+  }
+
+  space <- suppressWarnings(
+    as.numeric(fields[4L]) * 1024
+  )
+
+  if (!is.finite(space) || space < 0) {
+    return(NA_real_)
+  }
+
+  space
+}
+
+.abc_available_space_unix <- function(path) {
+  out <- tryCatch(
+    suppressWarnings(
+      system2(
+        "df",
+        c("-k", path),
+        stdout = TRUE,
+        stderr = FALSE
+      )
+    ),
+    error = function(e) character()
+  )
+
+  if (length(out) < 2L) {
+    return(NA_real_)
+  }
+
+  fields <- strsplit(
+    trimws(out[length(out)]),
+    "[[:space:]]+"
+  )[[1L]]
+
+  if (length(fields) < 4L) {
+    return(NA_real_)
+  }
+
+  space <- suppressWarnings(
+    as.numeric(fields[4L]) * 1024
+  )
+
+  if (!is.finite(space) || space < 0) {
+    return(NA_real_)
+  }
+
+  space
+}
+
+.abc_available_space_windows <- function(path) {
+  drive <- paste0(
+    substr(path, 1L, 1L),
+    ":"
+  )
+
+  command <- sprintf(
+    "powershell -NoProfile -Command \"(Get-PSDrive -Name %s).Free\"",
+    substr(drive, 1L, 1L)
+  )
+
+  out <- tryCatch(
+    suppressWarnings(
+      system(
+        command,
+        intern = TRUE
+      )
+    ),
+    error = function(e) character()
+  )
+
+  if (!length(out)) {
+    return(NA_real_)
+  }
+
+  space <- suppressWarnings(
+    as.numeric(out[[1L]])
+  )
+
+  if (!is.finite(space) || space < 0) {
+    return(NA_real_)
+  }
+
+  space
 }
 
 # ---- Record of completed downloads (_downloaded_data.json) -------------------

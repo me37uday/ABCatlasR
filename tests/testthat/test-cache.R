@@ -272,12 +272,12 @@ test_that("explicit release overrides the last-used manifest", {
 })
 
 test_that("download progress is enabled by default", {
-  withr::local_options(importABCatlas.download_progress = NULL)
+  withr::local_options(ABCatlas.download_progress = NULL)
   expect_true(.abc_download_progress())
 })
 
 test_that("download progress can be disabled by option", {
-  withr::local_options(importABCatlas.download_progress = FALSE)
+  withr::local_options(ABCatlas.download_progress = FALSE)
   expect_false(.abc_download_progress())
 })
 
@@ -302,7 +302,7 @@ test_that("download progress option is passed to curl", {
     multi_download = fake_multi_download,
     .package = "curl"
   )
-  withr::local_options(importABCatlas.download_progress = FALSE)
+  withr::local_options(ABCatlas.download_progress = FALSE)
   .abc_download(
     "https://example.invalid/test.bin",
     dest,
@@ -312,4 +312,60 @@ test_that("download progress option is passed to curl", {
 
   expect_false(seen_progress)
   expect_true(file.exists(dest))
+})
+
+test_that("available space reports the filesystem capacity", {
+  space <- .abc_available_space(tempdir())
+
+  expect_type(space, "double")
+  expect_length(space, 1L)
+  expect_true(is.na(space) || space >= 0)
+})
+
+test_that("macOS available-space helper reports a scalar", {
+  if (!identical(Sys.info()[["sysname"]], "Darwin")) {
+    skip("macOS-specific test")
+  }
+
+  space <- .abc_available_space_macos(tempdir())
+
+  expect_type(space, "double")
+  expect_length(space, 1L)
+  expect_true(is.na(space) || space >= 0)
+})
+
+test_that("Unix available-space helper reports a scalar", {
+  if (
+    .Platform$OS.type == "windows" ||
+    identical(Sys.info()[["sysname"]], "Darwin")
+  ) {
+    skip("Linux/Unix-specific test")
+  }
+
+  space <- .abc_available_space_unix(tempdir())
+
+  expect_type(space, "double")
+  expect_length(space, 1L)
+  expect_true(is.na(space) || space >= 0)
+})
+
+test_that("Windows available-space helper reports a scalar", {
+  if (.Platform$OS.type != "windows") {
+    skip("Windows-specific test")
+  }
+
+  space <- .abc_available_space_windows(
+    normalizePath(tempdir(), winslash = "\\", mustWork = TRUE)
+  )
+
+  expect_type(space, "double")
+  expect_length(space, 1L)
+  expect_true(is.na(space) || space >= 0)
+})
+
+test_that("available space rejects a missing path", {
+  expect_error(
+    .abc_available_space(file.path(tempdir(), "does-not-exist")),
+    "Path does not exist"
+  )
 })

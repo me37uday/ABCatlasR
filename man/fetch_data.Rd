@@ -10,8 +10,7 @@ fetch_data(
   filters = list(),
   gene_data = NULL,
   genes = NULL,
-  assay_name = "RNA",
-  return_type = c("seurat", "sce", "matrix", "spatial"),
+  return_type = c("matrix", "sce", "spatial", "monocle"),
   coordinate_columns = NULL,
   data_type = NULL,
   offline = FALSE,
@@ -27,19 +26,19 @@ cache directory, and release are reused automatically.}
 \item{metadata}{A data.frame containing ABC atlas cell metadata (e.g., the
 \code{cell_metadata} element returned by \code{\link[=load_data]{load_data()}}).}
 
-\item{filters}{A named list of column = value pairs used to filter the metadata.}
+\item{filters}{A named list of column = value pairs used to filter the
+metadata.}
 
 \item{gene_data}{A data.frame with 'gene_identifier' and 'gene_symbol'
 columns, typically the \code{gene_data} element returned by \code{\link[=load_data]{load_data()}}.}
 
-\item{genes}{A character vector of gene names to include. If NULL, all genes in gene_data$gene_symbol will be used.}
+\item{genes}{A character vector of gene names to include. If \code{NULL},
+all genes in \code{gene_data$gene_symbol} will be used.}
 
-\item{assay_name}{Assay name used for Seurat output (default: "RNA").}
-
-\item{return_type}{Output format: \code{"matrix"} for a sparse expression
-bundle, \code{"seurat"} for a Seurat object, \code{"sce"} for a
-SingleCellExperiment, or \code{"spatial"} for a SpatialExperiment.
-Optional object formats require their corresponding packages.}
+\item{return_type}{Output format: \code{"matrix"} for the primary sparse
+expression bundle, \code{"sce"} for a SingleCellExperiment,
+\code{"spatial"} for a SpatialExperiment, or \code{"monocle"} for
+a Monocle 2 CellDataSet. The default is \code{"matrix"}.}
 
 \item{coordinate_columns}{Optional length-two character vector naming the
 spatial x/y columns. Used only for \code{return_type = "spatial"}.}
@@ -62,7 +61,7 @@ If \code{NULL} (default), it is resolved by \code{\link[=abc_download_dir]{abc_d
 }
 \value{
 The requested expression representation: a sparse matrix bundle,
-Seurat object, SingleCellExperiment, or SpatialExperiment.
+SingleCellExperiment, SpatialExperiment, or Monocle 2 CellDataSet.
 }
 \description{
 Fetch selected ABC Atlas expression into an R analysis representation
@@ -70,7 +69,7 @@ Fetch selected ABC Atlas expression into an R analysis representation
 \examples{
 example_dir <- system.file(
   "extdata", "ex",
-  package = "importABCatlas"
+  package = "ABCatlas"
 )
 example_data <- readRDS(
   file.path(example_dir, "example-data.rds")

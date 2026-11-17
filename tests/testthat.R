@@ -7,11 +7,11 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(importABCatlas)
+library(ABCatlas)
 
 # Keep the normal progress report while suppressing testthat's randomized
 # celebratory praise, which is unrelated to test results and may contain emoji.
 test_check(
-  "importABCatlas",
+  "ABCatlas",
   reporter = ProgressReporter$new(show_praise = FALSE)
 )

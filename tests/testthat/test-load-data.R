@@ -894,6 +894,30 @@ test_that("route subsets are resolved internally before annotation", {
   )
 
   expect_equal(nrow(cm), 4L)
+
+  missing_column_spec <- spec
+  missing_column_spec$subset$column <- "missing_route_column"
+
+  expect_error(
+    .build_dataset(
+      missing_column_spec,
+      cache,
+      "TEST_SUBSET"
+    ),
+    "subset metadata is missing required column"
+  )
+
+  no_match_spec <- spec
+  no_match_spec$subset$value <- "NOT_PRESENT"
+
+  expect_error(
+    .build_dataset(
+      no_match_spec,
+      cache,
+      "TEST_SUBSET"
+    ),
+    "no NOT_PRESENT cells found from donor"
+  )
 })
 
 test_that("SEA-AD routes declare reference-compatible sources", {

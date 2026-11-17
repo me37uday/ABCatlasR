@@ -48,7 +48,7 @@ so a download directory can be shared with the Python package.
 \examples{
 example_dir <- system.file(
   "extdata", "ex",
-  package = "importABCatlas"
+  package = "ABCatlas"
 )
 
 cache <- abc_cache_connect(

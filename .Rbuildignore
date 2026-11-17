@@ -5,3 +5,5 @@
 ^vignettes/precompile\.R$
 ^\.github$
 ^bioc-validation-evidence$
+
+^docs$

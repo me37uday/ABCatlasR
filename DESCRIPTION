@@ -1,23 +1,28 @@
-Package: importABCatlas
+Package: ABCatlas
 Title: Release-Aware Access to Allen Brain Cell Atlas Data in R
 Version: 0.99.0
 Authors@R: c(
-    person("Uday", "Rangaswamy",  role = c("aut", "cre"),
-           email = "uday.rangaswamy@ieo.it"),
-    person("Federico", "Caretti", role = c("aut")))
+    person("Uday", "Rangaswamy",
+        role = "aut",
+        email = "uday.rangaswamy@ieo.it"),
+    person("Mahdi", "Komeili",
+        role = c("aut", "cre"),
+        email = "mahdi.komeili1999@gmail.com",
+        comment = c(ORCID = "0009-0000-3760-5327"))
+    )
 Description: Provides an R-native, release-aware interface to the Allen Brain
     Cell (ABC) Atlas. Discovers supported dataset routes, assembles validated
     cell and gene metadata, selects exact or sampled cell populations, plans
     expression requests before transfer, and reads selected H5AD expression
-    directly in R. Expression can be returned as a sparse matrix bundle or,
-    when optional packages are installed, as a Seurat,
-    SingleCellExperiment, or SpatialExperiment object. The package preserves
+    directly in R. Expression can be returned as a sparse matrix bundle, a
+    SingleCellExperiment, a SpatialExperiment, or a Monocle 2 CellDataSet
+    object. The package preserves
     source representation and provenance, distinguishes raw counts from
     upstream transformed or imputed expression, and requires no Python
     installation.
 License: MIT + file LICENSE
-URL: https://github.com/me37uday/importABCatlas
-BugReports: https://github.com/me37uday/importABCatlas/issues
+URL: https://github.com/me37uday/ABCatlas
+BugReports: https://github.com/me37uday/ABCatlas/issues
 biocViews: DataImport, DataRepresentation, GeneExpression, SingleCell,
     Spatial, Transcriptomics
 Depends:
@@ -26,6 +31,7 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 SystemRequirements: An internet connection the first time each file is used.
 Imports:
+    Biobase,
     curl (>= 5.0.0),
     data.table,
     dplyr,
@@ -33,19 +39,21 @@ Imports:
     jsonlite,
     Matrix,
     methods,
+    monocle,
+    processx,
     rhdf5,
+    S4Vectors,
+    SingleCellExperiment,
+    SpatialExperiment,
     stats,
     tools,
     withr,
     xml2
 Suggests:
+    BiocStyle,
     knitr,
     rmarkdown,
-    SeuratObject,
-    SingleCellExperiment,
-    SpatialExperiment,
     SummarizedExperiment,
-    S4Vectors,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3

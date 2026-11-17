@@ -1,6 +1,6 @@
-# importABCatlas
+# ABCatlas
 
-`importABCatlas` provides an R interface to the [Allen Brain Cell (ABC) Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
+`ABCatlas` provides an R interface to the [Allen Brain Cell (ABC) Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
 
 It lets you explore available datasets, select cells and genes, check how much data needs to be downloaded, and load expression data directly into R.
 
@@ -22,7 +22,7 @@ BiocManager::install(
 install.packages("remotes")
 
 remotes::install_github(
-  "me37uday/importABCatlas",
+  "me37uday/ABCatlas",
   ref = "r-native",
   upgrade = "never"
 )
@@ -33,7 +33,7 @@ remotes::install_github(
 Then load it:
 
 ```r
-library(importABCatlas)
+library(ABCatlas)
 ```
 
 ## Quick start
@@ -105,14 +105,6 @@ x <- fetch_data(abc, genes = genes, return_type = "matrix")
 
 This is the simplest option and does not require an additional analysis framework.
 
-### Seurat
-
-```r
-x <- fetch_data(abc, genes = genes, return_type = "seurat")
-```
-
-Requires `SeuratObject`.
-
 ### SingleCellExperiment
 
 ```r
@@ -138,6 +130,18 @@ x <- fetch_data(
 ```
 
 Requires `SpatialExperiment`. Spatial coordinates provided by the dataset are included in the returned object.
+
+### Monocle 2
+
+```r
+x <- fetch_data(
+  abc,
+  genes = genes,
+  return_type = "monocle"
+)
+```
+
+Returns a Monocle 2 `CellDataSet`. Monocle output uses the published raw expression representation; published `log2` expression is not converted into count semantics for Monocle 2.
 
 ## Raw and transformed expression
 
@@ -168,7 +172,7 @@ Downloaded files are cached so they do not need to be downloaded again.
 Set the cache location with:
 
 ```r
-options(importABCatlas.download_base = "/path/to/abc_atlas")
+options(ABCatlas.download_base = "/path/to/abc_atlas")
 ```
 
 Check the active location:
@@ -192,7 +196,7 @@ x <- fetch_data(
 ## Complete example
 
 ```r
-library(importABCatlas)
+library(ABCatlas)
 
 list_datasets()
 
@@ -228,5 +232,5 @@ x
 For a more detailed walkthrough:
 
 ```r
-vignette("importABCatlas", package = "importABCatlas")
+vignette("ABCatlas", package = "ABCatlas")
 ```

@@ -186,19 +186,46 @@ test_that("malformed identifiers in the file fall back to positional alignment",
   )
 })
 
-test_that("fetch_data filters cells and returns a Seurat object", {
-  fx <- make_fixture_cache()
-  obj <- suppressMessages(suppressWarnings(fetch_data(
-    download_base = fx$dir, metadata = fx$cells, filters = list(donor_sex = "M"),
-    gene_data = fx$genes, genes = c("G1", "G3", "G4"), offline = TRUE,
-    release = fx$version)))
+test_that("fetch_data filters cells and returns the default matrix bundle", {
 
-  expect_s4_class(obj, "Seurat")
-  expect_equal(colnames(obj), c("c1", "c3", "c6"))
-  expect_equal(obj$donor_sex, c(c1 = "M", c3 = "M", c6 = "M"))
-  counts <- SeuratObject::LayerData(obj, assay = "RNA", layer = "counts")
-  expect_equal(unname(dense(counts)),
-               unname(fx$truth[c("G1", "G3", "G4"), c("c1", "c3", "c6")]))
+  fx <- make_fixture_cache()
+
+  obj <- suppressMessages(
+    fetch_data(
+      download_base = fx$dir,
+      metadata = fx$cells,
+      filters = list(donor_sex = "M"),
+      gene_data = fx$genes,
+      genes = c("G1", "G3", "G4"),
+      offline = TRUE,
+      release = fx$version
+    )
+  )
+
+  expect_s3_class(
+    obj,
+    "abc_matrix"
+  )
+
+  expect_equal(
+    colnames(obj$expression),
+    c("c1", "c3", "c6")
+  )
+
+  expect_equal(
+    obj$cell_metadata$donor_sex,
+    c("M", "M", "M")
+  )
+
+  expect_equal(
+    unname(dense(obj$expression)),
+    unname(
+      fx$truth[
+        c("G1", "G3", "G4"),
+        c("c1", "c3", "c6")
+      ]
+    )
+  )
 })
 
 test_that("fetch_data validates filters", {
@@ -211,6 +238,42 @@ test_that("fetch_data validates filters", {
                           filters = list(donor_sex = "X"), gene_data = fx$genes,
                           offline = TRUE, release = fx$version),
                "No cells left")
+})
+
+test_that("fetch_data stops before download when disk space is insufficient", {
+  fx <- make_fixture_cache()
+
+  attrs <- .abc_file_attributes(
+    abc_cache_connect(
+      fx$dir,
+      offline = TRUE,
+      release = fx$version
+    ),
+    "TEST-10X",
+    "TEST-A/raw"
+  )
+
+  unlink(attrs$local_path)
+
+  local_mocked_bindings(
+    .abc_available_space = function(path) 1,
+    .abc_expression_matrix = function(...) {
+      stop("expression matrix should not be read", call. = FALSE)
+    }
+  )
+
+  expect_error(
+    fetch_data(
+      download_base = fx$dir,
+      metadata = fx$cells,
+      filters = list(donor_sex = "M"),
+      gene_data = fx$genes,
+      genes = c("G1", "G3", "G4"),
+      offline = TRUE,
+      release = fx$version
+    ),
+    "Insufficient disk space"
+  )
 })
 
 test_that("plan_fetch reports the request without downloading expression files", {
@@ -234,6 +297,70 @@ test_that("plan_fetch reports the request without downloading expression files",
   expect_equal(plan$files$feature_matrix_label, c("TEST-A", "TEST-B"))
   expect_equal(plan$files$n_cells, c(2, 1))
   expect_equal(plan$total_download, 0)
+  expect_equal(plan$storage_required, 0)
+  expect_type(plan$available_space, "double")
+  expect_length(plan$available_space, 1L)
+  expect_type(plan$storage_sufficient, "logical")
+  expect_length(plan$storage_sufficient, 1L)
+})
+
+test_that("approved fetch plan executes without a second confirmation", {
+  fx <- make_fixture_cache()
+
+  plan <- plan_fetch(
+    download_base = fx$dir,
+    metadata = fx$cells,
+    gene_data = fx$genes,
+    genes = c("G1", "G3", "G4"),
+    offline = TRUE,
+    release = fx$version,
+    confirm = FALSE
+  )
+
+  expect_true(plan$approved)
+
+  local_mocked_bindings(
+    .abc_confirm_download = function(...) {
+      stop("fetch_data should not ask for confirmation", call. = FALSE)
+    }
+  )
+
+  out <- fetch_data(
+    plan = plan,
+    return_type = "matrix"
+  )
+
+  expect_s3_class(out, "abc_matrix")
+  expect_equal(dim(out$expression), c(3L, 6L))
+  expect_identical(
+    rownames(out$expression),
+    c("G1", "G3", "G4")
+  )
+  expect_identical(
+    colnames(out$expression),
+    paste0("c", 1:6)
+  )
+})
+
+test_that("unapproved fetch plan is rejected", {
+  fx <- make_fixture_cache()
+
+  plan <- plan_fetch(
+    download_base = fx$dir,
+    metadata = fx$cells,
+    gene_data = fx$genes,
+    genes = "G1",
+    offline = TRUE,
+    release = fx$version,
+    confirm = FALSE
+  )
+
+  plan$approved <- FALSE
+
+  expect_error(
+    fetch_data(plan = plan),
+    "fetch plan was not approved"
+  )
 })
 
 test_that("plan_fetch reports remaining bytes without downloading", {
@@ -283,6 +410,8 @@ test_that("abc_fetch_plan prints a readable preflight summary", {
   expect_output(print(plan), "3 genes x 3 cells")
   expect_output(print(plan), "TEST-10X/TEST-A/raw")
   expect_output(print(plan), "additional download")
+  expect_output(print(plan), "available disk space")
+  expect_output(print(plan), "storage check")
   expect_output(print(plan), "No expression files were downloaded")
 })
 
@@ -383,7 +512,8 @@ test_that("expression matrix reads log2 representation without transforming it",
   )
 })
 
-test_that("fetch_data stores raw expression in the counts layer", {
+test_that("fetch_data returns raw expression in the default matrix bundle", {
+
   fx <- make_fixture_cache()
 
   obj <- suppressMessages(
@@ -398,58 +528,69 @@ test_that("fetch_data stores raw expression in the counts layer", {
     )
   )
 
-  counts <- SeuratObject::LayerData(
+  expect_s3_class(
     obj,
-    assay = "RNA",
-    layer = "counts"
+    "abc_matrix"
+  )
+
+  expect_identical(
+    obj$data_type,
+    "raw"
   )
 
   expect_equal(
-    unname(dense(counts)),
-    unname(fx$truth[c("G1", "G3", "G4"), ])
+    unname(dense(obj$expression)),
+    unname(
+      fx$truth[
+        c("G1", "G3", "G4"),
+        ,
+        drop = FALSE
+      ]
+    )
   )
 })
 
-test_that("fetch_data stores log2 expression in the data layer", {
+test_that("fetch_data returns published log2 expression without transforming it", {
+
   fx <- make_fixture_cache()
 
-  warns <- capture_warnings(
-    obj <- suppressMessages(
-      fetch_data(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        gene_data = fx$genes,
-        genes = c("G1", "G3", "G4"),
-        data_type = "log2",
-        offline = TRUE,
-        release = fx$version
-      )
+  obj <- suppressMessages(
+    fetch_data(
+      download_base = fx$dir,
+      metadata = fx$cells,
+      gene_data = fx$genes,
+      genes = c("G1", "G3", "G4"),
+      data_type = "log2",
+      offline = TRUE,
+      release = fx$version
     )
   )
 
-  expect_length(warns, 1)
-  expect_match(
-    warns,
-    "upstream log2-scale data",
-    fixed = TRUE
+  expect_s3_class(
+    obj,
+    "abc_matrix"
   )
 
-  data <- SeuratObject::LayerData(
-    obj,
-    assay = "RNA",
-    layer = "data"
+  expect_identical(
+    obj$data_type,
+    "log2"
   )
 
   expect_equal(
-    unname(dense(data)),
-    unname(fx$truth_log2[c("G1", "G3", "G4"), ]),
+    unname(dense(obj$expression)),
+    unname(
+      fx$truth_log2[
+        c("G1", "G3", "G4"),
+        ,
+        drop = FALSE
+      ]
+    ),
     tolerance = 1e-12
   )
-
-  expect_false("counts" %in% SeuratObject::Layers(obj[["RNA"]]))
 })
 
 test_that("fetch_data uses the route default representation", {
+
   fx <- make_fixture_cache()
 
   obj <- suppressMessages(
@@ -463,8 +604,20 @@ test_that("fetch_data uses the route default representation", {
     )
   )
 
-  expect_true("counts" %in% SeuratObject::Layers(obj[["RNA"]]))
-  expect_false("data" %in% SeuratObject::Layers(obj[["RNA"]]))
+  expect_s3_class(
+    obj,
+    "abc_matrix"
+  )
+
+  expect_identical(
+    obj$data_type,
+    "raw"
+  )
+
+  expect_identical(
+    rownames(obj$expression),
+    "G4"
+  )
 })
 
 test_that("expression inventory reports published representations", {
@@ -787,24 +940,36 @@ test_that("gene resolution supports source identifiers when available", {
 })
 
 test_that("fetch_data accepts gene identifiers without extra user options", {
+
   fx <- make_fixture_cache()
 
-  obj <- fetch_data(
-    download_base = fx$dir,
-    metadata = fx$cells[1:3, , drop = FALSE],
-    gene_data = fx$genes,
-    genes = c("G4", "G2"),
-    offline = TRUE,
-    release = fx$version
+  obj <- suppressMessages(
+    fetch_data(
+      download_base = fx$dir,
+      metadata = fx$cells[1:3, , drop = FALSE],
+      gene_data = fx$genes,
+      genes = c("G4", "G2"),
+      offline = TRUE,
+      release = fx$version
+    )
   )
 
-  expect_identical(rownames(obj), c("G4", "G2"))
+  expect_s3_class(
+    obj,
+    "abc_matrix"
+  )
+
   expect_identical(
-    colnames(obj),
+    rownames(obj$expression),
+    c("G4", "G2")
+  )
+
+  expect_identical(
+    colnames(obj$expression),
     c("c1", "c2", "c3")
   )
-})
 
+})
 test_that("plan_fetch counts resolved identifiers like symbols", {
   fx <- make_fixture_cache()
 
@@ -1263,25 +1428,36 @@ test_that("matrix materialization preserves expression and metadata", {
   )
 })
 
-test_that("Seurat materialization keeps raw expression in counts", {
+test_that("Monocle materialization keeps raw expression and metadata", {
+
   expression <- Matrix::Matrix(
     matrix(
-      c(1, 0, 2, 3),
+      c(
+        1, 0, 2,
+        0, 3, 1
+      ),
       nrow = 2L,
-      dimnames = list(c("G1", "G2"), c("c1", "c2"))
+      byrow = TRUE,
+      dimnames = list(
+        c("G1", "G2"),
+        c("c1", "c2", "c3")
+      )
     ),
     sparse = TRUE
   )
 
   metadata <- data.frame(
-    cell_label = c("c1", "c2"),
-    stringsAsFactors = FALSE
+    cell_label = c("c1", "c2", "c3"),
+    cell_type = c("A", "B", "A"),
+    stringsAsFactors = FALSE,
+    row.names = c("c1", "c2", "c3")
   )
 
   genes <- data.frame(
     gene_identifier = c("G1", "G2"),
-    gene_symbol = c("A", "B"),
-    stringsAsFactors = FALSE
+    gene_symbol = c("GENE_A", "GENE_B"),
+    stringsAsFactors = FALSE,
+    row.names = c("G1", "G2")
   )
 
   out <- .abc_materialize(
@@ -1289,69 +1465,88 @@ test_that("Seurat materialization keeps raw expression in counts", {
     metadata,
     genes,
     data_type = "raw",
-    return_type = "seurat"
+    return_type = "monocle",
+    provenance = list(
+      dataset = "TEST"
+    )
   )
 
-  expect_s4_class(out, "Seurat")
-
-  counts <- SeuratObject::LayerData(
+  expect_s4_class(
     out,
-    assay = "RNA",
-    layer = "counts"
+    "CellDataSet"
   )
 
   expect_equal(
-    unname(as.matrix(counts)),
+    unname(as.matrix(Biobase::exprs(out))),
     unname(as.matrix(expression))
+  )
+
+  expect_identical(
+    rownames(Biobase::pData(out)),
+    c("c1", "c2", "c3")
+  )
+
+  expect_identical(
+    Biobase::pData(out)$cell_type,
+    c("A", "B", "A")
+  )
+
+  expect_identical(
+    rownames(Biobase::fData(out)),
+    c("G1", "G2")
+  )
+
+  expect_identical(
+    Biobase::fData(out)$gene_short_name,
+    c("GENE_A", "GENE_B")
+  )
+
+  expect_identical(
+    Biobase::experimentData(out)@other$ABCatlas$dataset,
+    "TEST"
   )
 })
 
-test_that("Seurat log2 materialization has data but no count semantics", {
+test_that("Monocle materialization rejects published log2 expression", {
+
   expression <- Matrix::Matrix(
     matrix(
-      c(0.5, 0, 1.5, 2),
+      c(
+        0.5, 0,
+        1.5, 2
+      ),
       nrow = 2L,
-      dimnames = list(c("G1", "G2"), c("c1", "c2"))
+      byrow = TRUE,
+      dimnames = list(
+        c("G1", "G2"),
+        c("c1", "c2")
+      )
     ),
     sparse = TRUE
   )
 
   metadata <- data.frame(
     cell_label = c("c1", "c2"),
-    stringsAsFactors = FALSE
+    stringsAsFactors = FALSE,
+    row.names = c("c1", "c2")
   )
 
   genes <- data.frame(
     gene_identifier = c("G1", "G2"),
-    gene_symbol = c("A", "B"),
-    stringsAsFactors = FALSE
+    gene_symbol = c("GENE_A", "GENE_B"),
+    stringsAsFactors = FALSE,
+    row.names = c("G1", "G2")
   )
 
-  expect_warning(
-    out <- .abc_materialize(
+  expect_error(
+    .abc_materialize(
       expression,
       metadata,
       genes,
       data_type = "log2",
-      return_type = "seurat"
+      return_type = "monocle"
     ),
-    "upstream log2-scale"
-  )
-
-  data_layer <- SeuratObject::LayerData(
-    out,
-    assay = "RNA",
-    layer = "data"
-  )
-
-  expect_equal(
-    unname(as.matrix(data_layer)),
-    unname(as.matrix(expression))
-  )
-
-  expect_false(
-    "counts" %in%
-      SeuratObject::Layers(out[["RNA"]])
+    "requires raw expression data"
   )
 })
 
@@ -1763,18 +1958,25 @@ test_that("all return formats preserve ABC provenance", {
     provenance
   )
 
-  seurat_out <- .abc_materialize(
+  monocle_out <- .abc_materialize(
     expression,
     metadata,
     genes,
     data_type = "raw",
-    return_type = "seurat",
+    return_type = "monocle",
     provenance = provenance,
     spatial = TRUE
   )
 
+  expect_s4_class(
+    monocle_out,
+    "CellDataSet"
+  )
+
   expect_identical(
-    seurat_out@misc$importABCatlas,
+    Biobase::experimentData(
+      monocle_out
+    )@other$ABCatlas,
     provenance
   )
 
@@ -1789,7 +1991,7 @@ test_that("all return formats preserve ABC provenance", {
   )
 
   expect_identical(
-    S4Vectors::metadata(sce_out)$importABCatlas,
+    S4Vectors::metadata(sce_out)$ABCatlas,
     provenance
   )
 
@@ -1804,7 +2006,7 @@ test_that("all return formats preserve ABC provenance", {
   )
 
   spatial_provenance <-
-    S4Vectors::metadata(spatial_out)$importABCatlas
+    S4Vectors::metadata(spatial_out)$ABCatlas
 
   expect_identical(
     spatial_provenance$dataset,
@@ -1872,7 +2074,7 @@ test_that("native output provenance records route and selection context", {
   expect_identical(provenance$n_genes, 2L)
 })
 
-test_that("matrix materialization has no Seurat dependency", {
+test_that("matrix materialization does not require optional output packages", {
   expression <- Matrix::Matrix(
     matrix(
       c(1, 2),
@@ -2241,5 +2443,212 @@ test_that("unrecognized H5AD identifier suffixes are not stripped", {
     ),
     "missing from TEST-UNRECOGNIZED.h5ad",
     fixed = TRUE
+  )
+})
+
+test_that("materialization validates expression and metadata dimensions", {
+  expression <- Matrix::Matrix(
+    matrix(
+      c(1, 2, 3, 4),
+      nrow = 2L,
+      dimnames = list(
+        c("G1", "G2"),
+        c("c1", "c2")
+      )
+    ),
+    sparse = TRUE
+  )
+
+  metadata <- data.frame(
+    cell_label = c("c1", "c2"),
+    stringsAsFactors = FALSE
+  )
+
+  genes <- data.frame(
+    gene_identifier = c("G1", "G2"),
+    gene_symbol = c("A", "B"),
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    .abc_materialize(
+      expression[, 1, drop = FALSE],
+      metadata,
+      genes,
+      data_type = "raw",
+      return_type = "matrix"
+    ),
+    "Expression columns do not match the selected cell metadata.",
+    fixed = TRUE
+  )
+
+  expect_error(
+    .abc_materialize(
+      expression[1, , drop = FALSE],
+      metadata,
+      genes,
+      data_type = "raw",
+      return_type = "matrix"
+    ),
+    "Expression rows do not match the selected gene metadata.",
+    fixed = TRUE
+  )
+})
+
+test_that("materialization validates cell alignment", {
+  expression <- Matrix::Matrix(
+    matrix(
+      c(1, 2, 3, 4),
+      nrow = 2L,
+      dimnames = list(
+        c("G1", "G2"),
+        c("c2", "c1")
+      )
+    ),
+    sparse = TRUE
+  )
+
+  metadata <- data.frame(
+    cell_label = c("c1", "c2"),
+    stringsAsFactors = FALSE
+  )
+
+  genes <- data.frame(
+    gene_identifier = c("G1", "G2"),
+    gene_symbol = c("A", "B"),
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    .abc_materialize(
+      expression,
+      metadata,
+      genes,
+      data_type = "raw",
+      return_type = "matrix"
+    ),
+    "Expression columns are not aligned to cell_metadata$cell_label.",
+    fixed = TRUE
+  )
+})
+
+test_that("materialization requires unique non-missing gene identifiers", {
+  expression <- Matrix::Matrix(
+    matrix(
+      c(1, 2, 3, 4),
+      nrow = 2L,
+      dimnames = list(
+        c("G1", "G2"),
+        c("c1", "c2")
+      )
+    ),
+    sparse = TRUE
+  )
+
+  metadata <- data.frame(
+    cell_label = c("c1", "c2"),
+    stringsAsFactors = FALSE
+  )
+
+  genes <- data.frame(
+    gene_identifier = c("G1", "G1"),
+    gene_symbol = c("A", "B"),
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    .abc_materialize(
+      expression,
+      metadata,
+      genes,
+      data_type = "raw",
+      return_type = "matrix"
+    ),
+    "gene_data$gene_identifier must be a non-missing unique key.",
+    fixed = TRUE
+  )
+})
+
+test_that("materialization validates gene alignment", {
+  expression <- Matrix::Matrix(
+    matrix(
+      c(1, 2, 3, 4),
+      nrow = 2L,
+      dimnames = list(
+        c("G2", "G1"),
+        c("c1", "c2")
+      )
+    ),
+    sparse = TRUE
+  )
+
+  metadata <- data.frame(
+    cell_label = c("c1", "c2"),
+    stringsAsFactors = FALSE
+  )
+
+  genes <- data.frame(
+    gene_identifier = c("G1", "G2"),
+    gene_symbol = c("A", "B"),
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    .abc_materialize(
+      expression,
+      metadata,
+      genes,
+      data_type = "raw",
+      return_type = "matrix"
+    ),
+    "Expression rows are not aligned to gene_data$gene_identifier.",
+    fixed = TRUE
+  )
+})
+
+test_that("materialization builds default provenance from metadata", {
+  expression <- Matrix::Matrix(
+    matrix(
+      c(1, 0, 2, 3),
+      nrow = 2L,
+      dimnames = list(
+        c("G1", "G2"),
+        c("c1", "c2")
+      )
+    ),
+    sparse = TRUE
+  )
+
+  metadata <- data.frame(
+    cell_label = c("c1", "c2"),
+    stringsAsFactors = FALSE
+  )
+
+  attr(metadata, "abc_modality") <- "single_cell_transcriptomics"
+  attr(metadata, "abc_spatial") <- FALSE
+
+  genes <- data.frame(
+    gene_identifier = c("G1", "G2"),
+    gene_symbol = c("A", "B"),
+    stringsAsFactors = FALSE
+  )
+
+  out <- .abc_materialize(
+    expression,
+    metadata,
+    genes,
+    data_type = "log2",
+    return_type = "matrix"
+  )
+
+  expect_identical(
+    out$provenance,
+    list(
+      data_type = "log2",
+      modality = "single_cell_transcriptomics",
+      spatial = FALSE,
+      n_cells = 2L,
+      n_genes = 2L
+    )
   )
 })

@@ -144,7 +144,11 @@
                 col_classes = c(cell_label = "character")),
     taxonomy = "HMBA-BG-taxonomy-CCN20250428",
     joins = list(
-      list(dir = "HMBA-10xMultiome-BG-Aligned", file = "donor", key = "donor_label"),
+      list(
+        dir = "HMBA-10xMultiome-BG-Aligned",
+        file = "donor",
+        key = "donor_label"
+      ),
       list(
         dir = "HMBA-10xMultiome-BG-Aligned",
         file = "library",
@@ -611,7 +615,10 @@
     expression_directories = "ASAP-PMDBS-10X",
     modality = "single_nucleus_transcriptomics",
     spatial = FALSE,
-    cell = list(dir = "ASAP-PMDBS-10X", col_classes = c(cell_label = "character")),
+    cell = list(
+      dir = "ASAP-PMDBS-10X",
+      col_classes = c(cell_label = "character")
+    ),
     joins = list(
       list(dir = "ASAP-PMDBS-10X", file = "sample", key = "sample_label"),
       list(dir = "ASAP-PMDBS-10X", file = "donor", key = "donor_label")
@@ -890,506 +897,1000 @@ print.abc_data <- function(x, ...) {
 
 # Turn a dataset spec into the assembled list(cell_metadata, gene_data,
 # unique_values). All dataset-specific behaviour comes from `spec`.
-.build_dataset <- function(spec, abc_cache, dataset = "") {
-  get_df <- function(dir, file, col_classes = NULL) {
-    abc_cache$get_metadata_dataframe(directory = dir, file_name = file,
-                                     col_classes = col_classes)
-  }
+.abc_dataset_subset_keys <- function(
+    subset_metadata,
+    subset_spec,
+    dataset
+) {
+  required <- c(
+    subset_spec$key,
+    subset_spec$column
+  )
 
-  cell <- get_df(spec$cell$dir, spec$cell$file %||% "cell_metadata",
-                 spec$cell$col_classes)
-  cell_extended <- cell
+  missing <- setdiff(
+    required,
+    names(subset_metadata)
+  )
 
-  # Some logical routes share one upstream cell table but represent a strict
-  # subset of it. Resolve that population before expensive taxonomy joins.
-  # This is internal route configuration, not a user-facing filter.
-  if (!is.null(spec$subset)) {
-    subset_spec <- spec$subset
-
-    subset_metadata <- get_df(
-      subset_spec$dir,
-      subset_spec$file
-    )
-
-    required <- c(subset_spec$key, subset_spec$column)
-    missing <- setdiff(required, names(subset_metadata))
-
-    if (length(missing)) {
-      stop(
-        dataset,
-        ": subset metadata is missing required column(s): ",
-        paste(missing, collapse = ", "),
-        ".",
-        call. = FALSE
-      )
-    }
-
-    keep_keys <- unique(
-      as.character(
-        subset_metadata[
-          !is.na(subset_metadata[[subset_spec$column]]) &
-            as.character(subset_metadata[[subset_spec$column]]) ==
-              subset_spec$value,
-          subset_spec$key
-        ]
-      )
-    )
-
-    keep_keys <- keep_keys[!is.na(keep_keys) & nzchar(keep_keys)]
-
-    if (!length(keep_keys)) {
-      stop(
-        dataset,
-        ": no ",
-        subset_spec$value,
-        " cells found from ",
-        subset_spec$file,
-        ".",
-        call. = FALSE
-      )
-    }
-
-    cell_keys <- as.character(cell_extended[[subset_spec$key]])
-    cell_extended <- cell_extended[
-      !is.na(cell_keys) & cell_keys %in% keep_keys,
-      ,
-      drop = FALSE
-    ]
-
-    # Attach the same route-defining metadata after filtering so species and
-    # donor variables remain available to users without another manual join.
-    cell_extended <- .abc_safe_join(
-      cell_extended,
-      subset_metadata,
-      subset_spec$key,
-      subset_spec$file
+  if (length(missing)) {
+    stop(
+      dataset,
+      ": subset metadata is missing required column(s): ",
+      paste(missing, collapse = ", "),
+      ".",
+      call. = FALSE
     )
   }
 
-  # Some datasets publish standard metadata tables separately from the cell
-  # table. Join those automatically when requested by the route, matching the
-  # reference backend while keeping this complexity out of the user API.
-  if (isTRUE(spec$auto_joins)) {
-    standard_joins <- list(
-      list(file = "library", key = "library_label"),
-      list(file = "sample", key = "sample_label"),
-      list(file = "donor", key = "donor_label"),
-      list(file = "disease", key = "donor_label"),
-      list(file = "specimen_metadata", key = "brain_section_label")
+  keep_keys <- unique(
+    as.character(
+      subset_metadata[
+        !is.na(subset_metadata[[subset_spec$column]]) &
+          as.character(subset_metadata[[subset_spec$column]]) ==
+            subset_spec$value,
+        subset_spec$key
+      ]
     )
+  )
 
-    for (j in standard_joins) {
-      if (
-        j$key %in% names(cell_extended) &&
-        .abc_metadata_exists(
-          abc_cache,
-          spec$cell$dir,
-          j$file
-        )
-      ) {
-        aux <- get_df(
-          spec$cell$dir,
-          j$file
-        )
+  keep_keys <- keep_keys[
+    !is.na(keep_keys) &
+      nzchar(keep_keys)
+  ]
 
-        cell_extended <- .abc_safe_join(
-          cell_extended,
-          aux,
-          j$key,
-          j$file
-        )
-      }
-    }
+  if (!length(keep_keys)) {
+    stop(
+      dataset,
+      ": no ",
+      subset_spec$value,
+      " cells found from ",
+      subset_spec$file,
+      ".",
+      call. = FALSE
+    )
   }
 
-  message(dataset, ": ", nrow(cell_extended), " cells")
+  keep_keys
+}
 
-  # Taxonomy annotation. Some routes already carry cluster_alias in their
-  # cell table; others publish authoritative cell_to_cluster_membership in
-  # either the route directory or taxonomy directory.
-  if (!is.null(spec$taxonomy)) {
-    membership_dir <- NULL
+.abc_apply_dataset_subset <- function(
+    cell_metadata,
+    subset_spec,
+    abc_cache,
+    dataset
+) {
+  subset_metadata <- abc_cache$get_metadata_dataframe(
+    directory = subset_spec$dir,
+    file_name = subset_spec$file
+  )
 
-    for (candidate in c(spec$cell$dir, spec$taxonomy)) {
-      if (.abc_metadata_exists(
+  keep_keys <- .abc_dataset_subset_keys(
+    subset_metadata = subset_metadata,
+    subset_spec = subset_spec,
+    dataset = dataset
+  )
+
+  cell_keys <- as.character(
+    cell_metadata[[subset_spec$key]]
+  )
+
+  cell_metadata <- cell_metadata[
+    !is.na(cell_keys) &
+      cell_keys %in% keep_keys,
+    ,
+    drop = FALSE
+  ]
+
+  .abc_safe_join(
+    cell_metadata,
+    subset_metadata,
+    subset_spec$key,
+    subset_spec$file
+  )
+}
+
+.abc_apply_standard_metadata_joins <- function(
+    cell_metadata,
+    cell_dir,
+    abc_cache
+) {
+  standard_joins <- list(
+    list(file = "library", key = "library_label"),
+    list(file = "sample", key = "sample_label"),
+    list(file = "donor", key = "donor_label"),
+    list(file = "disease", key = "donor_label"),
+    list(
+      file = "specimen_metadata",
+      key = "brain_section_label"
+    )
+  )
+
+  for (join in standard_joins) {
+    if (
+      join$key %in% names(cell_metadata) &&
+      .abc_metadata_exists(
         abc_cache,
-        candidate,
-        "cell_to_cluster_membership"
-      )) {
-        membership_dir <- candidate
-        break
-      }
-    }
-
-    if (!is.null(membership_dir)) {
-      membership <- get_df(
-        membership_dir,
-        "cell_to_cluster_membership"
+        cell_dir,
+        join$file
+      )
+    ) {
+      auxiliary <- abc_cache$get_metadata_dataframe(
+        directory = cell_dir,
+        file_name = join$file
       )
 
-      if ("cluster_alias" %in% names(cell_extended)) {
-        names(cell_extended)[
-          names(cell_extended) == "cluster_alias"
-        ] <- "cluster_alias_original"
-
-        cell_extended$cluster_alias_original <-
-          as.character(cell_extended$cluster_alias_original)
-      }
-
-      cell_extended <- .abc_safe_join(
-        cell_extended,
-        membership,
-        "cell_label",
-        "membership"
+      cell_metadata <- .abc_safe_join(
+        cell_metadata,
+        auxiliary,
+        join$key,
+        join$file
       )
     }
+  }
 
-    if (!"cluster_alias" %in% names(cell_extended)) {
-      stop(
-        spec$cell$dir,
-        ": no cluster_alias or applicable membership table.",
-        call. = FALSE
-      )
+  cell_metadata
+}
+
+.abc_apply_taxonomy_membership <- function(
+    cell_metadata,
+    cell_dir,
+    taxonomy_dir,
+    abc_cache
+) {
+  membership_dir <- NULL
+
+  for (candidate in c(cell_dir, taxonomy_dir)) {
+    if (.abc_metadata_exists(
+      abc_cache,
+      candidate,
+      "cell_to_cluster_membership"
+    )) {
+      membership_dir <- candidate
+      break
+    }
+  }
+
+  if (!is.null(membership_dir)) {
+    membership <- abc_cache$get_metadata_dataframe(
+      directory = membership_dir,
+      file_name = "cell_to_cluster_membership"
+    )
+
+    if ("cluster_alias" %in% names(cell_metadata)) {
+      names(cell_metadata)[
+        names(cell_metadata) == "cluster_alias"
+      ] <- "cluster_alias_original"
+
+      cell_metadata$cluster_alias_original <-
+        as.character(cell_metadata$cluster_alias_original)
     }
 
-    cell_extended$cluster_alias <-
-      as.character(cell_extended$cluster_alias)
+    cell_metadata <- .abc_safe_join(
+      cell_metadata,
+      membership,
+      "cell_label",
+      "membership"
+    )
+  }
 
-    tax <- .build_taxonomy(abc_cache, spec$taxonomy)
+  if (!"cluster_alias" %in% names(cell_metadata)) {
+    stop(
+      cell_dir,
+      ": no cluster_alias or applicable membership table.",
+      call. = FALSE
+    )
+  }
 
-    cell_extended <- .abc_safe_join(
-      cell_extended,
-      tax$cluster_details,
+  cell_metadata$cluster_alias <-
+    as.character(cell_metadata$cluster_alias)
+
+  cell_metadata
+}
+
+.abc_join_taxonomy_annotations <- function(
+    cell_metadata,
+    taxonomy_dir,
+    abc_cache
+) {
+  taxonomy <- .build_taxonomy(
+    abc_cache,
+    taxonomy_dir
+  )
+
+  cell_metadata <- .abc_safe_join(
+    cell_metadata,
+    taxonomy$cluster_details,
+    "cluster_alias",
+    "taxonomy"
+  )
+
+  if (!is.null(taxonomy$cluster_colors)) {
+    cell_metadata <- .abc_safe_join(
+      cell_metadata,
+      taxonomy$cluster_colors,
       "cluster_alias",
-      "taxonomy"
+      "taxonomy_color",
+      column_suffix = "_color"
     )
+  }
 
-    if (!is.null(tax$cluster_colors)) {
-      cell_extended <- .abc_safe_join(
-        cell_extended,
-        tax$cluster_colors,
-        "cluster_alias",
-        "taxonomy_color",
-        column_suffix = "_color"
+  cell_metadata
+}
+
+.abc_apply_dataset_taxonomy <- function(
+    cell_metadata,
+    cell_dir,
+    taxonomy_dir,
+    abc_cache
+) {
+  cell_metadata <- .abc_apply_taxonomy_membership(
+    cell_metadata = cell_metadata,
+    cell_dir = cell_dir,
+    taxonomy_dir = taxonomy_dir,
+    abc_cache = abc_cache
+  )
+
+  .abc_join_taxonomy_annotations(
+    cell_metadata = cell_metadata,
+    taxonomy_dir = taxonomy_dir,
+    abc_cache = abc_cache
+  )
+}
+
+.abc_apply_spatial_metadata <- function(
+    cell_metadata,
+    cell_dir,
+    abc_cache
+) {
+  spatial_files <- c(
+    "slab_plane_coordinates",
+    "cell_anatomical_annotations"
+  )
+
+  for (file in spatial_files) {
+    if (.abc_metadata_exists(
+      abc_cache,
+      cell_dir,
+      file
+    )) {
+      spatial_metadata <- abc_cache$get_metadata_dataframe(
+        directory = cell_dir,
+        file_name = file
+      )
+
+      cell_metadata <- .abc_safe_join(
+        cell_metadata,
+        spatial_metadata,
+        "cell_label",
+        file
       )
     }
   }
 
-  # Spatial datasets may publish coordinate and anatomical annotations as
-  # separate cell-keyed tables. Attach them automatically when available,
-  # matching the reference backend while preserving every source cell.
-  if (isTRUE(spec$spatial)) {
-    spatial_files <- c(
-      "slab_plane_coordinates",
-      "cell_anatomical_annotations"
+  cell_metadata
+}
+
+.abc_apply_roi_colors <- function(
+    cell_metadata,
+    roi_spec,
+    abc_cache
+) {
+  roi <- abc_cache$get_metadata_dataframe(
+    directory = roi_spec$dir,
+    file_name = roi_spec$file
+  )
+
+  roi$region_of_interest_label <- make.unique(
+    as.character(roi$region_of_interest_label)
+  )
+
+  names(roi)[
+    names(roi) == "color_hex_triplet"
+  ] <- "region_of_interest_color"
+
+  roi <- roi[
+    ,
+    c(
+      "region_of_interest_label",
+      "region_of_interest_color"
+    )
+  ]
+
+  dplyr::left_join(
+    cell_metadata,
+    roi,
+    by = "region_of_interest_label"
+  )
+}
+
+.abc_apply_configured_metadata_joins <- function(
+    cell_metadata,
+    joins,
+    abc_cache
+) {
+  for (join in joins %||% list()) {
+    auxiliary <- abc_cache$get_metadata_dataframe(
+      directory = join$dir,
+      file_name = join$file
     )
 
-    for (file in spatial_files) {
-      if (.abc_metadata_exists(
-        abc_cache,
-        spec$cell$dir,
-        file
-      )) {
-        spatial_metadata <- get_df(
-          spec$cell$dir,
-          file
-        )
-
-        cell_extended <- .abc_safe_join(
-          cell_extended,
-          spatial_metadata,
-          "cell_label",
-          file
-        )
-      }
-    }
-  }
-
-  # Region-of-interest colour join (WHB).
-  if (!is.null(spec$roi)) {
-    roi <- get_df(spec$roi$dir, spec$roi$file)
-    roi$region_of_interest_label <- make.unique(as.character(roi$region_of_interest_label))
-    names(roi)[names(roi) == "color_hex_triplet"] <- "region_of_interest_color"
-    roi <- roi[, c("region_of_interest_label", "region_of_interest_color")]
-    cell_extended <- dplyr::left_join(cell_extended, roi,
-                                      by = "region_of_interest_label")
-  }
-
-  # Metadata joins are many-to-one onto cells. Keep the existing cell-side
-  # columns authoritative and give overlapping annotation columns explicit
-  # provenance-bearing suffixes rather than allowing a join to multiply cells.
-  for (j in spec$joins %||% list()) {
-    aux <- get_df(j$dir, j$file)
-
-    cell_extended <- .abc_safe_join(
-      cell_extended,
-      aux,
-      j$key,
-      j$file,
-      column_suffix = j$column_suffix %||% paste0("__", j$file)
+    cell_metadata <- .abc_safe_join(
+      cell_metadata,
+      auxiliary,
+      join$key,
+      join$file,
+      column_suffix = join$column_suffix %||%
+        paste0("__", join$file)
     )
   }
 
-  gene <- get_df(spec$gene$dir, spec$gene$file %||% "gene")
+  cell_metadata
+}
+
+.abc_load_dataset_genes <- function(
+    gene_spec,
+    abc_cache,
+    dataset
+) {
+  gene <- abc_cache$get_metadata_dataframe(
+    directory = gene_spec$dir,
+    file_name = gene_spec$file %||% "gene"
+  )
+
   gene <- .abc_normalize_gene_metadata(
     gene,
-    context = spec$gene$dir
+    context = gene_spec$dir
   )
+
   rownames(gene) <- gene$gene_identifier
-  message(dataset, ": ", nrow(gene), " genes")
 
-  cols <- intersect(spec$cols_of_interest, colnames(cell_extended))
-  unique_values <- lapply(cell_extended[cols], unique)
+  message(
+    sprintf(
+      "%s: %s genes loaded.",
+      dataset,
+      format(nrow(gene), big.mark = ",")
+    )
+  )
 
-  attr(cell_extended, "abc_dataset") <- dataset
-  attr(cell_extended, "abc_default_data_type") <- spec$default_data_type
-  attr(cell_extended, "abc_available_data_types") <- spec$available_data_types
-  attr(cell_extended, "abc_expression_directories") <- spec$expression_directories
-  attr(cell_extended, "abc_expression_matrix_map") <- spec$expression_matrix_map
-  attr(cell_extended, "abc_modality") <- spec$modality
-  attr(cell_extended, "abc_spatial") <- spec$spatial
+  gene
+}
 
-  list(cell_metadata = cell_extended, gene_data = gene, unique_values = unique_values)
+.abc_finalize_dataset <- function(
+    cell_metadata,
+    gene_data,
+    spec,
+    dataset
+) {
+  cols <- intersect(
+    spec$cols_of_interest,
+    colnames(cell_metadata)
+  )
+
+  unique_values <- lapply(
+    cell_metadata[cols],
+    unique
+  )
+
+  attr(cell_metadata, "abc_dataset") <- dataset
+  attr(
+    cell_metadata,
+    "abc_default_data_type"
+  ) <- spec$default_data_type
+  attr(
+    cell_metadata,
+    "abc_available_data_types"
+  ) <- spec$available_data_types
+  attr(
+    cell_metadata,
+    "abc_expression_directories"
+  ) <- spec$expression_directories
+  attr(
+    cell_metadata,
+    "abc_expression_matrix_map"
+  ) <- spec$expression_matrix_map
+  attr(
+    cell_metadata,
+    "abc_modality"
+  ) <- spec$modality
+  attr(
+    cell_metadata,
+    "abc_spatial"
+  ) <- spec$spatial
+
+  list(
+    cell_metadata = cell_metadata,
+    gene_data = gene_data,
+    unique_values = unique_values
+  )
+}
+
+.abc_enrich_dataset_cells <- function(
+    cell_metadata,
+    spec,
+    abc_cache
+) {
+  if (!is.null(spec$taxonomy)) {
+    cell_metadata <- .abc_apply_dataset_taxonomy(
+      cell_metadata = cell_metadata,
+      cell_dir = spec$cell$dir,
+      taxonomy_dir = spec$taxonomy,
+      abc_cache = abc_cache
+    )
+  }
+
+  if (isTRUE(spec$spatial)) {
+    cell_metadata <- .abc_apply_spatial_metadata(
+      cell_metadata = cell_metadata,
+      cell_dir = spec$cell$dir,
+      abc_cache = abc_cache
+    )
+  }
+
+  if (!is.null(spec$roi)) {
+    cell_metadata <- .abc_apply_roi_colors(
+      cell_metadata = cell_metadata,
+      roi_spec = spec$roi,
+      abc_cache = abc_cache
+    )
+  }
+
+  cell_metadata <- .abc_apply_configured_metadata_joins(
+    cell_metadata = cell_metadata,
+    joins = spec$joins,
+    abc_cache = abc_cache
+  )
+
+  message(
+    "Cell annotations loaded."
+  )
+
+  cell_metadata
+}
+
+.abc_assemble_dataset_cells <- function(
+    spec,
+    abc_cache,
+    dataset
+) {
+  cell_metadata <- abc_cache$get_metadata_dataframe(
+    directory = spec$cell$dir,
+    file_name = spec$cell$file %||% "cell_metadata",
+    col_classes = spec$cell$col_classes
+  )
+
+  if (!is.null(spec$subset)) {
+    cell_metadata <- .abc_apply_dataset_subset(
+      cell_metadata = cell_metadata,
+      subset_spec = spec$subset,
+      abc_cache = abc_cache,
+      dataset = dataset
+    )
+  }
+
+  if (isTRUE(spec$auto_joins)) {
+    cell_metadata <- .abc_apply_standard_metadata_joins(
+      cell_metadata = cell_metadata,
+      cell_dir = spec$cell$dir,
+      abc_cache = abc_cache
+    )
+  }
+
+  message(
+    sprintf(
+      "%s: %s cells loaded.",
+      dataset,
+      format(nrow(cell_metadata), big.mark = ",")
+    )
+  )
+
+  .abc_enrich_dataset_cells(
+    cell_metadata = cell_metadata,
+    spec = spec,
+    abc_cache = abc_cache
+  )
+}
+
+.build_dataset <- function(spec, abc_cache, dataset = "") {
+  cell_metadata <- .abc_assemble_dataset_cells(
+    spec = spec,
+    abc_cache = abc_cache,
+    dataset = dataset
+  )
+
+  gene_data <- .abc_load_dataset_genes(
+    gene_spec = spec$gene,
+    abc_cache = abc_cache,
+    dataset = dataset
+  )
+
+  .abc_finalize_dataset(
+    cell_metadata = cell_metadata,
+    gene_data = gene_data,
+    spec = spec,
+    dataset = dataset
+  )
 }
 
 # Build the wide cluster_details / cluster_colors lookup tables from a taxonomy
 # directory's membership + term-set tables, keyed by cluster_alias. Shared by
 # every dataset that declares a `taxonomy` (currently WHB and WMB).
-.build_taxonomy <- function(abc_cache, taxonomy_dir) {
-  get_df <- function(file) {
+.abc_validate_taxonomy_alias <- function(
+    x,
+    source,
+    taxonomy_dir
+) {
+  if (!"cluster_alias" %in% names(x)) {
+    stop(
+      taxonomy_dir,
+      ": ",
+      source,
+      " is missing cluster_alias.",
+      call. = FALSE
+    )
+  }
+
+  x$cluster_alias <- as.character(
+    x$cluster_alias
+  )
+
+  if (
+    anyNA(x$cluster_alias) ||
+    anyDuplicated(x$cluster_alias)
+  ) {
+    stop(
+      taxonomy_dir,
+      ": ",
+      source,
+      " does not have a non-missing unique cluster_alias.",
+      call. = FALSE
+    )
+  }
+
+  x
+}
+
+.abc_add_taxonomy_term_names <- function(
+    membership,
+    abc_cache,
+    taxonomy_dir
+) {
+  if ("cluster_annotation_term_name" %in% names(membership)) {
+    return(membership)
+  }
+
+  if (!.abc_metadata_exists(
+    abc_cache,
+    taxonomy_dir,
+    "cluster_annotation_term"
+  )) {
+    stop(
+      taxonomy_dir,
+      ": term names absent and no term table available.",
+      call. = FALSE
+    )
+  }
+
+  term <- abc_cache$get_metadata_dataframe(
+    directory = taxonomy_dir,
+    file_name = "cluster_annotation_term"
+  )
+
+  names(term)[
+    names(term) == "label"
+  ] <- "cluster_annotation_term_label"
+
+  names(term)[
+    names(term) == "name"
+  ] <- "cluster_annotation_term_name"
+
+  .abc_safe_join(
+    membership,
+    term[
+      ,
+      c(
+        "cluster_annotation_term_label",
+        "cluster_annotation_term_name"
+      ),
+      drop = FALSE
+    ],
+    "cluster_annotation_term_label",
+    "term"
+  )
+}
+
+.abc_add_taxonomy_term_set_names <- function(
+    membership,
+    abc_cache,
+    taxonomy_dir
+) {
+  if ("cluster_annotation_term_set_name" %in% names(membership)) {
+    return(membership)
+  }
+
+  if (!.abc_metadata_exists(
+    abc_cache,
+    taxonomy_dir,
+    "cluster_annotation_term_set"
+  )) {
+    stop(
+      taxonomy_dir,
+      ": term-set names absent and no term-set table available.",
+      call. = FALSE
+    )
+  }
+
+  term_sets <- abc_cache$get_metadata_dataframe(
+    directory = taxonomy_dir,
+    file_name = "cluster_annotation_term_set"
+  )
+
+  names(term_sets)[
+    names(term_sets) == "label"
+  ] <- "cluster_annotation_term_set_label"
+
+  names(term_sets)[
+    names(term_sets) == "name"
+  ] <- "cluster_annotation_term_set_name"
+
+  .abc_safe_join(
+    membership,
+    term_sets[
+      ,
+      c(
+        "cluster_annotation_term_set_label",
+        "cluster_annotation_term_set_name"
+      ),
+      drop = FALSE
+    ],
+    "cluster_annotation_term_set_label",
+    "termset"
+  )
+}
+
+.abc_enrich_taxonomy_membership <- function(
+    membership,
+    abc_cache,
+    taxonomy_dir
+) {
+  membership <- .abc_add_taxonomy_term_names(
+    membership = membership,
+    abc_cache = abc_cache,
+    taxonomy_dir = taxonomy_dir
+  )
+
+  .abc_add_taxonomy_term_set_names(
+    membership = membership,
+    abc_cache = abc_cache,
+    taxonomy_dir = taxonomy_dir
+  )
+}
+
+.abc_validate_taxonomy_membership_keys <- function(
+    membership,
+    taxonomy_dir
+) {
+  required <- c(
+    "cluster_alias",
+    "cluster_annotation_term_set_name",
+    "cluster_annotation_term_name"
+  )
+
+  missing <- setdiff(
+    required,
+    names(membership)
+  )
+
+  if (length(missing)) {
+    stop(
+      taxonomy_dir,
+      ": missing taxonomy field(s): ",
+      paste(missing, collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+
+  membership$cluster_alias <- as.character(
+    membership$cluster_alias
+  )
+
+  if (
+    anyNA(membership$cluster_alias) ||
+    anyNA(membership$cluster_annotation_term_set_name)
+  ) {
+    stop(
+      taxonomy_dir,
+      ": missing taxonomy keys.",
+      call. = FALSE
+    )
+  }
+
+  membership
+}
+
+.abc_validate_taxonomy_membership_conflicts <- function(
+    membership,
+    taxonomy_dir
+) {
+  key <- paste(
+    membership$cluster_alias,
+    membership$cluster_annotation_term_set_name,
+    sep = "\r"
+  )
+
+  conflicts <- tapply(
+    membership$cluster_annotation_term_name,
+    key,
+    function(x) length(unique(x)) > 1L
+  )
+
+  if (any(conflicts)) {
+    stop(
+      taxonomy_dir,
+      ": conflicting cluster annotations.",
+      call. = FALSE
+    )
+  }
+
+  membership
+}
+
+.abc_validate_taxonomy_membership <- function(
+    membership,
+    taxonomy_dir
+) {
+  membership <- .abc_validate_taxonomy_membership_keys(
+    membership = membership,
+    taxonomy_dir = taxonomy_dir
+  )
+
+  .abc_validate_taxonomy_membership_conflicts(
+    membership = membership,
+    taxonomy_dir = taxonomy_dir
+  )
+}
+
+.abc_load_taxonomy_membership <- function(
+    abc_cache,
+    taxonomy_dir
+) {
+  if (!.abc_metadata_exists(
+    abc_cache,
+    taxonomy_dir,
+    "cluster_to_cluster_annotation_membership"
+  )) {
+    return(NULL)
+  }
+
+  membership <- abc_cache$get_metadata_dataframe(
+    directory = taxonomy_dir,
+    file_name = "cluster_to_cluster_annotation_membership"
+  )
+
+  membership <- .abc_enrich_taxonomy_membership(
+    membership = membership,
+    abc_cache = abc_cache,
+    taxonomy_dir = taxonomy_dir
+  )
+
+  .abc_validate_taxonomy_membership(
+    membership = membership,
+    taxonomy_dir = taxonomy_dir
+  )
+}
+
+.abc_load_pivoted_taxonomy_details <- function(
+    abc_cache,
+    taxonomy_dir
+) {
+  .abc_validate_taxonomy_alias(
     abc_cache$get_metadata_dataframe(
       directory = taxonomy_dir,
-      file_name = file
+      file_name = "cluster_to_cluster_annotation_membership_pivoted"
+    ),
+    "pivoted taxonomy",
+    taxonomy_dir
+  )
+}
+
+.abc_reshape_taxonomy_details <- function(
+    membership,
+    taxonomy_dir
+) {
+  if (is.null(membership)) {
+    stop(
+      taxonomy_dir,
+      ": taxonomy membership file missing.",
+      call. = FALSE
     )
   }
 
-  has <- function(file) {
-    .abc_metadata_exists(abc_cache, taxonomy_dir, file)
-  }
-
-  validate_alias <- function(x, source) {
-    if (!"cluster_alias" %in% names(x)) {
-      stop(
-        taxonomy_dir, ": ", source, " is missing cluster_alias.",
-        call. = FALSE
-      )
-    }
-
-    x$cluster_alias <- as.character(x$cluster_alias)
-
-    if (anyNA(x$cluster_alias) || anyDuplicated(x$cluster_alias)) {
-      stop(
-        taxonomy_dir, ": ", source,
-        " does not have a non-missing unique cluster_alias.",
-        call. = FALSE
-      )
-    }
-
-    x
-  }
-
-  # Load the long membership when available. It is required for taxonomy
-  # colours and is the fallback source for annotation names when no upstream
-  # pivoted view is published.
-  membership <- NULL
-
-  if (has("cluster_to_cluster_annotation_membership")) {
-    membership <- get_df("cluster_to_cluster_annotation_membership")
-
-    # Some taxonomy releases store only term labels in the membership table.
-    # Recover human-readable names from the accompanying term tables, matching
-    # the validated Python backend rather than inventing annotations.
-    if (!"cluster_annotation_term_name" %in% names(membership)) {
-      if (!has("cluster_annotation_term")) {
-        stop(
-          taxonomy_dir,
-          ": term names absent and no term table available.",
-          call. = FALSE
-        )
-      }
-
-      term <- get_df("cluster_annotation_term")
-      names(term)[names(term) == "label"] <-
-        "cluster_annotation_term_label"
-      names(term)[names(term) == "name"] <-
+  detail <- unique(
+    membership[
+      ,
+      c(
+        "cluster_alias",
+        "cluster_annotation_term_set_name",
         "cluster_annotation_term_name"
-
-      membership <- .abc_safe_join(
-        membership,
-        term[, c(
-          "cluster_annotation_term_label",
-          "cluster_annotation_term_name"
-        ), drop = FALSE],
-        "cluster_annotation_term_label",
-        "term"
       )
-    }
+    ]
+  )
 
-    if (!"cluster_annotation_term_set_name" %in% names(membership)) {
-      if (!has("cluster_annotation_term_set")) {
-        stop(
-          taxonomy_dir,
-          ": term-set names absent and no term-set table available.",
-          call. = FALSE
-        )
-      }
+  cluster_details <- stats::reshape(
+    detail,
+    idvar = "cluster_alias",
+    timevar = "cluster_annotation_term_set_name",
+    direction = "wide"
+  )
 
-      term_sets <- get_df("cluster_annotation_term_set")
-      names(term_sets)[names(term_sets) == "label"] <-
-        "cluster_annotation_term_set_label"
-      names(term_sets)[names(term_sets) == "name"] <-
-        "cluster_annotation_term_set_name"
+  names(cluster_details) <- sub(
+    "^cluster_annotation_term_name\\.",
+    "",
+    names(cluster_details)
+  )
 
-      membership <- .abc_safe_join(
-        membership,
-        term_sets[, c(
-          "cluster_annotation_term_set_label",
-          "cluster_annotation_term_set_name"
-        ), drop = FALSE],
-        "cluster_annotation_term_set_label",
-        "termset"
+  .abc_validate_taxonomy_alias(
+    cluster_details,
+    "taxonomy annotations",
+    taxonomy_dir
+  )
+}
+
+.abc_get_taxonomy_details <- function(
+    abc_cache,
+    taxonomy_dir,
+    membership
+) {
+  if (.abc_metadata_exists(
+    abc_cache,
+    taxonomy_dir,
+    "cluster_to_cluster_annotation_membership_pivoted"
+  )) {
+    return(
+      .abc_load_pivoted_taxonomy_details(
+        abc_cache = abc_cache,
+        taxonomy_dir = taxonomy_dir
       )
-    }
-
-    required <- c(
-      "cluster_alias",
-      "cluster_annotation_term_set_name",
-      "cluster_annotation_term_name"
-    )
-
-    missing <- setdiff(required, names(membership))
-    if (length(missing)) {
-      stop(
-        taxonomy_dir, ": missing taxonomy field(s): ",
-        paste(missing, collapse = ", "),
-        ".",
-        call. = FALSE
-      )
-    }
-
-    membership$cluster_alias <- as.character(membership$cluster_alias)
-
-    if (
-      anyNA(membership$cluster_alias) ||
-      anyNA(membership$cluster_annotation_term_set_name)
-    ) {
-      stop(taxonomy_dir, ": missing taxonomy keys.", call. = FALSE)
-    }
-
-    # One cluster may have only one annotation within a given term set.
-    key <- paste(
-      membership$cluster_alias,
-      membership$cluster_annotation_term_set_name,
-      sep = "\r"
-    )
-
-    conflicts <- tapply(
-      membership$cluster_annotation_term_name,
-      key,
-      function(x) length(unique(x)) > 1L
-    )
-
-    if (any(conflicts)) {
-      stop(
-        taxonomy_dir, ": conflicting cluster annotations.",
-        call. = FALSE
-      )
-    }
-  }
-
-  # Prefer Allen's already-pivoted taxonomy view when one is published.
-  if (has("cluster_to_cluster_annotation_membership_pivoted")) {
-    cluster_details <- validate_alias(
-      get_df("cluster_to_cluster_annotation_membership_pivoted"),
-      "pivoted taxonomy"
-    )
-  } else {
-    if (is.null(membership)) {
-      stop(
-        taxonomy_dir, ": taxonomy membership file missing.",
-        call. = FALSE
-      )
-    }
-
-    detail <- unique(membership[, c(
-      "cluster_alias",
-      "cluster_annotation_term_set_name",
-      "cluster_annotation_term_name"
-    )])
-
-    cluster_details <- stats::reshape(
-      detail,
-      idvar = "cluster_alias",
-      timevar = "cluster_annotation_term_set_name",
-      direction = "wide"
-    )
-
-    names(cluster_details) <- sub(
-      "^cluster_annotation_term_name\\.",
-      "",
-      names(cluster_details)
-    )
-
-    cluster_details <- validate_alias(
-      cluster_details,
-      "taxonomy annotations"
     )
   }
 
-  # Preserve the established R-only convention that absent hierarchy levels
-  # are represented as "Other".
-  detail_cols <- setdiff(names(cluster_details), "cluster_alias")
+  .abc_reshape_taxonomy_details(
+    membership = membership,
+    taxonomy_dir = taxonomy_dir
+  )
+}
+
+.abc_fill_taxonomy_details <- function(cluster_details) {
+  detail_cols <- setdiff(
+    names(cluster_details),
+    "cluster_alias"
+  )
+
   for (column in detail_cols) {
-    cluster_details[[column]][is.na(cluster_details[[column]])] <- "Other"
+    cluster_details[[column]][
+      is.na(cluster_details[[column]])
+    ] <- "Other"
   }
 
-  cluster_colors <- NULL
+  cluster_details
+}
 
-  if (!is.null(membership) &&
-      "color_hex_triplet" %in% names(membership)) {
-    color <- unique(membership[, c(
-      "cluster_alias",
-      "cluster_annotation_term_set_name",
-      "color_hex_triplet"
-    )])
+.abc_build_taxonomy_details <- function(
+    abc_cache,
+    taxonomy_dir,
+    membership
+) {
+  cluster_details <- .abc_get_taxonomy_details(
+    abc_cache = abc_cache,
+    taxonomy_dir = taxonomy_dir,
+    membership = membership
+  )
 
-    color_key <- paste(
-      color$cluster_alias,
-      color$cluster_annotation_term_set_name,
-      sep = "\r"
+  .abc_fill_taxonomy_details(
+    cluster_details
+  )
+}
+
+.abc_validate_taxonomy_color_conflicts <- function(
+    color,
+    taxonomy_dir
+) {
+  color_key <- paste(
+    color$cluster_alias,
+    color$cluster_annotation_term_set_name,
+    sep = "\r"
+  )
+
+  color_conflicts <- tapply(
+    color$color_hex_triplet,
+    color_key,
+    function(x) length(unique(x[!is.na(x)])) > 1L
+  )
+
+  if (any(color_conflicts)) {
+    stop(
+      taxonomy_dir,
+      ": conflicting taxonomy colours.",
+      call. = FALSE
     )
+  }
 
-    color_conflicts <- tapply(
-      color$color_hex_triplet,
-      color_key,
-      function(x) length(unique(x[!is.na(x)])) > 1L
-    )
+  color
+}
 
-    if (any(color_conflicts)) {
-      stop(
-        taxonomy_dir, ": conflicting taxonomy colours.",
-        call. = FALSE
+.abc_reshape_taxonomy_colors <- function(
+    color,
+    taxonomy_dir
+) {
+  cluster_colors <- stats::reshape(
+    color,
+    idvar = "cluster_alias",
+    timevar = "cluster_annotation_term_set_name",
+    direction = "wide"
+  )
+
+  names(cluster_colors) <- sub(
+    "^color_hex_triplet\\.",
+    "",
+    names(cluster_colors)
+  )
+
+  .abc_validate_taxonomy_alias(
+    cluster_colors,
+    "taxonomy colours",
+    taxonomy_dir
+  )
+}
+
+.abc_build_taxonomy_colors <- function(
+    membership,
+    taxonomy_dir
+) {
+  if (
+    is.null(membership) ||
+    !"color_hex_triplet" %in% names(membership)
+  ) {
+    return(NULL)
+  }
+
+  color <- unique(
+    membership[
+      ,
+      c(
+        "cluster_alias",
+        "cluster_annotation_term_set_name",
+        "color_hex_triplet"
       )
-    }
+    ]
+  )
 
-    cluster_colors <- stats::reshape(
-      color,
-      idvar = "cluster_alias",
-      timevar = "cluster_annotation_term_set_name",
-      direction = "wide"
-    )
+  color <- .abc_validate_taxonomy_color_conflicts(
+    color = color,
+    taxonomy_dir = taxonomy_dir
+  )
 
-    names(cluster_colors) <- sub(
-      "^color_hex_triplet\\.",
-      "",
-      names(cluster_colors)
-    )
+  .abc_reshape_taxonomy_colors(
+    color = color,
+    taxonomy_dir = taxonomy_dir
+  )
+}
 
-    cluster_colors <- validate_alias(
-      cluster_colors,
-      "taxonomy colours"
-    )
-  }
+.build_taxonomy <- function(abc_cache, taxonomy_dir) {
+  membership <- .abc_load_taxonomy_membership(
+    abc_cache = abc_cache,
+    taxonomy_dir = taxonomy_dir
+  )
+
+  cluster_details <- .abc_build_taxonomy_details(
+    abc_cache = abc_cache,
+    taxonomy_dir = taxonomy_dir,
+    membership = membership
+  )
+
+  cluster_colors <- .abc_build_taxonomy_colors(
+    membership = membership,
+    taxonomy_dir = taxonomy_dir
+  )
 
   list(
     cluster_details = cluster_details,

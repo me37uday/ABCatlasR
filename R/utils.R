@@ -4,9 +4,10 @@
 #' resolved with the following precedence (first non-empty wins):
 #' \enumerate{
 #'   \item the explicit \code{path} argument;
-#'   \item \code{getOption("importABCatlas.download_base")};
+#'   \item \code{getOption("ABCatlas.download_base")};
 #'   \item the \code{ABC_ATLAS_CACHE} environment variable;
-#'   \item a per-user cache directory, \code{tools::R_user_dir("importABCatlas", "cache")}.
+#'   \item a per-user cache directory,
+#'     \code{tools::R_user_dir("ABCatlas", "cache")}.
 #' }
 #' The resolved directory is created if it does not yet exist and returned as an
 #' absolute path. This lets users point downloads at a custom folder without
@@ -17,7 +18,7 @@
 #' @return An absolute path to the (existing) download directory.
 #' @examples
 #' # Use a temporary cache directory.
-#' cache_dir <- file.path(tempdir(), "importABCatlas-example")
+#' cache_dir <- file.path(tempdir(), "ABCatlas-example")
 #' abc_download_dir(cache_dir)
 #' @export
 abc_download_dir <- function(path = NULL) {
@@ -26,14 +27,14 @@ abc_download_dir <- function(path = NULL) {
   dir <- NULL
   if (is_set(path)) {
     dir <- path
-  } else if (is_set(getOption("importABCatlas.download_base"))) {
-    dir <- getOption("importABCatlas.download_base")
+  } else if (is_set(getOption("ABCatlas.download_base"))) {
+    dir <- getOption("ABCatlas.download_base")
   } else {
     env <- Sys.getenv("ABC_ATLAS_CACHE", unset = "")
     if (is_set(env)) {
       dir <- env
     } else {
-      dir <- tools::R_user_dir("importABCatlas", which = "cache")
+      dir <- tools::R_user_dir("ABCatlas", which = "cache")
     }
   }
 
