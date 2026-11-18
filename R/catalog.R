@@ -15,90 +15,58 @@
 #' @export
 list_datasets <- function() {
   routes <- .abc_datasets
-
-  rows <- lapply(
-    names(routes),
-    function(dataset) {
-      spec <- routes[[dataset]]
-
-      available <- spec$available_data_types
-      if (is.null(available) || !length(available)) {
-        available <- c("raw", "log2")
-      }
-
-      default <- spec$default_data_type
-      if (is.null(default) || !length(default)) {
-        default <- available[[1L]]
-      }
-
-      cell_directory <- if (
-        !is.null(spec$cell) &&
-        !is.null(spec$cell$dir)
-      ) {
-        as.character(spec$cell$dir)
-      } else {
-        NA_character_
-      }
-
-      gene_directory <- if (
-        !is.null(spec$gene) &&
-        !is.null(spec$gene$dir)
-      ) {
-        as.character(spec$gene$dir)
-      } else {
-        NA_character_
-      }
-
-      taxonomy <- if (
-        !is.null(spec$taxonomy) &&
-        length(spec$taxonomy)
-      ) {
-        as.character(spec$taxonomy[[1L]])
-      } else {
-        NA_character_
-      }
-
-      expression_directories <- spec$expression_directories
-      if (is.null(expression_directories)) {
-        expression_directories <- character()
-      }
-
-      data.frame(
-        dataset = dataset,
-        modality = as.character(
-          spec$modality %||% "transcriptomics"
-        ),
-        spatial = isTRUE(spec$spatial),
-        imputed = identical(
-          spec$modality,
-          "imputed_spatial_transcriptomics"
-        ),
-        default_data_type = as.character(default[[1L]]),
-        available_data_types = paste(
-          as.character(available),
-          collapse = ","
-        ),
-        cell_directory = cell_directory,
-        gene_directory = gene_directory,
-        taxonomy = taxonomy,
-        expression_directories = paste(
-          as.character(expression_directories),
-          collapse = ","
-        ),
-        stringsAsFactors = FALSE
-      )
-    }
-  )
+  rows <- lapply(names(routes), function(dataset) {
+    .abc_catalog_row(dataset, routes[[dataset]])
+  })
 
   out <- do.call(rbind, rows)
   rownames(out) <- NULL
-
-  class(out) <- c(
-    "abc_dataset_catalog",
-    "data.frame"
-  )
-
+  class(out) <- c("abc_dataset_catalog", "data.frame")
   out
+}
+
+# One catalog row describing a dataset route: modality, published expression
+# representations and native metadata/expression directories.
+.abc_catalog_row <- function(dataset, spec) {
+  available <- spec$available_data_types
+  if (is.null(available) || !length(available)) {
+    available <- c("raw", "log2")
+  }
+  default <- spec$default_data_type
+  if (is.null(default) || !length(default)) {
+    default <- available[[1L]]
+  }
+  taxonomy <- if (length(spec$taxonomy)) {
+    as.character(spec$taxonomy[[1L]])
+  } else {
+    NA_character_
+  }
+
+  data.frame(
+    dataset = dataset,
+    modality = as.character(spec$modality %||% "transcriptomics"),
+    spatial = isTRUE(spec$spatial),
+    imputed = identical(spec$modality, "imputed_spatial_transcriptomics"),
+    default_data_type = as.character(default[[1L]]),
+    available_data_types = paste(as.character(available), collapse = ","),
+    cell_directory = .abc_spec_dir(spec$cell),
+    gene_directory = .abc_spec_dir(spec$gene),
+    taxonomy = taxonomy,
+    expression_directories = paste(
+      as.character(spec$expression_directories %||% character()),
+      collapse = ","
+    ),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Directory of a registry entry such as spec$cell or spec$gene, or NA.
+.abc_spec_dir <- function(entry) {
+  if (!is.null(entry) && !is.null(entry$dir)) {
+    as.character(entry$dir)
+  } else {
+    NA_character_
+  }
 }
 
 #' @export

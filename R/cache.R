@@ -76,7 +76,8 @@ abc_cache_connect <- function(download_base = NULL, offline = FALSE,
   # Validate offline preconditions up front so an offline call with no local
   # data fails fast with an actionable message.
   if (offline && !.abc_manifest_exists(download_base)) {
-    stop("offline = TRUE but no local manifest was found under '", download_base,
+    stop("offline = TRUE but no local manifest was found under '",
+         download_base,
          "'. Run once with offline = FALSE to download the manifest and data.")
   }
 
@@ -85,69 +86,81 @@ abc_cache_connect <- function(download_base = NULL, offline = FALSE,
   } else {
     .abc_remote_manifests()
   }
-
   if (length(available) == 0L) {
     stop("No ABC Atlas release manifests found.")
   }
 
-  if (is.null(release)) {
-    manifest_name <- .abc_choose_manifest(download_base, available)
+  manifest_name <- if (is.null(release)) {
+    .abc_choose_manifest(download_base, available)
   } else {
-    release <- as.character(release)
-
-    if (length(release) != 1L || is.na(release) ||
-        !grepl("^[0-9]{8}$", release)) {
-      stop(
-        "'release' must be a single date-like version such as '20260711'.",
-        call. = FALSE
-      )
-    }
-
-    manifest_name <- paste0("releases/", release, "/manifest.json")
-
-    if (!manifest_name %in% available) {
-      stop(
-        "ABC Atlas release '",
-        release,
-        "' is not available",
-        if (offline) " in this offline cache" else "",
-        ".",
-        call. = FALSE
-      )
-    }
+    .abc_release_manifest(release, available, offline)
   }
 
   manifest_path <- file.path(download_base, manifest_name)
   if (!file.exists(manifest_path)) {
     .abc_download(paste0(.abc_bucket_url, "/", manifest_name), manifest_path)
   }
-
   manifest <- jsonlite::read_json(manifest_path)
   .abc_check_manifest_version(manifest$version)
 
-  # Pin this manifest for later sessions. Written without a trailing newline, as
-  # abc_atlas_access compares the file content verbatim. Offline connections
-  # only read local data and never modify the cache directory.
+  # Offline connections only read local data and never modify download_base.
   if (!offline) {
-    pin_failed <- function(cond) {
-      warning(
-        "Could not record the manifest in use: ",
-        conditionMessage(cond),
-        call. = FALSE
-      )
-    }
+    .abc_pin_manifest(download_base, manifest_name)
+  }
 
-    tryCatch(
-      writeLines(
-        manifest_name,
-        file.path(download_base, "_manifest_last_used.txt"),
-        sep = ""
-      ),
-      warning = pin_failed,
-      error = pin_failed
+  .abc_new_cache(download_base, manifest_name, manifest, offline)
+}
+
+# Manifest name for an explicitly requested release: a single YYYYMMDD
+# version that must be among the available manifests.
+.abc_release_manifest <- function(release, available, offline) {
+  release <- as.character(release)
+  if (length(release) != 1L || is.na(release) ||
+      !grepl("^[0-9]{8}$", release)) {
+    stop(
+      "'release' must be a single date-like version such as '20260711'.",
+      call. = FALSE
     )
   }
 
+  manifest_name <- paste0("releases/", release, "/manifest.json")
+  if (!manifest_name %in% available) {
+    stop(
+      "ABC Atlas release '", release, "' is not available",
+      if (offline) " in this offline cache" else "", ".",
+      call. = FALSE
+    )
+  }
+
+  manifest_name
+}
+
+# Pin the manifest for later sessions. Written without a trailing newline, as
+# abc_atlas_access compares the file content verbatim. A failed write is
+# reported as a warning and does not stop the connection.
+.abc_pin_manifest <- function(download_base, manifest_name) {
+  pin_failed <- function(cond) {
+    warning(
+      "Could not record the manifest in use: ", conditionMessage(cond),
+      call. = FALSE
+    )
+  }
+
+  tryCatch(
+    writeLines(
+      manifest_name,
+      file.path(download_base, "_manifest_last_used.txt"),
+      sep = ""
+    ),
+    warning = pin_failed,
+    error = pin_failed
+  )
+  invisible(NULL)
+}
+
+# The abc_cache object: connection fields plus closures that locate,
+# download and read files listed in the manifest.
+.abc_new_cache <- function(download_base, manifest_name, manifest, offline) {
   cache <- list(
     download_base = download_base,
     manifest_name = manifest_name,
@@ -155,12 +168,15 @@ abc_cache_connect <- function(download_base = NULL, offline = FALSE,
     offline = offline,
     manifest = manifest
   )
-  cache$get_file_path <- function(directory, file_name, force_download = FALSE,
+  cache$get_file_path <- function(directory, file_name,
+                                  force_download = FALSE,
                                   skip_hash_check = FALSE) {
-    .abc_get_file_path(cache, directory, file_name, force_download, skip_hash_check)
+    .abc_get_file_path(
+      cache, directory, file_name, force_download, skip_hash_check
+    )
   }
-  cache$get_metadata_dataframe <- function(directory, file_name, col_classes = NULL,
-                                           ...) {
+  cache$get_metadata_dataframe <- function(directory, file_name,
+                                           col_classes = NULL, ...) {
     .abc_read_csv(cache$get_file_path(directory, file_name), col_classes, ...)
   }
   structure(cache, class = "abc_cache")
@@ -257,71 +273,47 @@ print.abc_cache <- function(x, ...) {
   token <- NULL
 
   repeat {
-    url <- paste0(
-      .abc_bucket_url,
-      "/?list-type=2",
-      "&prefix=releases/",
-      "&delimiter=/"
-    )
-
-    if (!is.null(token)) {
-      url <- paste0(
-        url,
-        "&continuation-token=",
-        curl::curl_escape(token)
-      )
-    }
-
-    resp <- .abc_fetch_memory_retry(url)
-
-    if (resp$status_code != 200L) {
-      stop(
-        "Could not list ABC Atlas releases (HTTP ",
-        resp$status_code,
-        ").",
-        call. = FALSE
-      )
-    }
-
-    doc <- xml2::xml_ns_strip(
-      xml2::read_xml(resp$content)
-    )
-
-    prefixes <- xml2::xml_text(
-      xml2::xml_find_all(
-        doc,
-        "//CommonPrefixes/Prefix"
-      )
-    )
-
-    manifests <- c(
-      manifests,
-      paste0(prefixes, "manifest.json")
-    )
-
-    truncated <- xml2::xml_text(
-      xml2::xml_find_first(
-        doc,
-        "//IsTruncated"
-      )
-    )
-
-    if (!identical(truncated, "true")) {
+    page <- .abc_list_release_page(token)
+    manifests <- c(manifests, paste0(page$prefixes, "manifest.json"))
+    if (is.null(page$next_token)) {
       break
     }
+    token <- page$next_token
+  }
 
-    token <- xml2::xml_text(
-      xml2::xml_find_first(
-        doc,
-        "//NextContinuationToken"
-      )
+  sort(unique(manifests), method = "radix")
+}
+
+# One page of the S3 listing of release prefixes. `next_token` is NULL when
+# the listing is complete.
+.abc_list_release_page <- function(token = NULL) {
+  url <- paste0(
+    .abc_bucket_url, "/?list-type=2", "&prefix=releases/", "&delimiter=/"
+  )
+  if (!is.null(token)) {
+    url <- paste0(url, "&continuation-token=", curl::curl_escape(token))
+  }
+
+  resp <- .abc_fetch_memory_retry(url)
+  if (resp$status_code != 200L) {
+    stop(
+      "Could not list ABC Atlas releases (HTTP ", resp$status_code, ").",
+      call. = FALSE
     )
   }
 
-  sort(
-    unique(manifests),
-    method = "radix"
+  doc <- xml2::xml_ns_strip(xml2::read_xml(resp$content))
+  find_text <- function(xpath) {
+    xml2::xml_text(xml2::xml_find_first(doc, xpath))
+  }
+  prefixes <- xml2::xml_text(
+    xml2::xml_find_all(doc, "//CommonPrefixes/Prefix")
   )
+  next_token <- if (identical(find_text("//IsTruncated"), "true")) {
+    find_text("//NextContinuationToken")
+  }
+
+  list(prefixes = prefixes, next_token = next_token)
 }
 
 

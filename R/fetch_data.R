@@ -65,72 +65,68 @@
 }
 
 .abc_spatial_coordinates <- function(metadata, coordinate_columns = NULL) {
-  if (!is.null(coordinate_columns)) {
-    if (!is.character(coordinate_columns) ||
-        length(coordinate_columns) != 2L ||
-        anyNA(coordinate_columns) ||
-        any(!nzchar(coordinate_columns))) {
-      stop(
-        "coordinate_columns must contain exactly two non-missing column names.",
-        call. = FALSE
-      )
-    }
-
-    missing <- setdiff(coordinate_columns, names(metadata))
-
-    if (length(missing)) {
-      stop(
-        "Spatial coordinate column",
-        if (length(missing) == 1L) " " else "s ",
-        paste(missing, collapse = ", "),
-        " not found in cell metadata.",
-        call. = FALSE
-      )
-    }
-
-    chosen <- coordinate_columns
+  chosen <- if (is.null(coordinate_columns)) {
+    .abc_default_spatial_columns(metadata)
   } else {
-    candidates <- list(
-      c("x_slab_mm", "y_slab_mm"),
-      c("x_rotated_um", "y_rotated_um"),
-      c("x_experiment", "y_experiment"),
-      c("x", "y")
-    )
-
-    present <- vapply(
-      candidates,
-      function(x) all(x %in% names(metadata)),
-      logical(1)
-    )
-
-    if (!any(present)) {
-      stop(
-        "No supported spatial coordinate pair was found. ",
-        "Provide coordinate_columns explicitly.",
-        call. = FALSE
-      )
-    }
-
-    chosen <- candidates[[which(present)[[1L]]]]
+    .abc_check_spatial_columns(metadata, coordinate_columns)
   }
 
-  coordinates <- as.matrix(
-    metadata[, chosen, drop = FALSE]
-  )
-
+  coordinates <- as.matrix(metadata[, chosen, drop = FALSE])
   storage.mode(coordinates) <- "double"
-
   if (anyNA(coordinates) || any(!is.finite(coordinates))) {
-    stop(
-      "Spatial coordinates must be finite and non-missing.",
-      call. = FALSE
-    )
+    stop("Spatial coordinates must be finite and non-missing.", call. = FALSE)
   }
 
   rownames(coordinates) <- as.character(metadata$cell_label)
   colnames(coordinates) <- chosen
-
   coordinates
+}
+
+# Explicit coordinate columns must be two names present in the metadata.
+.abc_check_spatial_columns <- function(metadata, coordinate_columns) {
+  if (!is.character(coordinate_columns) ||
+      length(coordinate_columns) != 2L ||
+      anyNA(coordinate_columns) ||
+      any(!nzchar(coordinate_columns))) {
+    stop(
+      "coordinate_columns must contain exactly two non-missing column names.",
+      call. = FALSE
+    )
+  }
+
+  missing <- setdiff(coordinate_columns, names(metadata))
+  if (length(missing)) {
+    stop(
+      "Spatial coordinate column", if (length(missing) == 1L) " " else "s ",
+      paste(missing, collapse = ", "), " not found in cell metadata.",
+      call. = FALSE
+    )
+  }
+
+  coordinate_columns
+}
+
+# First published coordinate pair present in the metadata, in order of
+# preference: slab (mm), rotated (um), experiment, then plain x/y.
+.abc_default_spatial_columns <- function(metadata) {
+  candidates <- list(
+    c("x_slab_mm", "y_slab_mm"),
+    c("x_rotated_um", "y_rotated_um"),
+    c("x_experiment", "y_experiment"),
+    c("x", "y")
+  )
+  present <- vapply(
+    candidates, function(x) all(x %in% names(metadata)), logical(1)
+  )
+  if (!any(present)) {
+    stop(
+      "No supported spatial coordinate pair was found. ",
+      "Provide coordinate_columns explicitly.",
+      call. = FALSE
+    )
+  }
+
+  candidates[[which(present)[[1L]]]]
 }
 
 .abc_output_provenance <- function(metadata, gene_data, data_type,
@@ -554,55 +550,27 @@
   )
 }
 
-.abc_fetch_context_from_inputs <- function(
-    data,
-    metadata,
-    filters,
-    gene_data,
-    genes,
-    data_type,
-    offline,
-    release,
-    download_base
-) {
-  if (
-    !is.null(data) &&
-    !inherits(data, "abc_data") &&
-    is.character(data) &&
-    length(data) == 1L &&
-    is.null(download_base)
-  ) {
+.abc_fetch_context_from_inputs <- function(data, metadata, filters,
+                                           gene_data, genes, data_type,
+                                           offline, release, download_base) {
+  # Backward compatibility for the historical positional download_base.
+  if (!is.null(data) && !inherits(data, "abc_data") &&
+      is.character(data) && length(data) == 1L && is.null(download_base)) {
     download_base <- data
     data <- NULL
   }
 
   inputs <- .abc_fetch_inputs(
-    data = data,
-    metadata = metadata,
-    gene_data = gene_data,
-    download_base = download_base,
-    release = release
+    data = data, metadata = metadata, gene_data = gene_data,
+    download_base = download_base, release = release
   )
-
   download_base <- abc_download_dir(inputs$download_base)
   release <- inputs$release %||% .abc_default_release
-
   abc_cache <- abc_cache_connect(
-    download_base,
-    offline = offline,
-    release = release
+    download_base, offline = offline, release = release
   )
-
   prepared <- .abc_prepare_fetch(
-    inputs$metadata,
-    filters,
-    inputs$gene_data,
-    genes
-  )
-
-  data_type <- .abc_resolve_data_type(
-    data_type,
-    prepared$metadata
+    inputs$metadata, filters, inputs$gene_data, genes
   )
 
   list(
@@ -611,7 +579,7 @@
     selected_gene_data = prepared$gene_data,
     download_base = download_base,
     release = release,
-    data_type = data_type,
+    data_type = .abc_resolve_data_type(data_type, prepared$metadata),
     abc_cache = abc_cache
   )
 }
@@ -890,58 +858,40 @@ plan_fetch <- function(data = NULL, metadata = NULL, filters = list(),
                        offline = FALSE, release = NULL,
                        download_base = NULL,
                        confirm = interactive()) {
-  # Backward compatibility for the historical positional download_base.
-  if (!is.null(data) &&
-      !inherits(data, "abc_data") &&
-      is.character(data) &&
-      length(data) == 1L &&
-      is.null(download_base)) {
-    download_base <- data
-    data <- NULL
-  }
-
-  inputs <- .abc_fetch_inputs(
-    data = data,
-    metadata = metadata,
-    gene_data = gene_data,
-    download_base = download_base,
-    release = release
+  context <- .abc_fetch_context_from_inputs(
+    data = data, metadata = metadata, filters = filters,
+    gene_data = gene_data, genes = genes, data_type = data_type,
+    offline = offline, release = release, download_base = download_base
   )
-
-  metadata <- inputs$metadata
-  gene_data <- inputs$gene_data
-  download_base <- abc_download_dir(inputs$download_base)
-
-  if (is.null(inputs$release)) {
-    release <- .abc_default_release
-  } else {
-    release <- inputs$release
-  }
-
-  abc_cache <- abc_cache_connect(
-    download_base,
-    offline = offline,
-    release = release
+  files <- .abc_expression_files(
+    context$abc_cache, context$filtered_meta, data_type = context$data_type
   )
-
-  prepared <- .abc_prepare_fetch(metadata, filters, gene_data, genes)
-  data_type <- .abc_resolve_data_type(data_type, prepared$metadata)
-  files <- .abc_expression_files(abc_cache, prepared$metadata,
-                                 data_type = data_type)
-
   files$additional_download <- ifelse(
-    files$cached, 0,
-    pmax(files$size - files$partial_bytes, 0)
+    files$cached, 0, pmax(files$size - files$partial_bytes, 0)
   )
+  plan <- .abc_new_fetch_plan(context, files, offline)
 
+  if (isTRUE(confirm) && plan$total_download > 0 && !isTRUE(offline) &&
+      isTRUE(plan$storage_sufficient)) {
+    print(plan)
+    plan$approved <- .abc_confirm_download()
+  }
+
+  plan
+}
+
+# Assemble the abc_fetch_plan object: download totals, the disk-space check,
+# and the resolved request that fetch_data(plan = ) reuses. A plan that needs
+# no download is approved automatically.
+.abc_new_fetch_plan <- function(context, files, offline) {
   total_download <- sum(files$additional_download)
-  available_space <- .abc_available_space(download_base)
+  available_space <- .abc_available_space(context$download_base)
 
-  plan <- structure(
+  structure(
     list(
-      data_type = data_type,
-      n_cells = nrow(prepared$metadata),
-      n_genes = nrow(prepared$gene_data),
+      data_type = context$data_type,
+      n_cells = nrow(context$filtered_meta),
+      n_genes = nrow(context$selected_gene_data),
       files = files,
       total_size = sum(files$size),
       total_partial = sum(files$partial_bytes),
@@ -950,28 +900,16 @@ plan_fetch <- function(data = NULL, metadata = NULL, filters = list(),
       storage_required = total_download,
       storage_sufficient = is.na(available_space) ||
         available_space >= total_download,
-      release = abc_cache$version,
+      release = context$abc_cache$version,
       approved = if (total_download == 0) TRUE else NA,
-      .metadata = prepared$metadata,
-      .gene_data = gene_data,
-      .selected_gene_data = prepared$gene_data,
-      .download_base = download_base,
+      .metadata = context$filtered_meta,
+      .gene_data = context$gene_data,
+      .selected_gene_data = context$selected_gene_data,
+      .download_base = context$download_base,
       .offline = offline
     ),
     class = "abc_fetch_plan"
   )
-
-  if (
-    isTRUE(confirm) &&
-    total_download > 0 &&
-    !isTRUE(offline) &&
-    isTRUE(plan$storage_sufficient)
-  ) {
-    print(plan)
-    plan$approved <- .abc_confirm_download()
-  }
-
-  plan
 }
 
 #' @export
@@ -2038,14 +1976,8 @@ print.abc_fetch_plan <- function(x, ...) {
 # gene/cell blocks are realized. Rows follow the requested gene order and are
 # named by gene_identifier; columns follow the order of `cells`. Cells not
 # found in any file are all-zero columns.
-.abc_expression_matrix <- function(
-    abc_cache,
-    cells,
-    gene_data,
-    gene_sel,
-    data_type = "raw",
-    block_size = 50000L
-) {
+.abc_expression_matrix <- function(abc_cache, cells, gene_data, gene_sel,
+                                   data_type = "raw", block_size = 50000L) {
   if (!requireNamespace("HDF5Array", quietly = TRUE)) {
     stop(
       "Package 'HDF5Array' is required to read expression matrices.",
@@ -2056,121 +1988,66 @@ print.abc_fetch_plan <- function(x, ...) {
   gene_sel <- as.integer(gene_sel)
   gene_filtered <- gene_data[gene_sel, , drop = FALSE]
   cell_ids <- rownames(cells)
-
-  files <- .abc_expression_files(
-    abc_cache,
-    cells,
-    data_type = data_type
-  )
+  files <- .abc_expression_files(abc_cache, cells, data_type = data_type)
 
   rows <- cols <- vals <- list()
-
   for (k in seq_len(nrow(files))) {
-    matrix_file <- files$feature_matrix_label[k]
-
-    # Download/cache resolution happens before the spinner starts so that
-    # curl's real download progress display is never overwritten.
-    path <- abc_cache$get_file_path(
-      directory = files$dataset_label[k],
-      file_name = paste0(
-        matrix_file,
-        "/",
-        data_type
-      )
+    pieces <- .abc_read_expression_file(
+      abc_cache, files[k, ], cells, gene_data, gene_sel, data_type,
+      block_size
     )
-
-    label <- paste0(
-      "Loading expression data: ",
-      matrix_file
-    )
-
-    spinner <- .abc_spinner_start(label)
-    completed <- FALSE
-
-    tryCatch(
-      {
-        pieces <- .abc_expression_file_blocks(
-          path = path,
-          cells = cells,
-          gene_data = gene_data,
-          gene_sel = gene_sel,
-          block_size = block_size
-        )
-
-        rows <- c(
-          rows,
-          pieces$rows
-        )
-
-        cols <- c(
-          cols,
-          pieces$cols
-        )
-
-        vals <- c(
-          vals,
-          pieces$vals
-        )
-
-        completed <- TRUE
-      },
-      finally = {
-        .abc_spinner_stop(
-          spinner,
-          if (completed) {
-            paste0(
-              "Loaded expression data: ",
-              matrix_file,
-              "."
-            )
-          } else {
-            NULL
-          }
-        )
-      }
-    )
+    rows <- c(rows, pieces$rows)
+    cols <- c(cols, pieces$cols)
+    vals <- c(vals, pieces$vals)
   }
 
   out <- Matrix::sparseMatrix(
-    i = unlist(
-      rows,
-      use.names = FALSE
-    ) %||% integer(),
-    j = unlist(
-      cols,
-      use.names = FALSE
-    ) %||% integer(),
-    x = unlist(
-      vals,
-      use.names = FALSE
-    ) %||% numeric(),
-    dims = c(
-      length(gene_sel),
-      length(cell_ids)
-    ),
-    dimnames = list(
-      as.character(
-        gene_filtered$gene_identifier
-      ),
-      cell_ids
-    )
+    i = unlist(rows, use.names = FALSE) %||% integer(),
+    j = unlist(cols, use.names = FALSE) %||% integer(),
+    x = unlist(vals, use.names = FALSE) %||% numeric(),
+    dims = c(length(gene_sel), length(cell_ids)),
+    dimnames = list(as.character(gene_filtered$gene_identifier), cell_ids)
   )
 
-  .abc_status_done(
-    sprintf(
-      "Expression ready: %s genes x %s cells.",
-      format(
-        length(gene_sel),
-        big.mark = ","
-      ),
-      format(
-        length(cell_ids),
-        big.mark = ","
-      )
-    )
-  )
-
+  .abc_status_done(sprintf(
+    "Expression ready: %s genes x %s cells.",
+    format(length(gene_sel), big.mark = ","),
+    format(length(cell_ids), big.mark = ",")
+  ))
   out
+}
+
+# Resolve one expression file (downloading it if needed), then read its
+# requested blocks under a single-line spinner. Download/cache resolution
+# happens before the spinner starts so that curl's real download progress
+# display is never overwritten.
+.abc_read_expression_file <- function(abc_cache, entry, cells, gene_data,
+                                      gene_sel, data_type, block_size) {
+  matrix_file <- entry$feature_matrix_label
+  path <- abc_cache$get_file_path(
+    directory = entry$dataset_label,
+    file_name = paste0(matrix_file, "/", data_type)
+  )
+
+  spinner <- .abc_spinner_start(
+    paste0("Loading expression data: ", matrix_file)
+  )
+  completed <- FALSE
+  tryCatch(
+    {
+      pieces <- .abc_expression_file_blocks(
+        path = path, cells = cells, gene_data = gene_data,
+        gene_sel = gene_sel, block_size = block_size
+      )
+      completed <- TRUE
+    },
+    finally = .abc_spinner_stop(
+      spinner,
+      if (completed) paste0("Loaded expression data: ", matrix_file, ".")
+    )
+  )
+
+  pieces
 }
 
 .abc_h5ad_source_gene_identifier <- function(x) {
