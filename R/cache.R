@@ -769,16 +769,22 @@ print.abc_cache <- function(x, ...) {
     ":"
   )
 
-  command <- sprintf(
-    "powershell -NoProfile -Command \"(Get-PSDrive -Name %s).Free\"",
-    substr(drive, 1L, 1L)
-  )
+  drive_letter <- substr(drive, 1L, 1L)
 
   out <- tryCatch(
     suppressWarnings(
-      system(
-        command,
-        intern = TRUE
+      system2(
+        "powershell",
+        c(
+          "-NoProfile",
+          "-Command",
+          sprintf(
+            "(Get-PSDrive -Name %s).Free",
+            drive_letter
+          )
+        ),
+        stdout = TRUE,
+        stderr = FALSE
       )
     ),
     error = function(e) character()

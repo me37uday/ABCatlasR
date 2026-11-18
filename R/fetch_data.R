@@ -575,94 +575,108 @@
 #' )
 #' x$expression
 #' @export
-fetch_data <- function(
-    data = NULL,
-    metadata = NULL,
-    filters = list(),
-    gene_data = NULL,
-    genes = NULL,
-    return_type = c("matrix", "sce", "spatial", "monocle"),
-    coordinate_columns = NULL,
-    data_type = NULL,
-    offline = FALSE,
-    release = NULL,
-    download_base = NULL,
-    plan = NULL
-) {
-  if (!is.null(plan)) {
-    if (!inherits(plan, "abc_fetch_plan")) {
-      stop("plan must be an abc_fetch_plan object.", call. = FALSE)
-    }
-
-    if (!isTRUE(plan$approved)) {
-      stop(
-        "The fetch plan was not approved. Run plan_fetch() and approve the download first.",
-        call. = FALSE
-      )
-    }
-
-    filtered_meta <- plan$.metadata
-    gene_data <- plan$.gene_data
-    selected_gene_data <- plan$.selected_gene_data
-    download_base <- plan$.download_base
-    offline <- plan$.offline
-    release <- plan$release
-    data_type <- plan$data_type
-    abc_cache <- abc_cache_connect(
-      download_base,
-      offline = offline,
-      release = release
+.abc_fetch_context_from_plan <- function(plan) {
+  if (!inherits(plan, "abc_fetch_plan")) {
+    stop(
+      "plan must be an abc_fetch_plan object.",
+      call. = FALSE
     )
-  } else {
-    if (!is.null(data) &&
-        !inherits(data, "abc_data") &&
-        is.character(data) &&
-        length(data) == 1L &&
-        is.null(download_base)) {
-      download_base <- data
-      data <- NULL
-    }
-
-    inputs <- .abc_fetch_inputs(
-      data = data,
-      metadata = metadata,
-      gene_data = gene_data,
-      download_base = download_base,
-      release = release
-    )
-
-    metadata <- inputs$metadata
-    gene_data <- inputs$gene_data
-    download_base <- abc_download_dir(inputs$download_base)
-
-    if (is.null(inputs$release)) {
-      release <- .abc_default_release
-    } else {
-      release <- inputs$release
-    }
-
-    abc_cache <- abc_cache_connect(
-      download_base,
-      offline = offline,
-      release = release
-    )
-
-    prepared <- .abc_prepare_fetch(
-      metadata,
-      filters,
-      gene_data,
-      genes
-    )
-
-    data_type <- .abc_resolve_data_type(
-      data_type,
-      prepared$metadata
-    )
-
-    filtered_meta <- prepared$metadata
-    selected_gene_data <- prepared$gene_data
   }
 
+  if (!isTRUE(plan$approved)) {
+    stop(
+      "The fetch plan was not approved. Run plan_fetch() and approve the download first.",
+      call. = FALSE
+    )
+  }
+
+  abc_cache <- abc_cache_connect(
+    plan$.download_base,
+    offline = plan$.offline,
+    release = plan$release
+  )
+
+  list(
+    filtered_meta = plan$.metadata,
+    gene_data = plan$.gene_data,
+    selected_gene_data = plan$.selected_gene_data,
+    download_base = plan$.download_base,
+    release = plan$release,
+    data_type = plan$data_type,
+    abc_cache = abc_cache
+  )
+}
+
+.abc_fetch_context_from_inputs <- function(
+    data,
+    metadata,
+    filters,
+    gene_data,
+    genes,
+    data_type,
+    offline,
+    release,
+    download_base
+) {
+  if (
+    !is.null(data) &&
+    !inherits(data, "abc_data") &&
+    is.character(data) &&
+    length(data) == 1L &&
+    is.null(download_base)
+  ) {
+    download_base <- data
+    data <- NULL
+  }
+
+  inputs <- .abc_fetch_inputs(
+    data = data,
+    metadata = metadata,
+    gene_data = gene_data,
+    download_base = download_base,
+    release = release
+  )
+
+  download_base <- abc_download_dir(inputs$download_base)
+  release <- inputs$release %||% .abc_default_release
+
+  abc_cache <- abc_cache_connect(
+    download_base,
+    offline = offline,
+    release = release
+  )
+
+  prepared <- .abc_prepare_fetch(
+    inputs$metadata,
+    filters,
+    inputs$gene_data,
+    genes
+  )
+
+  data_type <- .abc_resolve_data_type(
+    data_type,
+    prepared$metadata
+  )
+
+  list(
+    filtered_meta = prepared$metadata,
+    gene_data = inputs$gene_data,
+    selected_gene_data = prepared$gene_data,
+    download_base = download_base,
+    release = release,
+    data_type = data_type,
+    abc_cache = abc_cache
+  )
+}
+
+.abc_fetch_expression <- function(
+    abc_cache,
+    filtered_meta,
+    gene_data,
+    selected_gene_data,
+    download_base,
+    data_type
+) {
   files <- .abc_expression_files(
     abc_cache,
     filtered_meta,
@@ -698,35 +712,73 @@ fetch_data <- function(
     )
   }
 
-  expression <- .abc_expression_matrix(
+  .abc_expression_matrix(
     abc_cache = abc_cache,
     cells = filtered_meta,
     gene_data = gene_data,
     gene_sel = selected_gene_data$.abc_gene_index,
     data_type = data_type
   )
+}
 
-  return_type <- match.arg(return_type)
+fetch_data <- function(
+    data = NULL,
+    metadata = NULL,
+    filters = list(),
+    gene_data = NULL,
+    genes = NULL,
+    return_type = c("matrix", "sce", "spatial", "monocle"),
+    coordinate_columns = NULL,
+    data_type = NULL,
+    offline = FALSE,
+    release = NULL,
+    download_base = NULL,
+    plan = NULL
+) {
+  context <- if (!is.null(plan)) {
+    .abc_fetch_context_from_plan(plan)
+  } else {
+    .abc_fetch_context_from_inputs(
+      data = data,
+      metadata = metadata,
+      filters = filters,
+      gene_data = gene_data,
+      genes = genes,
+      data_type = data_type,
+      offline = offline,
+      release = release,
+      download_base = download_base
+    )
+  }
 
-  selected_gene_data$.abc_gene_index <- NULL
+  expression <- .abc_fetch_expression(
+    abc_cache = context$abc_cache,
+    filtered_meta = context$filtered_meta,
+    gene_data = context$gene_data,
+    selected_gene_data = context$selected_gene_data,
+    download_base = context$download_base,
+    data_type = context$data_type
+  )
+
+  context$selected_gene_data$.abc_gene_index <- NULL
 
   provenance <- .abc_output_provenance(
-    filtered_meta,
-    selected_gene_data,
-    data_type = data_type,
-    release = release
+    context$filtered_meta,
+    context$selected_gene_data,
+    data_type = context$data_type,
+    release = context$release
   )
 
   .abc_materialize(
     expression = expression,
-    cell_metadata = filtered_meta,
-    gene_data = selected_gene_data,
-    data_type = data_type,
-    return_type = return_type,
+    cell_metadata = context$filtered_meta,
+    gene_data = context$selected_gene_data,
+    data_type = context$data_type,
+    return_type = match.arg(return_type),
     coordinate_columns = coordinate_columns,
     provenance = provenance,
     spatial = isTRUE(
-      attr(filtered_meta, "abc_spatial")
+      attr(context$filtered_meta, "abc_spatial")
     )
   )
 }
@@ -1896,6 +1948,86 @@ print.abc_fetch_plan <- function(x, ...) {
 # the resolved gene request order and are named by (made unique) gene symbol;
 # columns
 # follow the order of `cells`. Cells not found in any file are all-zero columns.
+.abc_expression_file_blocks <- function(
+    path,
+    cells,
+    gene_data,
+    gene_sel,
+    block_size
+) {
+  cell_ids <- rownames(cells)
+
+  var_index <- .h5ad_index(
+    path,
+    "var"
+  )
+
+  obs_index <- .h5ad_index(
+    path,
+    "obs"
+  )
+
+  gene_pos <- .abc_gene_positions(
+    gene_data,
+    gene_sel,
+    var_index,
+    basename(path)
+  )
+
+  file_pos <- match(
+    cell_ids,
+    obs_index
+  )
+
+  wanted <- which(
+    !is.na(file_pos)
+  )
+
+  wanted <- wanted[
+    order(file_pos[wanted])
+  ]
+
+  X <- .abc_h5ad_expression(
+    path,
+    n_genes = length(var_index),
+    n_cells = length(obs_index)
+  )
+
+  rows <- cols <- vals <- list()
+
+  blocks <- split(
+    wanted,
+    ceiling(
+      seq_along(wanted) / block_size
+    )
+  )
+
+  if (length(blocks)) {
+    for (block in blocks) {
+      m <- methods::as(
+        X[
+          gene_pos,
+          file_pos[block],
+          drop = FALSE
+        ],
+        "dgCMatrix"
+      )
+
+      nz <- Matrix::summary(m)
+
+      rows[[length(rows) + 1L]] <- nz$i
+      cols[[length(cols) + 1L]] <- block[nz$j]
+      vals[[length(vals) + 1L]] <- nz$x
+    }
+  }
+
+  list(
+    rows = rows,
+    cols = cols,
+    vals = vals
+  )
+}
+
 .abc_expression_matrix <- function(
     abc_cache,
     cells,
@@ -1926,8 +2058,6 @@ print.abc_fetch_plan <- function(x, ...) {
   for (k in seq_len(nrow(files))) {
     matrix_file <- files$feature_matrix_label[k]
 
-    # Download/cache resolution happens before the spinner starts so that
-    # curl's real download progress display is never overwritten.
     path <- abc_cache$get_file_path(
       directory = files$dataset_label[k],
       file_name = paste0(
@@ -1947,67 +2077,28 @@ print.abc_fetch_plan <- function(x, ...) {
 
     tryCatch(
       {
-        var_index <- .h5ad_index(
-          path,
-          "var"
+        pieces <- .abc_expression_file_blocks(
+          path = path,
+          cells = cells,
+          gene_data = gene_data,
+          gene_sel = gene_sel,
+          block_size = block_size
         )
 
-        obs_index <- .h5ad_index(
-          path,
-          "obs"
+        rows <- c(
+          rows,
+          pieces$rows
         )
 
-        gene_pos <- .abc_gene_positions(
-          gene_data,
-          gene_sel,
-          var_index,
-          basename(path)
+        cols <- c(
+          cols,
+          pieces$cols
         )
 
-        file_pos <- match(
-          cell_ids,
-          obs_index
+        vals <- c(
+          vals,
+          pieces$vals
         )
-
-        wanted <- which(
-          !is.na(file_pos)
-        )
-
-        wanted <- wanted[
-          order(file_pos[wanted])
-        ]
-
-        X <- .abc_h5ad_expression(
-          path,
-          n_genes = length(var_index),
-          n_cells = length(obs_index)
-        )
-
-        blocks <- split(
-          wanted,
-          ceiling(
-            seq_along(wanted) / block_size
-          )
-        )
-
-        if (length(blocks)) {
-          for (block in blocks) {
-            m <- methods::as(
-              X[
-                gene_pos,
-                file_pos[block],
-                drop = FALSE
-              ],
-              "dgCMatrix"
-            )
-
-            nz <- Matrix::summary(m)
-
-            rows[[length(rows) + 1L]] <- nz$i
-            cols[[length(cols) + 1L]] <- block[nz$j]
-            vals[[length(vals) + 1L]] <- nz$x
-          }
-        }
 
         completed <- TRUE
       },

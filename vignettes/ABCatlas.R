@@ -45,7 +45,7 @@ datasets[datasets$spatial, ]
 # abc <- load_data(
 #   "AgingMouse"
 # )
-#
+# 
 # abc
 # abc$cell_metadata
 # abc$gene_data
@@ -131,15 +131,15 @@ plan
 #   n_cells = 1000,
 #   seed = 1
 # )
-#
+# 
 # x <- fetch_data(
 #   spatial_abc,
 #   genes = genes,
 #   return_type = "spatial"
 # )
-#
+# 
 # SpatialExperiment::spatialCoords(x)
-#
+# 
 # # For routes without canonical spatial coordinates, verified columns
 # # can be supplied explicitly.
 # y <- fetch_data(
@@ -173,7 +173,7 @@ as.data.frame(list_datasets())[
 #     )
 #   ]
 # )
-#
+# 
 # fetch_data(
 #   abc,
 #   genes = c(
@@ -188,7 +188,7 @@ as.data.frame(list_datasets())[
 #   "AgingMouse",
 #   offline = TRUE
 # )
-#
+# 
 # x <- fetch_data(
 #   abc,
 #   genes = genes,
@@ -198,3 +198,4 @@ as.data.frame(list_datasets())[
 
 ## ----session-info-------------------------------------------------------------
 sessionInfo()
+
