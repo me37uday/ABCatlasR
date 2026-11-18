@@ -24,8 +24,11 @@ test_that("a small file is downloaded, verified, recorded and reused", {
     expect_true(.abc_is_recorded(dir, path))
     expect_false(file.exists(paste0(path, ".part")))
 
-    # Second call reuses the file; offline mode finds it too.
-    expect_no_message(cache$get_file_path("ASAP-PMDBS-10X", "value_sets"))
+    # Second call reuses the file and says so; offline mode finds it too.
+    expect_message(
+        cache$get_file_path("ASAP-PMDBS-10X", "value_sets"),
+        "Using cached .*no download needed"
+    )
     offline <- abc_cache_connect(dir, offline = TRUE)
     df <- offline$get_metadata_dataframe("ASAP-PMDBS-10X", "value_sets")
     expect_s3_class(df, "data.frame")

@@ -527,6 +527,7 @@ print.abc_cache <- function(x, ...) {
                 "Run once with offline = FALSE to download it."
             )
         }
+        .abc_report_cached(attrs)
         return(path)
     }
 
@@ -538,15 +539,27 @@ print.abc_cache <- function(x, ...) {
         .abc_unrecord(base, path)
         unlink(path)
     }
-    if (!file.exists(path)) {
-        message(
-            "Downloading ", attrs$relative_path,
-            " (", .abc_format_size(attrs$size), ")"
-        )
-        .abc_download(attrs$url, path, if (!skip_hash_check) attrs$file_hash)
-        .abc_record(base, path)
+    if (file.exists(path)) {
+        .abc_report_cached(attrs)
+        return(path)
     }
+
+    message(
+        "Downloading ", attrs$relative_path,
+        " (", .abc_format_size(attrs$size), ")"
+    )
+    .abc_download(attrs$url, path, if (!skip_hash_check) attrs$file_hash)
+    .abc_record(base, path)
     path
+}
+
+# Report that a requested file is served from the local cache. It mirrors the
+# "Downloading ..." message so that reuse of earlier downloads is visible.
+.abc_report_cached <- function(attrs) {
+    message(
+        "Using cached ", attrs$relative_path,
+        " (", .abc_format_size(attrs$size), "); no download needed."
+    )
 }
 
 # Download `url` to `dest` through a ".part" file that is resumed across retries

@@ -131,3 +131,15 @@ test_that("catalog rows fall back to defaults for sparse registry entries", {
     expect_identical(row$expression_directories, "")
     expect_identical(row$modality, "transcriptomics")
 })
+
+test_that("files served from the cache are reported", {
+    ex <- example_inputs()
+    expect_message(
+        fetch_data(
+            download_base = ex$dir, metadata = ex$data$cells,
+            gene_data = ex$data$genes, genes = c("G1", "G4"),
+            offline = TRUE, release = "20250101"
+        ),
+        "Using cached .*no download needed"
+    )
+})
