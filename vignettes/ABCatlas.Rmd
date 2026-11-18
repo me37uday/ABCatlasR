@@ -31,8 +31,6 @@ expression transfer:
 4.  `fetch_data()` reads selected expression into the requested R
     representation.
 
-No Python installation is required.
-
 ## Installation
 
 Install the package with `BiocManager`:

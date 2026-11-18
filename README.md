@@ -4,8 +4,6 @@
 
 It lets you explore available datasets, select cells and genes, check how much data needs to be downloaded, and load expression data directly into R.
 
-**No Python installation is required.**
-
 ## Installation
 
 Install the package from the `r-native` branch:
@@ -28,7 +26,7 @@ remotes::install_github(
 )
 ```
 
-`rhdf5` and `HDF5Array` are Bioconductor packages used to read ABC Atlas H5AD expression files directly in R. Installing them explicitly ensures that a fresh R installation can resolve these dependencies correctly. No Python installation is required.
+`rhdf5` and `HDF5Array` are Bioconductor packages used to read ABC Atlas H5AD expression files directly in R. Installing them explicitly ensures that a fresh R installation can resolve these dependencies correctly.
 
 Then load it:
 
@@ -59,8 +57,11 @@ This shows the supported datasets, including which are spatial and which express
 
 ```r
 abc <- load_data(
-  "AgingMouse",
-  filters = list(anatomical_division_label = "STR"),
+  "Zhuang4",
+  filters = list(
+    brain_section_label = "Zhuang-ABCA-4.002",
+    neurotransmitter = c("GABA", "Glut")
+  ),
   n_cells = 500,
   seed = 1
 )
@@ -72,7 +73,7 @@ For exact cells:
 
 ```r
 abc <- load_data(
-  "AgingMouse",
+  "Zhuang4",
   cell_ids = my_cell_labels
 )
 ```
@@ -80,27 +81,23 @@ abc <- load_data(
 ### 3. Check the download
 
 ```r
-genes <- c("P2ry12", "Cx3cr1", "Tmem119")
+genes <- c("Htr7", "Sema3c", "Itga8", "Rxrg")
 
-plan_fetch(
+plan <- plan_fetch(
   abc,
   genes = genes
 )
 ```
 
-`plan_fetch()` shows which expression files are needed, their sizes, whether they are already cached, and how much additional data must be downloaded. It does **not** start the download.
+`plan_fetch()` shows which expression files are needed, their sizes, whether they are already cached, and how much additional data must be downloaded. In an interactive session it then asks `Proceed with download? [y/n]:`. Answering `y` approves the plan; answering `n` discards it, and the request must be planned again before fetching.
 
 ### 4. Fetch expression
 
 ```r
-x <- fetch_data(
-  abc,
-  genes = genes,
-  return_type = "matrix"
-)
+x <- fetch_data(plan = plan)
 ```
 
-Required expression files are downloaded if necessary and reused from the local cache on future requests.
+`fetch_data()` downloads the files listed in the approved plan and reads the selected cells and genes. Downloaded files are reused from the local cache on future requests. `fetch_data(abc, genes = genes)` also works without a plan; it then downloads what is needed without asking.
 
 ## Choosing an output format
 
@@ -110,7 +107,7 @@ Required expression files are downloaded if necessary and reused from the local 
 x <- fetch_data(abc, genes = genes, return_type = "matrix")
 ```
 
-This is the simplest option and does not require an additional analysis framework.
+The default. A list with the sparse `expression` matrix (genes x cells), `cell_metadata`, `gene_data`, `data_type` and `provenance`.
 
 ### SingleCellExperiment
 
@@ -118,31 +115,20 @@ This is the simplest option and does not require an additional analysis framewor
 x <- fetch_data(abc, genes = genes, return_type = "sce")
 ```
 
-Requires `SingleCellExperiment`.
+Raw expression is stored in a `counts` assay and log2 expression in a `log2` assay.
 
 ### SpatialExperiment
 
 ```r
-spatial <- load_data(
-  "Zhuang4",
-  n_cells = 500,
-  seed = 1
-)
-
-x <- fetch_data(
-  spatial,
-  genes = genes,
-  return_type = "spatial"
-)
+x <- fetch_data(abc, genes = genes, return_type = "spatial")
 ```
 
-Requires `SpatialExperiment`. Spatial coordinates provided by the dataset are included in the returned object.
+For spatial datasets such as `Zhuang4`, the spatial coordinates are included in the returned object. For other datasets, name the coordinate columns with `coordinate_columns`.
 
 ### Seurat and Monocle 3
 
-`ABCatlas` does not build Seurat or Monocle objects itself, which keeps its
-dependencies small. Fetch raw expression as a matrix bundle and convert it
-with the package you use:
+`ABCatlas` does not build Seurat or Monocle objects. Fetch raw expression as
+a matrix bundle and convert it with the package you use:
 
 ```r
 x <- fetch_data(abc, genes = genes, data_type = "raw")
@@ -172,8 +158,8 @@ already transformed upstream.
 
 Use `list_datasets()` to see which representations are available.
 
-- `"raw"` — raw expression with count semantics.
-- `"log2"` — expression transformed upstream by the data provider.
+- `"raw"` — raw counts.
+- `"log2"` — log2-transformed expression published by the ABC Atlas.
 
 If `data_type` is not specified, the package uses the dataset's default representation.
 
@@ -186,9 +172,7 @@ x <- fetch_data(
 )
 ```
 
-The package preserves the representation supplied by the ABC Atlas and does not silently convert transformed expression into counts.
-
-Some representations may contain expression for only a subset of the genes in the broader dataset metadata. If a requested gene is not available in that expression matrix, `fetch_data()` reports it rather than silently dropping it.
+Some representations contain only a subset of the genes listed in the dataset metadata. `fetch_data()` reports requested genes that are missing from the expression file.
 
 ## Downloads and local cache
 
@@ -216,7 +200,7 @@ abc_download_dir()
 Cached files are reused automatically. To also forbid network access, for example on a compute node without internet, use `offline = TRUE`; a file that is not cached then becomes an error instead of a download:
 
 ```r
-abc <- load_data("AgingMouse", offline = TRUE)
+abc <- load_data("Zhuang4", offline = TRUE)
 
 x <- fetch_data(
   abc,
@@ -233,23 +217,23 @@ library(ABCatlas)
 list_datasets()
 
 abc <- load_data(
-  "AgingMouse",
-  filters = list(anatomical_division_label = "STR"),
+  "Zhuang4",
+  filters = list(
+    brain_section_label = "Zhuang-ABCA-4.002",
+    neurotransmitter = c("GABA", "Glut")
+  ),
   n_cells = 500,
   seed = 1
 )
 
-genes <- c("P2ry12", "Cx3cr1", "Tmem119")
+genes <- c("Htr7", "Sema3c", "Itga8", "Rxrg")
 
-plan_fetch(abc, genes = genes)
+plan <- plan_fetch(abc, genes = genes)   # answer y to the prompt
 
-x <- fetch_data(
-  abc,
-  genes = genes,
-  return_type = "matrix"
-)
+x <- fetch_data(plan = plan)
 
-x
+dim(x$expression)
+x$provenance
 ```
 
 ## Getting help
