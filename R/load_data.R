@@ -666,55 +666,33 @@ load_data <- function(dataset, download_base = NULL, offline = FALSE,
                       release = .abc_default_release, filters = list(),
                       cell_ids = NULL, n_cells = NULL, seed = 1L) {
   datasets <- names(.abc_datasets)
-
   if (missing(dataset)) {
-    stop(
-      "Specify a dataset, one of: ",
-      paste(datasets, collapse = ", ")
-    )
+    stop("Specify a dataset, one of: ", paste(datasets, collapse = ", "))
   }
-
   dataset <- match.arg(dataset, datasets)
   spec <- .abc_datasets[[dataset]]
 
   download_base <- abc_download_dir(download_base)
-
   abc_cache <- abc_cache_connect(
-    download_base,
-    offline = offline,
-    release = release
+    download_base, offline = offline, release = release
   )
 
-  out <- .build_dataset(
-    spec,
-    abc_cache,
-    dataset
-  )
-
+  out <- .build_dataset(spec, abc_cache, dataset)
   out$cell_metadata <- .abc_select_cells(
-    out$cell_metadata,
-    filters = filters,
-    cell_ids = cell_ids,
-    n_cells = n_cells,
-    seed = seed
+    out$cell_metadata, filters = filters, cell_ids = cell_ids,
+    n_cells = n_cells, seed = seed
   )
 
   # Recompute filter choices from the selected population while retaining
   # the route's curated columns of interest.
   cols <- intersect(
-    spec$cols_of_interest %||% character(),
-    names(out$cell_metadata)
+    spec$cols_of_interest %||% character(), names(out$cell_metadata)
   )
-
-  out$unique_values <- lapply(
-    out$cell_metadata[cols],
-    unique
-  )
+  out$unique_values <- lapply(out$cell_metadata[cols], unique)
 
   out$dataset <- dataset
   out$download_base <- download_base
   out$release <- abc_cache$version
-
   class(out) <- c("abc_data", "list")
   out
 }
@@ -813,36 +791,47 @@ print.abc_data <- function(x, ...) {
 # so expression readers can reconcile them one-to-one against the H5AD axis.
 .abc_normalize_gene_metadata <- function(gene, context = "gene metadata") {
   if (!"gene_identifier" %in% names(gene)) {
-    stop(
-      context, ": required column 'gene_identifier' missing.",
-      call. = FALSE
-    )
+    stop(context, ": required column 'gene_identifier' missing.",
+         call. = FALSE)
   }
 
   out <- gene
   original <- as.character(out$gene_identifier)
-
   if (anyNA(original) || any(!nzchar(original))) {
     stop(context, ": missing gene_identifier.", call. = FALSE)
   }
 
   counts <- table(original, useNA = "no")
-  duplicate_groups <- counts[counts > 1L]
-
-  if (!length(duplicate_groups)) {
+  if (!any(counts > 1L)) {
     out$gene_identifier <- original
     return(out)
   }
 
   if ("source_gene_identifier" %in% names(out)) {
-    stop(
-      context,
-      ": source_gene_identifier already exists; ",
-      "cannot safely disambiguate duplicates.",
-      call. = FALSE
-    )
+    stop(context, ": source_gene_identifier already exists; ",
+         "cannot safely disambiguate duplicates.", call. = FALSE)
   }
 
+  ids <- .abc_disambiguate_gene_ids(original, counts)
+  out$source_gene_identifier <- original
+  out$source_gene_occurrence <- ids$occurrence
+  out$source_gene_group_size <- as.integer(counts[original])
+  out$gene_identifier <- ids$unique_ids
+
+  if (anyNA(out$gene_identifier) || any(!nzchar(out$gene_identifier)) ||
+      anyDuplicated(out$gene_identifier)) {
+    stop(context, ": duplicate gene identifiers remain after normalization; ",
+         "no silent aggregation allowed.", call. = FALSE)
+  }
+
+  out
+}
+
+# Give each member of a duplicated identifier group a unique "<id>.iabdup<k>"
+# name, skipping suffixes that already exist as identifiers. `occurrence` is
+# the true ordinal within the original group; it deliberately differs from k
+# when an existing identifier forced a suffix to be skipped.
+.abc_disambiguate_gene_ids <- function(original, counts) {
   used <- unique(original)
   seen <- integer()
   unique_ids <- character(length(original))
@@ -850,17 +839,14 @@ print.abc_data <- function(x, ...) {
 
   for (i in seq_along(original)) {
     value <- original[[i]]
-
     if (counts[[value]] <= 1L) {
       unique_ids[[i]] <- value
       occurrence[[i]] <- 1L
       next
     }
 
-    previous <- if (value %in% names(seen)) seen[[value]] else 0L
-    index <- previous + 1L
+    index <- (if (value %in% names(seen)) seen[[value]] else 0L) + 1L
     candidate <- paste0(value, ".iabdup", index)
-
     while (candidate %in% used) {
       index <- index + 1L
       candidate <- paste0(value, ".iabdup", index)
@@ -869,83 +855,35 @@ print.abc_data <- function(x, ...) {
     seen[[value]] <- index
     used <- c(used, candidate)
     unique_ids[[i]] <- candidate
-
-    # True ordinal within the original duplicate group. This deliberately
-    # differs from the suffix if an existing identifier forced a suffix skip.
     occurrence[[i]] <- sum(original[seq_len(i)] == value)
   }
 
-  group_size <- as.integer(counts[original])
-  out$source_gene_identifier <- original
-  out$source_gene_occurrence <- occurrence
-  out$source_gene_group_size <- group_size
-  out$gene_identifier <- unique_ids
-
-  if (anyNA(out$gene_identifier) ||
-      any(!nzchar(out$gene_identifier)) ||
-      anyDuplicated(out$gene_identifier)) {
-    stop(
-      context,
-      ": duplicate gene identifiers remain after normalization; ",
-      "no silent aggregation allowed.",
-      call. = FALSE
-    )
-  }
-
-  out
+  list(unique_ids = unique_ids, occurrence = occurrence)
 }
 
 # Turn a dataset spec into the assembled list(cell_metadata, gene_data,
 # unique_values). All dataset-specific behaviour comes from `spec`.
-.abc_dataset_subset_keys <- function(
-    subset_metadata,
-    subset_spec,
-    dataset
-) {
-  required <- c(
-    subset_spec$key,
-    subset_spec$column
-  )
-
+.abc_dataset_subset_keys <- function(subset_metadata, subset_spec, dataset) {
   missing <- setdiff(
-    required,
-    names(subset_metadata)
+    c(subset_spec$key, subset_spec$column), names(subset_metadata)
   )
-
   if (length(missing)) {
     stop(
-      dataset,
-      ": subset metadata is missing required column(s): ",
-      paste(missing, collapse = ", "),
-      ".",
+      dataset, ": subset metadata is missing required column(s): ",
+      paste(missing, collapse = ", "), ".",
       call. = FALSE
     )
   }
 
-  keep_keys <- unique(
-    as.character(
-      subset_metadata[
-        !is.na(subset_metadata[[subset_spec$column]]) &
-          as.character(subset_metadata[[subset_spec$column]]) ==
-            subset_spec$value,
-        subset_spec$key
-      ]
-    )
-  )
-
-  keep_keys <- keep_keys[
-    !is.na(keep_keys) &
-      nzchar(keep_keys)
-  ]
+  values <- subset_metadata[[subset_spec$column]]
+  matched <- !is.na(values) & as.character(values) == subset_spec$value
+  keep_keys <- unique(as.character(subset_metadata[matched, subset_spec$key]))
+  keep_keys <- keep_keys[!is.na(keep_keys) & nzchar(keep_keys)]
 
   if (!length(keep_keys)) {
     stop(
-      dataset,
-      ": no ",
-      subset_spec$value,
-      " cells found from ",
-      subset_spec$file,
-      ".",
+      dataset, ": no ", subset_spec$value, " cells found from ",
+      subset_spec$file, ".",
       call. = FALSE
     )
   }
@@ -1031,20 +969,12 @@ print.abc_data <- function(x, ...) {
   cell_metadata
 }
 
-.abc_apply_taxonomy_membership <- function(
-    cell_metadata,
-    cell_dir,
-    taxonomy_dir,
-    abc_cache
-) {
+.abc_apply_taxonomy_membership <- function(cell_metadata, cell_dir,
+                                           taxonomy_dir, abc_cache) {
   membership_dir <- NULL
-
   for (candidate in c(cell_dir, taxonomy_dir)) {
-    if (.abc_metadata_exists(
-      abc_cache,
-      candidate,
-      "cell_to_cluster_membership"
-    )) {
+    if (.abc_metadata_exists(abc_cache, candidate,
+                             "cell_to_cluster_membership")) {
       membership_dir <- candidate
       break
     }
@@ -1052,38 +982,25 @@ print.abc_data <- function(x, ...) {
 
   if (!is.null(membership_dir)) {
     membership <- abc_cache$get_metadata_dataframe(
-      directory = membership_dir,
-      file_name = "cell_to_cluster_membership"
+      directory = membership_dir, file_name = "cell_to_cluster_membership"
     )
-
     if ("cluster_alias" %in% names(cell_metadata)) {
-      names(cell_metadata)[
-        names(cell_metadata) == "cluster_alias"
-      ] <- "cluster_alias_original"
-
+      names(cell_metadata)[names(cell_metadata) == "cluster_alias"] <-
+        "cluster_alias_original"
       cell_metadata$cluster_alias_original <-
         as.character(cell_metadata$cluster_alias_original)
     }
-
     cell_metadata <- .abc_safe_join(
-      cell_metadata,
-      membership,
-      "cell_label",
-      "membership"
+      cell_metadata, membership, "cell_label", "membership"
     )
   }
 
   if (!"cluster_alias" %in% names(cell_metadata)) {
-    stop(
-      cell_dir,
-      ": no cluster_alias or applicable membership table.",
-      call. = FALSE
-    )
+    stop(cell_dir, ": no cluster_alias or applicable membership table.",
+         call. = FALSE)
   }
 
-  cell_metadata$cluster_alias <-
-    as.character(cell_metadata$cluster_alias)
-
+  cell_metadata$cluster_alias <- as.character(cell_metadata$cluster_alias)
   cell_metadata
 }
 

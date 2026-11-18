@@ -1692,3 +1692,25 @@ test_that("cell sampling does not create a persistent RNG state", {
     )
   )
 })
+
+test_that("gene normalization rejects unusable identifiers", {
+  expect_error(
+    .abc_normalize_gene_metadata(data.frame(x = 1), "ctx"),
+    "ctx: required column 'gene_identifier' missing.",
+    fixed = TRUE
+  )
+  expect_error(
+    .abc_normalize_gene_metadata(data.frame(gene_identifier = c("A", NA)), "ctx"),
+    "ctx: missing gene_identifier.",
+    fixed = TRUE
+  )
+  expect_error(
+    .abc_normalize_gene_metadata(
+      data.frame(gene_identifier = c("A", "A"),
+                 source_gene_identifier = c("x", "y")),
+      "ctx"
+    ),
+    "source_gene_identifier already exists",
+    fixed = TRUE
+  )
+})
