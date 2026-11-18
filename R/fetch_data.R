@@ -668,6 +668,82 @@
   )
 }
 
+# Validate the requested output representation before any expression file is
+# resolved or downloaded, so incompatible requests fail without a transfer.
+# The materializers repeat these checks as a second line of defence.
+.abc_validate_output_request <- function(
+    return_type,
+    data_type,
+    cell_metadata,
+    coordinate_columns
+) {
+  if (identical(return_type, "monocle") && !identical(data_type, "raw")) {
+    stop(
+      "return_type = \"monocle\" requires raw expression data; ",
+      "the published log2 representation cannot be used as ",
+      "a count-based Monocle 2 CellDataSet.",
+      call. = FALSE
+    )
+  }
+
+  if (identical(return_type, "spatial")) {
+    if (is.null(coordinate_columns) &&
+        !isTRUE(attr(cell_metadata, "abc_spatial"))) {
+      stop(
+        "No declared spatial modality. Supply verified coordinate_columns ",
+        "explicitly; dimensionality-reduction coordinates are not anatomical ",
+        "spatial locations.",
+        call. = FALSE
+      )
+    }
+
+    .abc_spatial_coordinates(
+      cell_metadata,
+      coordinate_columns = coordinate_columns
+    )
+  }
+
+  invisible(TRUE)
+}
+
+# A fetch plan already fixes the cells, genes, release, cache directory and
+# representation. Arguments that would otherwise be silently ignored are
+# rejected so the user knows the plan, not those arguments, defines the request.
+.abc_reject_plan_overrides <- function(
+    data,
+    metadata,
+    filters,
+    gene_data,
+    genes,
+    data_type,
+    offline,
+    release,
+    download_base
+) {
+  supplied <- c(
+    data = !is.null(data),
+    metadata = !is.null(metadata),
+    filters = length(filters) > 0L,
+    gene_data = !is.null(gene_data),
+    genes = !is.null(genes),
+    data_type = !is.null(data_type),
+    offline = !identical(offline, FALSE),
+    release = !is.null(release),
+    download_base = !is.null(download_base)
+  )
+
+  if (any(supplied)) {
+    stop(
+      "When plan is supplied, the plan defines the request. Remove: ",
+      paste(names(supplied)[supplied], collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
+}
+
 #' Fetch selected ABC Atlas expression into an R analysis representation
 #'
 #' @param data Optional \code{abc_data} object returned by \code{load_data()}.
@@ -739,6 +815,22 @@ fetch_data <- function(
     download_base = NULL,
     plan = NULL
 ) {
+  return_type <- match.arg(return_type)
+
+  if (!is.null(plan)) {
+    .abc_reject_plan_overrides(
+      data = data,
+      metadata = metadata,
+      filters = filters,
+      gene_data = gene_data,
+      genes = genes,
+      data_type = data_type,
+      offline = offline,
+      release = release,
+      download_base = download_base
+    )
+  }
+
   context <- if (!is.null(plan)) {
     .abc_fetch_context_from_plan(plan)
   } else {
@@ -754,6 +846,13 @@ fetch_data <- function(
       download_base = download_base
     )
   }
+
+  .abc_validate_output_request(
+    return_type = return_type,
+    data_type = context$data_type,
+    cell_metadata = context$filtered_meta,
+    coordinate_columns = coordinate_columns
+  )
 
   expression <- .abc_fetch_expression(
     abc_cache = context$abc_cache,
@@ -778,7 +877,7 @@ fetch_data <- function(
     cell_metadata = context$filtered_meta,
     gene_data = context$selected_gene_data,
     data_type = context$data_type,
-    return_type = match.arg(return_type),
+    return_type = return_type,
     coordinate_columns = coordinate_columns,
     provenance = provenance,
     spatial = isTRUE(

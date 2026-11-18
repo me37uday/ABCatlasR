@@ -2652,3 +2652,82 @@ test_that("materialization builds default provenance from metadata", {
     )
   )
 })
+
+test_that("invalid output requests fail before expression is read", {
+  fx <- make_fixture_cache()
+
+  local_mocked_bindings(
+    .abc_expression_matrix = function(...) {
+      stop("expression matrix should not be read", call. = FALSE)
+    }
+  )
+
+  base_args <- list(
+    download_base = fx$dir,
+    metadata = fx$cells,
+    gene_data = fx$genes,
+    genes = "G1",
+    offline = TRUE,
+    release = fx$version
+  )
+
+  expect_error(
+    do.call(fetch_data, c(base_args, list(return_type = "banana"))),
+    "should be one of"
+  )
+
+  expect_error(
+    suppressMessages(do.call(
+      fetch_data,
+      c(base_args, list(return_type = "monocle", data_type = "log2"))
+    )),
+    "requires raw expression data"
+  )
+
+  expect_error(
+    suppressMessages(do.call(
+      fetch_data,
+      c(base_args, list(return_type = "spatial"))
+    )),
+    "No declared spatial modality"
+  )
+
+  expect_error(
+    suppressMessages(do.call(
+      fetch_data,
+      c(base_args, list(
+        return_type = "spatial",
+        coordinate_columns = c("x_missing", "y_missing")
+      ))
+    )),
+    "not found in cell metadata"
+  )
+})
+
+test_that("a plan cannot be combined with arguments it would ignore", {
+  fx <- make_fixture_cache()
+
+  plan <- plan_fetch(
+    download_base = fx$dir,
+    metadata = fx$cells,
+    gene_data = fx$genes,
+    genes = "G1",
+    offline = TRUE,
+    release = fx$version,
+    confirm = FALSE
+  )
+
+  expect_error(
+    fetch_data(plan = plan, genes = "G4"),
+    "Remove: genes"
+  )
+
+  expect_error(
+    fetch_data(
+      plan = plan,
+      data_type = "log2",
+      filters = list(donor_sex = "M")
+    ),
+    "Remove: filters, data_type"
+  )
+})
