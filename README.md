@@ -36,6 +36,14 @@ Then load it:
 library(ABCatlas)
 ```
 
+### Requirements
+
+- **R (>= 4.6.0)** and the matching Bioconductor release.
+- **No Python, compiler or system libraries.** HDF5 support comes from `rhdf5` and `Rhdf5lib`, which bundle the HDF5 library on Linux, macOS and Windows. `SingleCellExperiment` and `SpatialExperiment` outputs work out of the box.
+- **Optional:** `return_type = "monocle"` needs the `monocle` package, which is not installed with `ABCatlas` because of its many dependencies. Install it when needed with `BiocManager::install("monocle")`.
+- **Internet access** to the public ABC Atlas bucket, `https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com`, the first time each file is used. No account or credentials are needed. Behind a proxy, set the `https_proxy` environment variable before starting R.
+- **Disk space** for the local cache. Metadata files are small, but a single dataset's expression files can take several gigabytes. See [Downloads and local cache](#downloads-and-local-cache).
+
 ## Quick start
 
 The basic workflow is: choose a dataset, select cells, check the download, and fetch expression.
@@ -141,7 +149,7 @@ x <- fetch_data(
 )
 ```
 
-Returns a Monocle 2 `CellDataSet`. Monocle output uses the published raw expression representation; published `log2` expression is not converted into count semantics for Monocle 2.
+Returns a Monocle 2 `CellDataSet`. Requires `monocle` (`BiocManager::install("monocle")`). Monocle output uses the published raw expression representation; published `log2` expression is not converted into count semantics for Monocle 2.
 
 ## Raw and transformed expression
 
@@ -167,9 +175,16 @@ Some representations may contain expression for only a subset of the genes in th
 
 ## Downloads and local cache
 
-Downloaded files are cached so they do not need to be downloaded again.
+Downloaded files are cached so they do not need to be downloaded again. Only the files a request needs are downloaded, and interrupted downloads resume where they stopped. Use `plan_fetch()` to see how much a request will download before fetching.
 
-Set the cache location with:
+The cache directory is chosen in this order:
+
+1. the `download_base` argument of `load_data()`, `plan_fetch()`, `fetch_data()` or `abc_cache_connect()`;
+2. `options(ABCatlas.download_base = "/path/to/abc_atlas")`;
+3. the `ABC_ATLAS_CACHE` environment variable;
+4. a per-user cache directory, `tools::R_user_dir("ABCatlas", which = "cache")`.
+
+Point the cache at a disk with enough free space before fetching expression data, for example:
 
 ```r
 options(ABCatlas.download_base = "/path/to/abc_atlas")
