@@ -25,7 +25,7 @@ BugReports: https://github.com/me37uday/ABCatlas/issues
 biocViews: DataImport, DataRepresentation, GeneExpression, SingleCell,
     Spatial, Transcriptomics
 Depends:
-    R (>= 4.6.0)
+    R (>= 4.4.0)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 SystemRequirements: An internet connection the first time each file is used.

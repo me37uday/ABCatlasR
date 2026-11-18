@@ -36,7 +36,7 @@ library(ABCatlas)
 
 ### Requirements
 
-- **R (>= 4.6.0)** and the matching Bioconductor release.
+- **R (>= 4.4.0)** and the matching Bioconductor release.
 - **No Python, compiler or system libraries.** HDF5 support comes from `rhdf5` and `Rhdf5lib`, which bundle the HDF5 library on Linux, macOS and Windows. `SingleCellExperiment` and `SpatialExperiment` outputs work out of the box.
 - **Internet access** to the public ABC Atlas bucket, `https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com`, the first time each file is used. No account or credentials are needed. Behind a proxy, set the `https_proxy` environment variable before starting R.
 - **Disk space** for the local cache. Metadata files are small, but a single dataset's expression files can take several gigabytes. See [Downloads and local cache](#downloads-and-local-cache).
