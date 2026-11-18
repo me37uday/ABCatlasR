@@ -30,7 +30,7 @@
 #' (default) the available releases are listed from S3 and missing files are
 #' downloaded (and md5-verified) on first use; with \code{offline = TRUE} only
 #' manifests and files already on disk are used, and the network is never
-#' contacted.
+#' contacted and nothing is written to \code{download_base}.
 #'
 #' The manifest is chosen as in the Python \code{abc_atlas_access} package: the
 #' one last used with this directory if any (with a warning when a newer release
@@ -124,12 +124,27 @@ abc_cache_connect <- function(download_base = NULL, offline = FALSE,
   .abc_check_manifest_version(manifest$version)
 
   # Pin this manifest for later sessions. Written without a trailing newline, as
-  # abc_atlas_access compares the file content verbatim.
-  tryCatch(
-    cat(manifest_name, file = file.path(download_base, "_manifest_last_used.txt")),
-    error = function(e) warning("Could not record the manifest in use: ",
-                                conditionMessage(e), call. = FALSE)
-  )
+  # abc_atlas_access compares the file content verbatim. Offline connections
+  # only read local data and never modify the cache directory.
+  if (!offline) {
+    pin_failed <- function(cond) {
+      warning(
+        "Could not record the manifest in use: ",
+        conditionMessage(cond),
+        call. = FALSE
+      )
+    }
+
+    tryCatch(
+      writeLines(
+        manifest_name,
+        file.path(download_base, "_manifest_last_used.txt"),
+        sep = ""
+      ),
+      warning = pin_failed,
+      error = pin_failed
+    )
+  }
 
   cache <- list(
     download_base = download_base,

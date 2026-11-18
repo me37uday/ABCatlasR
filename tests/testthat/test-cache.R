@@ -3,16 +3,31 @@ test_that("offline connect fails fast without a local manifest", {
                "no local manifest")
 })
 
-test_that("offline connect loads the local manifest and pins it", {
+test_that("offline connect loads the local manifest without writing to the cache", {
   fx <- make_fixture_cache()
   cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
   expect_s3_class(cache, "abc_cache")
   expect_equal(cache$manifest_name, "releases/20250101/manifest.json")
   expect_equal(cache$version, "20250101")
-  # Written without a newline, as abc_atlas_access reads it verbatim.
-  expect_identical(readChar(file.path(fx$dir, "_manifest_last_used.txt"), 1000),
-                   "releases/20250101/manifest.json")
+  expect_false(file.exists(file.path(fx$dir, "_manifest_last_used.txt")))
   expect_output(print(cache), "abc_cache")
+})
+
+test_that("online connect records the manifest in use", {
+  fx <- make_fixture_cache()
+
+  local_mocked_bindings(
+    .abc_remote_manifests = function() "releases/20250101/manifest.json"
+  )
+
+  cache <- abc_cache_connect(fx$dir, offline = FALSE, release = fx$version)
+
+  expect_false(cache$offline)
+  # Written without a newline, as abc_atlas_access reads it verbatim.
+  expect_identical(
+    readChar(file.path(fx$dir, "_manifest_last_used.txt"), 1000),
+    "releases/20250101/manifest.json"
+  )
 })
 
 test_that("file attributes resolve plain names and name/kind", {
@@ -220,7 +235,7 @@ test_that("release must be a YYYYMMDD version", {
   )
 })
 
-test_that("explicit release overrides the last-used manifest", {
+test_that("explicit offline release overrides the last-used manifest without rewriting it", {
   fx <- make_fixture_cache()
 
   old_name <- "releases/20240101/manifest.json"
@@ -229,45 +244,22 @@ test_that("explicit release overrides the last-used manifest", {
   dir.create(dirname(old_path), recursive = TRUE, showWarnings = FALSE)
 
   manifest <- jsonlite::read_json(
-    file.path(
-      fx$dir,
-      "releases",
-      "20250101",
-      "manifest.json"
-    )
+    file.path(fx$dir, "releases", "20250101", "manifest.json")
   )
-
   manifest$version <- "20240101"
+  jsonlite::write_json(manifest, old_path, auto_unbox = TRUE)
 
-  jsonlite::write_json(
-    manifest,
-    old_path,
-    auto_unbox = TRUE
-  )
+  cat(old_name, file = file.path(fx$dir, "_manifest_last_used.txt"))
 
-  cat(
-    old_name,
-    file = file.path(fx$dir, "_manifest_last_used.txt")
-  )
+  cache <- abc_cache_connect(fx$dir, offline = TRUE, release = "20250101")
 
-  cache <- abc_cache_connect(
-    fx$dir,
-    offline = TRUE,
-    release = "20250101"
-  )
-
-  expect_equal(
-    cache$manifest_name,
-    "releases/20250101/manifest.json"
-  )
+  expect_equal(cache$manifest_name, "releases/20250101/manifest.json")
   expect_equal(cache$version, "20250101")
 
+  # Offline connections never modify the cache directory.
   expect_identical(
-    readChar(
-      file.path(fx$dir, "_manifest_last_used.txt"),
-      1000
-    ),
-    "releases/20250101/manifest.json"
+    readChar(file.path(fx$dir, "_manifest_last_used.txt"), 1000),
+    old_name
   )
 })
 

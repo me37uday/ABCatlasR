@@ -37,7 +37,7 @@ read ABC Atlas files under \code{download_base}. With \code{offline = FALSE}
 (default) the available releases are listed from S3 and missing files are
 downloaded (and md5-verified) on first use; with \code{offline = TRUE} only
 manifests and files already on disk are used, and the network is never
-contacted.
+contacted and nothing is written to \code{download_base}.
 }
 \details{
 The manifest is chosen as in the Python \code{abc_atlas_access} package: the
