@@ -309,55 +309,6 @@
     )
 }
 
-.abc_materialize_monocle <- function(
-        expression,
-        cell_metadata,
-        gene_data,
-        data_type,
-        provenance
-) {
-    if (!identical(data_type, "raw")) {
-        stop(
-            "return_type = \"monocle\" requires raw expression data; ",
-            "the published log2 representation cannot be used as ",
-            "a count-based Monocle 2 CellDataSet.",
-            call. = FALSE
-        )
-    }
-
-    monocle_gene_data <- gene_data
-
-    if (!"gene_short_name" %in% names(monocle_gene_data)) {
-        if ("gene_symbol" %in% names(monocle_gene_data)) {
-            monocle_gene_data$gene_short_name <- as.character(
-                monocle_gene_data$gene_symbol
-            )
-        } else {
-            monocle_gene_data$gene_short_name <- rownames(
-                monocle_gene_data
-            )
-        }
-    }
-
-    cds <- monocle::newCellDataSet(
-        expression,
-        phenoData = Biobase::AnnotatedDataFrame(
-            data = cell_metadata
-        ),
-        featureData = Biobase::AnnotatedDataFrame(
-            data = monocle_gene_data
-        )
-    )
-
-    experiment_data <- Biobase::experimentData(cds)
-
-    experiment_data@other$ABCatlas <- provenance
-
-    Biobase::experimentData(cds) <- experiment_data
-
-    cds
-}
-
 .abc_bioc_assays <- function(expression, data_type) {
     assay_name <- if (data_type == "raw") {
         "counts"
@@ -481,13 +432,6 @@
             coordinate_columns,
             prepared$provenance,
             spatial
-        ),
-        monocle = .abc_materialize_monocle(
-            prepared$expression,
-            prepared$cell_metadata,
-            prepared$gene_data,
-            data_type,
-            prepared$provenance
         )
     )
 }
@@ -504,7 +448,7 @@
 ) {
     return_type <- match.arg(
         return_type,
-        c("matrix", "sce", "spatial", "monocle")
+        c("matrix", "sce", "spatial")
     )
 
     prepared <- .abc_prepare_materialization(
@@ -625,6 +569,22 @@
     )
 }
 
+# Seurat and Monocle objects are built by the user from the matrix bundle
+# (see "Converting to other formats" in ?fetch_data). Asking for one of them
+# points there instead of giving match.arg()'s generic error.
+.abc_match_return_type <- function(return_type) {
+    if (length(return_type) == 1L &&
+        tolower(return_type) %in% c("monocle", "monocle3", "seurat")) {
+        stop(
+            "return_type = \"", return_type, "\" is not built in. ",
+            "Use return_type = \"matrix\" (or \"sce\") and convert the ",
+            "result; see \"Converting to other formats\" in ?fetch_data.",
+            call. = FALSE
+        )
+    }
+    match.arg(return_type, c("matrix", "sce", "spatial"))
+}
+
 # Validate the requested output representation before any expression file is
 # resolved or downloaded, so incompatible requests fail without a transfer.
 # The materializers repeat these checks as a second line of defence.
@@ -634,15 +594,6 @@
         cell_metadata,
         coordinate_columns
 ) {
-    if (identical(return_type, "monocle") && !identical(data_type, "raw")) {
-        stop(
-            "return_type = \"monocle\" requires raw expression data; ",
-            "the published log2 representation cannot be used as ",
-            "a count-based Monocle 2 CellDataSet.",
-            call. = FALSE
-        )
-    }
-
     if (identical(return_type, "spatial")) {
         if (is.null(coordinate_columns) &&
             !isTRUE(attr(cell_metadata, "abc_spatial"))) {
@@ -722,9 +673,10 @@
 #'   identifier, then against \code{gene_symbol}; a symbol shared by several
 #'   genes is reported as ambiguous. If \code{NULL}, all genes are used.
 #' @param return_type Output format: \code{"matrix"} for the primary sparse
-#'   expression bundle, \code{"sce"} for a SingleCellExperiment,
-#'   \code{"spatial"} for a SpatialExperiment, or \code{"monocle"} for
-#'   a Monocle 2 CellDataSet. The default is \code{"matrix"}.
+#'   expression bundle, \code{"sce"} for a SingleCellExperiment, or
+#'   \code{"spatial"} for a SpatialExperiment. The default is
+#'   \code{"matrix"}. For Seurat or Monocle 3 objects, see
+#'   "Converting to other formats" below.
 #' @param coordinate_columns Optional length-two character vector naming the
 #'   spatial x/y columns. Used only for \code{return_type = "spatial"}.
 #' @param data_type Published expression representation (`"raw"` or `"log2"`).
@@ -740,8 +692,36 @@
 #'   [plan_fetch()] and approved interactively. When supplied, the cells,
 #'   genes, release, cache directory and representation stored in the plan
 #'   are used, and the download is not confirmed again.
-#' @return The requested expression representation: a sparse matrix bundle,
-#'   SingleCellExperiment, SpatialExperiment, or Monocle 2 CellDataSet.
+#' @return The requested expression representation: a sparse matrix bundle
+#'   (a list with \code{expression}, \code{cell_metadata},
+#'   \code{gene_data}, \code{data_type} and \code{provenance}), a
+#'   SingleCellExperiment, or a SpatialExperiment.
+#' @section Converting to other formats:
+#' Seurat and Monocle 3 objects are not built by this package, which keeps
+#' its dependencies small. Fetch raw expression as a matrix bundle and
+#' convert it with the package you use. Both tools expect count data, so use
+#' \code{data_type = "raw"}.
+#'
+#' ```r
+#' x <- fetch_data(abc, genes = genes, data_type = "raw")
+#'
+#' # Seurat (package SeuratObject). Seurat replaces "_" in feature names.
+#' counts <- x$expression
+#' rownames(counts) <- gsub("_", "-", rownames(counts))
+#' seu <- SeuratObject::CreateSeuratObject(
+#'     counts = counts,
+#'     meta.data = x$cell_metadata
+#' )
+#'
+#' # Monocle 3 (package monocle3, installed from GitHub).
+#' gene_metadata <- x$gene_data
+#' gene_metadata$gene_short_name <- gene_metadata$gene_symbol
+#' cds <- monocle3::new_cell_data_set(
+#'     x$expression,
+#'     cell_metadata = x$cell_metadata,
+#'     gene_metadata = gene_metadata
+#' )
+#' ```
 #' @examples
 #' example_dir <- system.file(
 #'     "extdata", "ex",
@@ -765,11 +745,11 @@
 fetch_data <- function(
         data = NULL, metadata = NULL, filters = list(),
         gene_data = NULL, genes = NULL,
-        return_type = c("matrix", "sce", "spatial", "monocle"),
+        return_type = c("matrix", "sce", "spatial"),
         coordinate_columns = NULL, data_type = NULL,
         offline = FALSE, release = NULL, download_base = NULL,
         plan = NULL) {
-    return_type <- match.arg(return_type)
+    return_type <- .abc_match_return_type(return_type)
     context <- .abc_fetch_context(
         plan = plan, data = data, metadata = metadata, filters = filters,
         gene_data = gene_data, genes = genes, data_type = data_type,

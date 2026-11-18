@@ -10,7 +10,7 @@ fetch_data(
   filters = list(),
   gene_data = NULL,
   genes = NULL,
-  return_type = c("matrix", "sce", "spatial", "monocle"),
+  return_type = c("matrix", "sce", "spatial"),
   coordinate_columns = NULL,
   data_type = NULL,
   offline = FALSE,
@@ -39,9 +39,10 @@ identifier, then against \code{gene_symbol}; a symbol shared by several
 genes is reported as ambiguous. If \code{NULL}, all genes are used.}
 
 \item{return_type}{Output format: \code{"matrix"} for the primary sparse
-expression bundle, \code{"sce"} for a SingleCellExperiment,
-\code{"spatial"} for a SpatialExperiment, or \code{"monocle"} for
-a Monocle 2 CellDataSet. The default is \code{"matrix"}.}
+expression bundle, \code{"sce"} for a SingleCellExperiment, or
+\code{"spatial"} for a SpatialExperiment. The default is
+\code{"matrix"}. For Seurat or Monocle 3 objects, see
+"Converting to other formats" below.}
 
 \item{coordinate_columns}{Optional length-two character vector naming the
 spatial x/y columns. Used only for \code{return_type = "spatial"}.}
@@ -68,12 +69,42 @@ genes, release, cache directory and representation stored in the plan
 are used, and the download is not confirmed again.}
 }
 \value{
-The requested expression representation: a sparse matrix bundle,
-SingleCellExperiment, SpatialExperiment, or Monocle 2 CellDataSet.
+The requested expression representation: a sparse matrix bundle
+(a list with \code{expression}, \code{cell_metadata},
+\code{gene_data}, \code{data_type} and \code{provenance}), a
+SingleCellExperiment, or a SpatialExperiment.
 }
 \description{
 Fetch selected ABC Atlas expression into an R analysis representation
 }
+\section{Converting to other formats}{
+
+Seurat and Monocle 3 objects are not built by this package, which keeps
+its dependencies small. Fetch raw expression as a matrix bundle and
+convert it with the package you use. Both tools expect count data, so use
+\code{data_type = "raw"}.
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{x <- fetch_data(abc, genes = genes, data_type = "raw")
+
+# Seurat (package SeuratObject). Seurat replaces "_" in feature names.
+counts <- x$expression
+rownames(counts) <- gsub("_", "-", rownames(counts))
+seu <- SeuratObject::CreateSeuratObject(
+    counts = counts,
+    meta.data = x$cell_metadata
+)
+
+# Monocle 3 (package monocle3, installed from GitHub).
+gene_metadata <- x$gene_data
+gene_metadata$gene_short_name <- gene_metadata$gene_symbol
+cds <- monocle3::new_cell_data_set(
+    x$expression,
+    cell_metadata = x$cell_metadata,
+    gene_metadata = gene_metadata
+)
+}\if{html}{\out{</div>}}
+}
+
 \examples{
 example_dir <- system.file(
     "extdata", "ex",

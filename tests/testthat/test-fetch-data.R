@@ -1427,126 +1427,6 @@ test_that("matrix materialization preserves expression and metadata", {
     )
 })
 
-test_that("Monocle materialization keeps raw expression and metadata", {
-    expression <- Matrix::Matrix(
-        matrix(
-            c(
-                1, 0, 2,
-                0, 3, 1
-            ),
-            nrow = 2L,
-            byrow = TRUE,
-            dimnames = list(
-                c("G1", "G2"),
-                c("c1", "c2", "c3")
-            )
-        ),
-        sparse = TRUE
-    )
-
-    metadata <- data.frame(
-        cell_label = c("c1", "c2", "c3"),
-        cell_type = c("A", "B", "A"),
-        stringsAsFactors = FALSE,
-        row.names = c("c1", "c2", "c3")
-    )
-
-    genes <- data.frame(
-        gene_identifier = c("G1", "G2"),
-        gene_symbol = c("GENE_A", "GENE_B"),
-        stringsAsFactors = FALSE,
-        row.names = c("G1", "G2")
-    )
-
-    out <- .abc_materialize(
-        expression,
-        metadata,
-        genes,
-        data_type = "raw",
-        return_type = "monocle",
-        provenance = list(
-            dataset = "TEST"
-        )
-    )
-
-    expect_s4_class(
-        out,
-        "CellDataSet"
-    )
-
-    expect_equal(
-        unname(as.matrix(Biobase::exprs(out))),
-        unname(as.matrix(expression))
-    )
-
-    expect_identical(
-        rownames(Biobase::pData(out)),
-        c("c1", "c2", "c3")
-    )
-
-    expect_identical(
-        Biobase::pData(out)$cell_type,
-        c("A", "B", "A")
-    )
-
-    expect_identical(
-        rownames(Biobase::fData(out)),
-        c("G1", "G2")
-    )
-
-    expect_identical(
-        Biobase::fData(out)$gene_short_name,
-        c("GENE_A", "GENE_B")
-    )
-
-    expect_identical(
-        Biobase::experimentData(out)@other$ABCatlas$dataset,
-        "TEST"
-    )
-})
-
-test_that("Monocle materialization rejects published log2 expression", {
-    expression <- Matrix::Matrix(
-        matrix(
-            c(
-                0.5, 0,
-                1.5, 2
-            ),
-            nrow = 2L,
-            byrow = TRUE,
-            dimnames = list(
-                c("G1", "G2"),
-                c("c1", "c2")
-            )
-        ),
-        sparse = TRUE
-    )
-
-    metadata <- data.frame(
-        cell_label = c("c1", "c2"),
-        stringsAsFactors = FALSE,
-        row.names = c("c1", "c2")
-    )
-
-    genes <- data.frame(
-        gene_identifier = c("G1", "G2"),
-        gene_symbol = c("GENE_A", "GENE_B"),
-        stringsAsFactors = FALSE,
-        row.names = c("G1", "G2")
-    )
-
-    expect_error(
-        .abc_materialize(
-            expression,
-            metadata,
-            genes,
-            data_type = "log2",
-            return_type = "monocle"
-        ),
-        "requires raw expression data"
-    )
-})
-
 test_that("spatial coordinate selection prefers canonical route coordinates", {
     metadata <- data.frame(
         cell_label = c("c1", "c2"),
@@ -1952,28 +1832,6 @@ test_that("all return formats preserve ABC provenance", {
 
     expect_identical(
         matrix_out$provenance,
-        provenance
-    )
-
-    monocle_out <- .abc_materialize(
-        expression,
-        metadata,
-        genes,
-        data_type = "raw",
-        return_type = "monocle",
-        provenance = provenance,
-        spatial = TRUE
-    )
-
-    expect_s4_class(
-        monocle_out,
-        "CellDataSet"
-    )
-
-    expect_identical(
-        Biobase::experimentData(
-            monocle_out
-        )@other$ABCatlas,
         provenance
     )
 
@@ -2674,11 +2532,13 @@ test_that("invalid output requests fail before expression is read", {
     )
 
     expect_error(
-        suppressMessages(do.call(
-            fetch_data,
-            c(base_args, list(return_type = "monocle", data_type = "log2"))
-        )),
-        "requires raw expression data"
+        do.call(fetch_data, c(base_args, list(return_type = "monocle"))),
+        "is not built in"
+    )
+
+    expect_error(
+        do.call(fetch_data, c(base_args, list(return_type = "seurat"))),
+        "Converting to other formats"
     )
 
     expect_error(
