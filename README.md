@@ -131,17 +131,35 @@ x <- fetch_data(
 
 Requires `SpatialExperiment`. Spatial coordinates provided by the dataset are included in the returned object.
 
-### Monocle 2
+### Seurat and Monocle 3
+
+`ABCatlas` does not build Seurat or Monocle objects itself, which keeps its
+dependencies small. Fetch raw expression as a matrix bundle and convert it
+with the package you use:
 
 ```r
-x <- fetch_data(
-  abc,
-  genes = genes,
-  return_type = "monocle"
+x <- fetch_data(abc, genes = genes, data_type = "raw")
+
+# Seurat (requires SeuratObject). Seurat replaces "_" in feature names.
+counts <- x$expression
+rownames(counts) <- gsub("_", "-", rownames(counts))
+seu <- SeuratObject::CreateSeuratObject(
+  counts = counts,
+  meta.data = x$cell_metadata
+)
+
+# Monocle 3 (requires monocle3, installed from GitHub)
+gene_metadata <- x$gene_data
+gene_metadata$gene_short_name <- gene_metadata$gene_symbol
+cds <- monocle3::new_cell_data_set(
+  x$expression,
+  cell_metadata = x$cell_metadata,
+  gene_metadata = gene_metadata
 )
 ```
 
-Returns a Monocle 2 `CellDataSet`. Monocle output uses the published raw expression representation; published `log2` expression is not converted into count semantics for Monocle 2.
+Use raw expression for these count-based tools; published `log2` expression is
+already transformed upstream.
 
 ## Raw and transformed expression
 
