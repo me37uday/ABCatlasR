@@ -14,11 +14,10 @@
     return(invisible(NULL))
   }
 
-  cat(
+  message(
     "\r",
     text,
-    "    \n",
-    sep = ""
+    "    "
   )
 
   flush.console()
@@ -37,13 +36,13 @@
     }
 
     if (answer %in% c("n", "no")) {
-      cat(
-        "Download cancelled. No expression files were downloaded.\n"
+      message(
+        "Download cancelled. No expression files were downloaded."
       )
       return(FALSE)
     }
 
-    cat("Please enter y or n.\n")
+    message("Please enter y or n.")
   }
 }
 
@@ -102,19 +101,15 @@
     return(invisible(NULL))
   }
 
-  cat(
+  message(
     "\r",
     strrep(" ", 120L),
     "\r",
-    sep = ""
+    appendLF = FALSE
   )
 
   if (!is.null(text)) {
-    cat(
-      text,
-      "\n",
-      sep = ""
-    )
+    message(text)
   }
 
   flush.console()
