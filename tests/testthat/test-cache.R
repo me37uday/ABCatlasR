@@ -322,31 +322,56 @@ test_that("available space reports the filesystem capacity", {
   expect_true(is.na(space) || space >= 0)
 })
 
-test_that("macOS available-space helper reports a scalar", {
-  if (!identical(Sys.info()[["sysname"]], "Darwin")) {
-    skip("macOS-specific test")
-  }
+test_that("POSIX available-space helper reports a scalar", {
+  skip_on_os("windows")
 
-  space <- .abc_available_space_macos(tempdir())
+  space <- .abc_available_space_posix(tempdir())
 
   expect_type(space, "double")
   expect_length(space, 1L)
   expect_true(is.na(space) || space >= 0)
 })
 
-test_that("Unix available-space helper reports a scalar", {
-  if (
-    .Platform$OS.type == "windows" ||
-    identical(Sys.info()[["sysname"]], "Darwin")
-  ) {
-    skip("Linux/Unix-specific test")
-  }
+test_that("POSIX available-space helper handles paths with spaces", {
+  skip_on_os("windows")
 
-  space <- .abc_available_space_unix(tempdir())
+  dir <- file.path(withr::local_tempdir(), "dir with spaces")
+  dir.create(dir)
 
-  expect_type(space, "double")
-  expect_length(space, 1L)
-  expect_true(is.na(space) || space >= 0)
+  space <- .abc_available_space_posix(dir)
+
+  expect_false(is.na(space))
+  expect_gt(space, 0)
+})
+
+test_that("POSIX df parsing tolerates spaces in filesystem and mount names", {
+  local_mocked_bindings(
+    .abc_command_output = function(command, args) {
+      c(
+        "Filesystem 1024-blocks Used Available Capacity Mounted on",
+        "map auto_home 100 40 60 40% /Volumes/my data"
+      )
+    }
+  )
+
+  expect_identical(.abc_available_space_posix(tempdir()), 60 * 1024)
+})
+
+test_that("POSIX available-space helper returns NA when df fails", {
+  local_mocked_bindings(
+    .abc_command_output = function(command, args) character()
+  )
+
+  expect_identical(.abc_available_space_posix(tempdir()), NA_real_)
+})
+
+test_that("byte parsing accepts digits only, without warnings", {
+  expect_identical(.abc_parse_bytes("2048", 1024), 2048 * 1024)
+  expect_identical(.abc_parse_bytes(" 15 "), 15)
+  expect_no_warning(expect_true(is.na(.abc_parse_bytes("45%"))))
+  expect_true(is.na(.abc_parse_bytes("")))
+  expect_true(is.na(.abc_parse_bytes(NA_character_)))
+  expect_true(is.na(.abc_parse_bytes(c("1", "2"))))
 })
 
 test_that("Windows available-space helper reports a scalar", {

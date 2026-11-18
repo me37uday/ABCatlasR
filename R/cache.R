@@ -682,24 +682,46 @@ print.abc_cache <- function(x, ...) {
     return(.abc_available_space_windows(path))
   }
 
-  if (identical(Sys.info()[["sysname"]], "Darwin")) {
-    return(.abc_available_space_macos(path))
-  }
-
-  .abc_available_space_unix(path)
+  .abc_available_space_posix(path)
 }
 
-.abc_available_space_macos <- function(path) {
-  out <- tryCatch(
-    suppressWarnings(
-      system2(
-        "df",
-        c("-k", path),
-        stdout = TRUE,
-        stderr = FALSE
-      )
+# Convert a string of decimal digits to bytes. Anything else (a header, a
+# percentage, an empty string) gives NA instead of a coercion warning.
+.abc_parse_bytes <- function(x, multiplier = 1) {
+  x <- trimws(as.character(x))
+
+  if (length(x) != 1L || is.na(x) || !grepl("^[0-9]+$", x)) {
+    return(NA_real_)
+  }
+
+  as.numeric(x) * multiplier
+}
+
+# Run a system command and return its stdout lines, or character() if the
+# command is missing, fails, or exits with a non-zero status.
+.abc_command_output <- function(command, args) {
+  tryCatch(
+    system2(
+      command,
+      args,
+      stdout = TRUE,
+      stderr = FALSE
     ),
+    warning = function(w) character(),
     error = function(e) character()
+  )
+}
+
+# Free space, in bytes, on the filesystem holding `path` (macOS, Linux and
+# other POSIX systems). `df -P` prints exactly one line per filesystem, so long
+# device names (for example network mounts on HPC clusters) cannot wrap. The
+# path is quoted because system2() passes arguments to the shell unquoted.
+# Available space is the field immediately before the "NN%" capacity column,
+# which tolerates spaces in the filesystem or mount-point names.
+.abc_available_space_posix <- function(path) {
+  out <- .abc_command_output(
+    "df",
+    c("-Pk", shQuote(path))
   )
 
   if (length(out) < 2L) {
@@ -707,102 +729,39 @@ print.abc_cache <- function(x, ...) {
   }
 
   fields <- strsplit(
-    trimws(out[length(out)]),
+    trimws(out[[length(out)]]),
     "[[:space:]]+"
   )[[1L]]
 
-  if (length(fields) < 4L) {
+  capacity <- which(grepl("^[0-9]+%$", fields))
+
+  if (!length(capacity) || capacity[[1L]] < 2L) {
     return(NA_real_)
   }
 
-  space <- suppressWarnings(
-    as.numeric(fields[4L]) * 1024
+  .abc_parse_bytes(
+    fields[[capacity[[1L]] - 1L]],
+    multiplier = 1024
   )
-
-  if (!is.finite(space) || space < 0) {
-    return(NA_real_)
-  }
-
-  space
-}
-
-.abc_available_space_unix <- function(path) {
-  out <- tryCatch(
-    suppressWarnings(
-      system2(
-        "df",
-        c("-k", path),
-        stdout = TRUE,
-        stderr = FALSE
-      )
-    ),
-    error = function(e) character()
-  )
-
-  if (length(out) < 2L) {
-    return(NA_real_)
-  }
-
-  fields <- strsplit(
-    trimws(out[length(out)]),
-    "[[:space:]]+"
-  )[[1L]]
-
-  if (length(fields) < 4L) {
-    return(NA_real_)
-  }
-
-  space <- suppressWarnings(
-    as.numeric(fields[4L]) * 1024
-  )
-
-  if (!is.finite(space) || space < 0) {
-    return(NA_real_)
-  }
-
-  space
 }
 
 .abc_available_space_windows <- function(path) {
-  drive <- paste0(
-    substr(path, 1L, 1L),
-    ":"
-  )
+  drive_letter <- substr(path, 1L, 1L)
 
-  drive_letter <- substr(drive, 1L, 1L)
-
-  out <- tryCatch(
-    suppressWarnings(
-      system2(
-        "powershell",
-        c(
-          "-NoProfile",
-          "-Command",
-          sprintf(
-            "(Get-PSDrive -Name %s).Free",
-            drive_letter
-          )
-        ),
-        stdout = TRUE,
-        stderr = FALSE
-      )
-    ),
-    error = function(e) character()
+  out <- .abc_command_output(
+    "powershell",
+    c(
+      "-NoProfile",
+      "-Command",
+      sprintf("(Get-PSDrive -Name %s).Free", drive_letter)
+    )
   )
 
   if (!length(out)) {
     return(NA_real_)
   }
 
-  space <- suppressWarnings(
-    as.numeric(out[[1L]])
-  )
-
-  if (!is.finite(space) || space < 0) {
-    return(NA_real_)
-  }
-
-  space
+  .abc_parse_bytes(out[[1L]])
 }
 
 # ---- Record of completed downloads (_downloaded_data.json) -------------------
