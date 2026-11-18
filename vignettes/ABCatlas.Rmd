@@ -12,20 +12,20 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
+    collapse = TRUE,
+    comment = "#>"
 )
 
 vignette_snapshot <- readRDS(
-  system.file(
-    "extdata", "vignette", "AgingMouse-STR-1000-plan.rds",
-    package = "ABCatlas", mustWork = TRUE
-  )
+    system.file(
+        "extdata", "vignette", "AgingMouse-STR-1000-plan.rds",
+        package = "ABCatlas", mustWork = TRUE
+    )
 )
 
 vignette_plan_cache <- system.file(
-  "extdata", "vignette", "AgingMouse-plan-cache",
-  package = "ABCatlas", mustWork = TRUE
+    "extdata", "vignette", "AgingMouse-plan-cache",
+    package = "ABCatlas", mustWork = TRUE
 )
 ```
 
@@ -107,7 +107,7 @@ fetch the large expression matrices.
 
 ```{r load-data, eval=FALSE}
 abc <- load_data(
-  "AgingMouse"
+    "AgingMouse"
 )
 
 abc
@@ -142,14 +142,14 @@ value specifies which cells to retain. For example,
 
 ## Offline here: the bundled striatal sample, restricted to female donors.
 female_plan <- plan_fetch(
-  metadata = vignette_snapshot$cells,
-  gene_data = vignette_snapshot$genes,
-  genes = vignette_snapshot$genes_requested,
-  filters = list(donor_sex = "F"),
-  download_base = vignette_plan_cache,
-  offline = TRUE,
-  release = vignette_snapshot$release,
-  confirm = FALSE
+    metadata = vignette_snapshot$cells,
+    gene_data = vignette_snapshot$genes,
+    genes = vignette_snapshot$genes_requested,
+    filters = list(donor_sex = "F"),
+    download_base = vignette_plan_cache,
+    offline = TRUE,
+    release = vignette_snapshot$release,
+    confirm = FALSE
 )
 
 female_plan$n_cells
@@ -166,8 +166,8 @@ When the desired cells are already known, `cell_ids` selects those exact
 cell labels:
 ```{r cell-id-selection, eval=FALSE}
 abc_exact <- load_data(
-  "AgingMouse",
-  cell_ids = my_cell_labels
+    "AgingMouse",
+    cell_ids = my_cell_labels
 )
 ```
 
@@ -196,26 +196,26 @@ inspect the request with `plan_fetch()`:
 
 ```{r plan-fetch}
 genes <- c(
-  "P2ry12",
-  "Cx3cr1",
-  "Tmem119",
-  "Apoe",
-  "Cst3",
-  "Mrc1",
-  "Trem2",
-  "Hexb",
-  "Tyrobp",
-  "Sall1"
+    "P2ry12",
+    "Cx3cr1",
+    "Tmem119",
+    "Apoe",
+    "Cst3",
+    "Mrc1",
+    "Trem2",
+    "Hexb",
+    "Tyrobp",
+    "Sall1"
 )
 
 plan <- plan_fetch(
-  metadata = vignette_snapshot$cells,
-  gene_data = vignette_snapshot$genes,
-  genes = vignette_snapshot$genes_requested,
-  download_base = vignette_plan_cache,
-  offline = TRUE,
-  release = vignette_snapshot$release,
-  confirm = FALSE
+    metadata = vignette_snapshot$cells,
+    gene_data = vignette_snapshot$genes,
+    genes = vignette_snapshot$genes_requested,
+    download_base = vignette_plan_cache,
+    offline = TRUE,
+    release = vignette_snapshot$release,
+    confirm = FALSE
 )
 
 plan
@@ -246,8 +246,8 @@ Four output formats are available.
 
 ```{r inspect-matrix-result, eval=FALSE}
 x <- fetch_data(
-  plan = plan,
-  return_type = "matrix"
+    plan = plan,
+    return_type = "matrix"
 )
 x$expression
 x$cell_metadata
@@ -267,8 +267,8 @@ package.
 
 ```{r fetch-monocle, eval=FALSE}
 x <- fetch_data(
-  plan = plan,
-  return_type = "monocle"
+    plan = plan,
+    return_type = "monocle"
 )
 ```
 
@@ -280,8 +280,8 @@ into count semantics for Monocle 2.
 
 ```{r fetch-sce, eval=FALSE}
 x <- fetch_data(
-  plan = plan,
-  return_type = "sce"
+    plan = plan,
+    return_type = "sce"
 )
 ```
 
@@ -294,15 +294,15 @@ For a spatial route:
 
 ```{r spatial-output, eval=FALSE}
 spatial_abc <- load_data(
-  "MERFISH",
-  n_cells = 1000,
-  seed = 1
+    "MERFISH",
+    n_cells = 1000,
+    seed = 1
 )
 
 x <- fetch_data(
-  spatial_abc,
-  genes = genes,
-  return_type = "spatial"
+    spatial_abc,
+    genes = genes,
+    return_type = "spatial"
 )
 
 SpatialExperiment::spatialCoords(x)
@@ -310,13 +310,13 @@ SpatialExperiment::spatialCoords(x)
 # For routes without canonical spatial coordinates, verified columns
 # can be supplied explicitly.
 y <- fetch_data(
-  abc,
-  genes = genes,
-  return_type = "spatial",
-  coordinate_columns = c(
-    "x_experiment",
-    "y_experiment"
-  )
+    abc,
+    genes = genes,
+    return_type = "spatial",
+    coordinate_columns = c(
+        "x_experiment",
+        "y_experiment"
+    )
 )
 ```
 
@@ -335,13 +335,13 @@ Inspect them with:
 
 ```{r data-types}
 as.data.frame(list_datasets())[
-  ,
-  c(
-    "dataset",
-    "default_data_type",
-    "available_data_types",
-    "imputed"
-  )
+    ,
+    c(
+        "dataset",
+        "default_data_type",
+        "available_data_types",
+        "imputed"
+    )
 ]
 ```
 
@@ -360,22 +360,22 @@ Expression rows are keyed by canonical `gene_identifier`.
 
 ```{r gene-identifiers, eval=FALSE}
 head(
-  abc$gene_data[
-    ,
-    c(
-      "gene_identifier",
-      "gene_symbol"
-    )
-  ]
+    abc$gene_data[
+        ,
+        c(
+            "gene_identifier",
+            "gene_symbol"
+        )
+    ]
 )
 
 fetch_data(
-  abc,
-  genes = c(
-    "P2ry12",
-    "Cx3cr1"
-  ),
-  return_type = "matrix"
+    abc,
+    genes = c(
+        "P2ry12",
+        "Cx3cr1"
+    ),
+    return_type = "matrix"
 )
 ```
 
@@ -403,15 +403,15 @@ Once required files are cached:
 
 ```{r offline-workflow, eval=FALSE}
 abc <- load_data(
-  "AgingMouse",
-  offline = TRUE
+    "AgingMouse",
+    offline = TRUE
 )
 
 x <- fetch_data(
-  abc,
-  genes = genes,
-  return_type = "matrix",
-  offline = TRUE
+    abc,
+    genes = genes,
+    return_type = "matrix",
+    offline = TRUE
 )
 ```
 
@@ -426,9 +426,9 @@ vignette reads local files only:
 
 ```{r cache-access}
 cache <- abc_cache_connect(
-  vignette_plan_cache,
-  offline = TRUE,
-  release = vignette_snapshot$release
+    vignette_plan_cache,
+    offline = TRUE,
+    release = vignette_snapshot$release
 )
 cache
 ```

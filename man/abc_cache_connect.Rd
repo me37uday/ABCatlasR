@@ -49,14 +49,14 @@ download directory can be shared between them.
 }
 \examples{
 example_dir <- system.file(
-  "extdata", "ex",
-  package = "ABCatlas"
+    "extdata", "ex",
+    package = "ABCatlas"
 )
 
 cache <- abc_cache_connect(
-  example_dir,
-  offline = TRUE,
-  release = "20250101"
+    example_dir,
+    offline = TRUE,
+    release = "20250101"
 )
 cache
 

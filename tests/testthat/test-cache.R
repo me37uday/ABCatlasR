@@ -1,388 +1,391 @@
 test_that("offline connect fails fast without a local manifest", {
-  expect_error(abc_cache_connect(withr::local_tempdir(), offline = TRUE),
-               "no local manifest")
+    expect_error(
+        abc_cache_connect(withr::local_tempdir(), offline = TRUE),
+        "no local manifest"
+    )
 })
 
 test_that("offline connect loads the local manifest without writing to the cache", {
-  fx <- make_fixture_cache()
-  cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
-  expect_s3_class(cache, "abc_cache")
-  expect_equal(cache$manifest_name, "releases/20250101/manifest.json")
-  expect_equal(cache$version, "20250101")
-  expect_false(file.exists(file.path(fx$dir, "_manifest_last_used.txt")))
-  expect_output(print(cache), "abc_cache")
+    fx <- make_fixture_cache()
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
+    expect_s3_class(cache, "abc_cache")
+    expect_equal(cache$manifest_name, "releases/20250101/manifest.json")
+    expect_equal(cache$version, "20250101")
+    expect_false(file.exists(file.path(fx$dir, "_manifest_last_used.txt")))
+    expect_output(print(cache), "abc_cache")
 })
 
 test_that("online connect records the manifest in use", {
-  fx <- make_fixture_cache()
+    fx <- make_fixture_cache()
 
-  local_mocked_bindings(
-    .abc_remote_manifests = function() "releases/20250101/manifest.json"
-  )
+    local_mocked_bindings(
+        .abc_remote_manifests = function() "releases/20250101/manifest.json"
+    )
 
-  cache <- abc_cache_connect(fx$dir, offline = FALSE, release = fx$version)
+    cache <- abc_cache_connect(fx$dir, offline = FALSE, release = fx$version)
 
-  expect_false(cache$offline)
-  # Written without a newline, as abc_atlas_access reads it verbatim.
-  expect_identical(
-    readChar(file.path(fx$dir, "_manifest_last_used.txt"), 1000),
-    "releases/20250101/manifest.json"
-  )
+    expect_false(cache$offline)
+    # Written without a newline, as abc_atlas_access reads it verbatim.
+    expect_identical(
+        readChar(file.path(fx$dir, "_manifest_last_used.txt"), 1000),
+        "releases/20250101/manifest.json"
+    )
 })
 
 test_that("file attributes resolve plain names and name/kind", {
-  fx <- make_fixture_cache()
-  cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
+    fx <- make_fixture_cache()
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
 
-  a <- .abc_file_attributes(cache, "TEST-10X", "gene")
-  expect_equal(a$relative_path, "metadata/TEST-10X/20250101/gene.csv")
-  expect_equal(a$file_type, "csv")
-  expect_equal(
-    normalizePath(a$local_path, mustWork = TRUE),
-    normalizePath(
-      file.path(fx$dir, a$relative_path),
-      mustWork = TRUE
+    a <- .abc_file_attributes(cache, "TEST-10X", "gene")
+    expect_equal(a$relative_path, "metadata/TEST-10X/20250101/gene.csv")
+    expect_equal(a$file_type, "csv")
+    expect_equal(
+        normalizePath(a$local_path, mustWork = TRUE),
+        normalizePath(
+            file.path(fx$dir, a$relative_path),
+            mustWork = TRUE
+        )
     )
-  )
 
-  b <- .abc_file_attributes(cache, "TEST-10X", "TEST-A/raw")
-  expect_equal(b$file_type, "h5ad")
+    b <- .abc_file_attributes(cache, "TEST-10X", "TEST-A/raw")
+    expect_equal(b$file_type, "h5ad")
 
-  expect_error(.abc_file_attributes(cache, "TEST-10X", "TEST-A"), "TEST-A/raw")
-  expect_error(.abc_file_attributes(cache, "TEST-10X", "nope"), "not found")
-  expect_error(.abc_file_attributes(cache, "NOPE", "gene"), "not found in manifest")
+    expect_error(.abc_file_attributes(cache, "TEST-10X", "TEST-A"), "TEST-A/raw")
+    expect_error(.abc_file_attributes(cache, "TEST-10X", "nope"), "not found")
+    expect_error(.abc_file_attributes(cache, "NOPE", "gene"), "not found in manifest")
 })
 
 test_that("offline get_file_path errors for files that were never downloaded", {
-  fx <- make_fixture_cache()
-  cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
-  unlink(file.path(fx$dir, "metadata/TEST-10X/20250101/gene.csv"))
-  expect_error(cache$get_file_path("TEST-10X", "gene"), "not available locally")
+    fx <- make_fixture_cache()
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
+    unlink(file.path(fx$dir, "metadata/TEST-10X/20250101/gene.csv"))
+    expect_error(cache$get_file_path("TEST-10X", "gene"), "not available locally")
 })
 
 test_that("manifest choice follows the last-used / latest rules", {
-  dir <- withr::local_tempdir()
-  avail <- c("releases/20240101/manifest.json", "releases/20250101/manifest.json")
+    dir <- withr::local_tempdir()
+    avail <- c("releases/20240101/manifest.json", "releases/20250101/manifest.json")
 
-  expect_equal(.abc_choose_manifest(dir, avail), avail[2])
+    expect_equal(.abc_choose_manifest(dir, avail), avail[2])
 
-  cat(avail[1], file = file.path(dir, "_manifest_last_used.txt"))
-  expect_warning(m <- .abc_choose_manifest(dir, avail), "more up to date")
-  expect_equal(m, avail[1])
+    cat(avail[1], file = file.path(dir, "_manifest_last_used.txt"))
+    expect_warning(m <- .abc_choose_manifest(dir, avail), "more up to date")
+    expect_equal(m, avail[1])
 
-  cat("releases/19990101/manifest.json", file = file.path(dir, "_manifest_last_used.txt"))
-  expect_warning(m <- .abc_choose_manifest(dir, avail), "not a valid manifest")
-  expect_equal(m, avail[2])
+    cat("releases/19990101/manifest.json", file = file.path(dir, "_manifest_last_used.txt"))
+    expect_warning(m <- .abc_choose_manifest(dir, avail), "not a valid manifest")
+    expect_equal(m, avail[2])
 
-  unlink(file.path(dir, "_manifest_last_used.txt"))
-  dir.create(file.path(dir, "releases", "20240101"), recursive = TRUE)
-  file.create(file.path(dir, avail[1]))
-  expect_warning(m <- .abc_choose_manifest(dir, avail), "newer than")
-  expect_equal(m, avail[2])
+    unlink(file.path(dir, "_manifest_last_used.txt"))
+    dir.create(file.path(dir, "releases", "20240101"), recursive = TRUE)
+    file.create(file.path(dir, avail[1]))
+    expect_warning(m <- .abc_choose_manifest(dir, avail), "newer than")
+    expect_equal(m, avail[2])
 })
 
 test_that("manifest versions outside the supported window are rejected", {
-  expect_silent(.abc_check_manifest_version("20250101"))
-  expect_error(.abc_check_manifest_version("20220101"), "supports")
-  expect_error(.abc_check_manifest_version("20310101"), "supports")
+    expect_silent(.abc_check_manifest_version("20250101"))
+    expect_error(.abc_check_manifest_version("20220101"), "supports")
+    expect_error(.abc_check_manifest_version("20310101"), "supports")
 })
 
 test_that("download record is a JSON array of absolute paths", {
-  dir <- withr::local_tempdir()
-  f <- file.path(dir, "a.csv")
-  writeLines("x", f)
-  expect_false(.abc_is_recorded(dir, f))
-  .abc_record(dir, f)
-  .abc_record(dir, f)
-  expect_true(.abc_is_recorded(dir, f))
-  expect_equal(jsonlite::read_json(file.path(dir, "_downloaded_data.json"),
-                                   simplifyVector = TRUE), normalizePath(f))
-  .abc_unrecord(dir, f)
-  expect_false(.abc_is_recorded(dir, f))
+    dir <- withr::local_tempdir()
+    f <- file.path(dir, "a.csv")
+    writeLines("x", f)
+    expect_false(.abc_is_recorded(dir, f))
+    .abc_record(dir, f)
+    .abc_record(dir, f)
+    expect_true(.abc_is_recorded(dir, f))
+    expect_equal(jsonlite::read_json(file.path(dir, "_downloaded_data.json"),
+        simplifyVector = TRUE
+    ), normalizePath(f))
+    .abc_unrecord(dir, f)
+    expect_false(.abc_is_recorded(dir, f))
 })
 
 test_that("metadata CSVs are read like pandas.read_csv", {
-  path <- withr::local_tempfile(fileext = ".csv")
-  writeLines(c("id,txt,num", "007,a ,1", "008,NaN,", "009,None,3"), path)
-  df <- .abc_read_csv(path, col_classes = c(id = "character"))
-  expect_s3_class(df, "data.frame")
-  expect_equal(df$id, c("007", "008", "009"))   # col_classes respected
-  expect_equal(df$txt, c("a ", NA, NA))         # whitespace kept, pandas NA strings
-  expect_equal(df$num, c(1L, NA, 3L))
+    path <- withr::local_tempfile(fileext = ".csv")
+    writeLines(c("id,txt,num", "007,a ,1", "008,NaN,", "009,None,3"), path)
+    df <- .abc_read_csv(path, col_classes = c(id = "character"))
+    expect_s3_class(df, "data.frame")
+    expect_equal(df$id, c("007", "008", "009")) # col_classes respected
+    expect_equal(df$txt, c("a ", NA, NA)) # whitespace kept, pandas NA strings
+    expect_equal(df$num, c(1L, NA, 3L))
 })
 
 test_that("interrupted downloads retain the partial file and are not retried", {
-  dir <- withr::local_tempdir()
-  dest <- file.path(dir, "test.bin")
-  part <- paste0(dest, ".part")
+    dir <- withr::local_tempdir()
+    dest <- file.path(dir, "test.bin")
+    part <- paste0(dest, ".part")
 
-  writeBin(as.raw(1:10), part)
+    writeBin(as.raw(1:10), part)
 
-  calls <- 0L
+    calls <- 0L
 
-  fake_multi_download <- function(...) {
-    calls <<- calls + 1L
+    fake_multi_download <- function(...) {
+        calls <<- calls + 1L
 
-    data.frame(
-      success = NA,
-      error = NA_character_,
-      stringsAsFactors = FALSE
+        data.frame(
+            success = NA,
+            error = NA_character_,
+            stringsAsFactors = FALSE
+        )
+    }
+
+    local_mocked_bindings(
+        multi_download = fake_multi_download,
+        .package = "curl"
     )
-  }
 
-  local_mocked_bindings(
-    multi_download = fake_multi_download,
-    .package = "curl"
-  )
+    expect_error(
+        .abc_download(
+            "https://example.invalid/test.bin",
+            dest,
+            max_tries = 10L
+        ),
+        "Download interrupted"
+    )
 
-  expect_error(
-    .abc_download(
-      "https://example.invalid/test.bin",
-      dest,
-      max_tries = 10L
-    ),
-    "Download interrupted"
-  )
-
-  expect_equal(calls, 1L)
-  expect_true(file.exists(part))
-  expect_false(file.exists(dest))
+    expect_equal(calls, 1L)
+    expect_true(file.exists(part))
+    expect_false(file.exists(dest))
 })
 
 test_that("failed downloads are retried", {
-  dir <- withr::local_tempdir()
-  dest <- file.path(dir, "test.bin")
+    dir <- withr::local_tempdir()
+    dest <- file.path(dir, "test.bin")
 
-  calls <- 0L
+    calls <- 0L
 
-  fake_multi_download <- function(...) {
-    calls <<- calls + 1L
+    fake_multi_download <- function(...) {
+        calls <<- calls + 1L
 
-    data.frame(
-      success = FALSE,
-      error = "simulated network failure",
-      stringsAsFactors = FALSE
+        data.frame(
+            success = FALSE,
+            error = "simulated network failure",
+            stringsAsFactors = FALSE
+        )
+    }
+
+    local_mocked_bindings(
+        multi_download = fake_multi_download,
+        .package = "curl"
     )
-  }
 
-  local_mocked_bindings(
-    multi_download = fake_multi_download,
-    .package = "curl"
-  )
+    expect_error(
+        suppressMessages(
+            .abc_download(
+                "https://example.invalid/test.bin",
+                dest,
+                max_tries = 3L
+            )
+        ),
+        "3 attempts"
+    )
 
-  expect_error(
-    suppressMessages(
-      .abc_download(
-        "https://example.invalid/test.bin",
-        dest,
-        max_tries = 3L
-      )
-    ),
-    "3 attempts"
-  )
-
-  expect_equal(calls, 3L)
+    expect_equal(calls, 3L)
 })
 
 test_that("explicit release selects exactly the requested local manifest", {
-  fx <- make_fixture_cache()
+    fx <- make_fixture_cache()
 
-  cache <- abc_cache_connect(
-    fx$dir,
-    offline = TRUE,
-    release = "20250101"
-  )
+    cache <- abc_cache_connect(
+        fx$dir,
+        offline = TRUE,
+        release = "20250101"
+    )
 
-  expect_equal(
-    cache$manifest_name,
-    "releases/20250101/manifest.json"
-  )
-  expect_equal(cache$version, "20250101")
+    expect_equal(
+        cache$manifest_name,
+        "releases/20250101/manifest.json"
+    )
+    expect_equal(cache$version, "20250101")
 })
 
 test_that("explicit offline release fails when it is not cached", {
-  fx <- make_fixture_cache()
+    fx <- make_fixture_cache()
 
-  expect_error(
-    abc_cache_connect(
-      fx$dir,
-      offline = TRUE,
-      release = "20240101"
-    ),
-    "not available in this offline cache"
-  )
+    expect_error(
+        abc_cache_connect(
+            fx$dir,
+            offline = TRUE,
+            release = "20240101"
+        ),
+        "not available in this offline cache"
+    )
 })
 
 test_that("release must be a YYYYMMDD version", {
-  fx <- make_fixture_cache()
+    fx <- make_fixture_cache()
 
-  expect_error(
-    abc_cache_connect(
-      fx$dir,
-      offline = TRUE,
-      release = "latest"
-    ),
-    "'release' must be"
-  )
+    expect_error(
+        abc_cache_connect(
+            fx$dir,
+            offline = TRUE,
+            release = "latest"
+        ),
+        "'release' must be"
+    )
 
-  expect_error(
-    abc_cache_connect(
-      fx$dir,
-      offline = TRUE,
-      release = c("20250101", "20240101")
-    ),
-    "'release' must be"
-  )
+    expect_error(
+        abc_cache_connect(
+            fx$dir,
+            offline = TRUE,
+            release = c("20250101", "20240101")
+        ),
+        "'release' must be"
+    )
 })
 
 test_that("explicit offline release overrides the last-used manifest without rewriting it", {
-  fx <- make_fixture_cache()
+    fx <- make_fixture_cache()
 
-  old_name <- "releases/20240101/manifest.json"
-  old_path <- file.path(fx$dir, old_name)
+    old_name <- "releases/20240101/manifest.json"
+    old_path <- file.path(fx$dir, old_name)
 
-  dir.create(dirname(old_path), recursive = TRUE, showWarnings = FALSE)
+    dir.create(dirname(old_path), recursive = TRUE, showWarnings = FALSE)
 
-  manifest <- jsonlite::read_json(
-    file.path(fx$dir, "releases", "20250101", "manifest.json")
-  )
-  manifest$version <- "20240101"
-  jsonlite::write_json(manifest, old_path, auto_unbox = TRUE)
+    manifest <- jsonlite::read_json(
+        file.path(fx$dir, "releases", "20250101", "manifest.json")
+    )
+    manifest$version <- "20240101"
+    jsonlite::write_json(manifest, old_path, auto_unbox = TRUE)
 
-  cat(old_name, file = file.path(fx$dir, "_manifest_last_used.txt"))
+    cat(old_name, file = file.path(fx$dir, "_manifest_last_used.txt"))
 
-  cache <- abc_cache_connect(fx$dir, offline = TRUE, release = "20250101")
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = "20250101")
 
-  expect_equal(cache$manifest_name, "releases/20250101/manifest.json")
-  expect_equal(cache$version, "20250101")
+    expect_equal(cache$manifest_name, "releases/20250101/manifest.json")
+    expect_equal(cache$version, "20250101")
 
-  # Offline connections never modify the cache directory.
-  expect_identical(
-    readChar(file.path(fx$dir, "_manifest_last_used.txt"), 1000),
-    old_name
-  )
+    # Offline connections never modify the cache directory.
+    expect_identical(
+        readChar(file.path(fx$dir, "_manifest_last_used.txt"), 1000),
+        old_name
+    )
 })
 
 test_that("download progress is enabled by default", {
-  withr::local_options(ABCatlas.download_progress = NULL)
-  expect_true(.abc_download_progress())
+    withr::local_options(ABCatlas.download_progress = NULL)
+    expect_true(.abc_download_progress())
 })
 
 test_that("download progress can be disabled by option", {
-  withr::local_options(ABCatlas.download_progress = FALSE)
-  expect_false(.abc_download_progress())
+    withr::local_options(ABCatlas.download_progress = FALSE)
+    expect_false(.abc_download_progress())
 })
 
 test_that("download progress option is passed to curl", {
-  dir <- withr::local_tempdir()
-  dest <- file.path(dir, "test.bin")
+    dir <- withr::local_tempdir()
+    dest <- file.path(dir, "test.bin")
 
-  seen_progress <- NULL
+    seen_progress <- NULL
 
-  fake_multi_download <- function(url, destfiles, resume, progress, ...) {
-    seen_progress <<- progress
-    writeBin(as.raw(1:10), destfiles)
+    fake_multi_download <- function(url, destfiles, resume, progress, ...) {
+        seen_progress <<- progress
+        writeBin(as.raw(1:10), destfiles)
 
-    data.frame(
-      success = TRUE,
-      error = NA_character_,
-      stringsAsFactors = FALSE
+        data.frame(
+            success = TRUE,
+            error = NA_character_,
+            stringsAsFactors = FALSE
+        )
+    }
+
+    local_mocked_bindings(
+        multi_download = fake_multi_download,
+        .package = "curl"
     )
-  }
+    withr::local_options(ABCatlas.download_progress = FALSE)
+    .abc_download(
+        "https://example.invalid/test.bin",
+        dest,
+        md5 = NULL,
+        max_tries = 1L
+    )
 
-  local_mocked_bindings(
-    multi_download = fake_multi_download,
-    .package = "curl"
-  )
-  withr::local_options(ABCatlas.download_progress = FALSE)
-  .abc_download(
-    "https://example.invalid/test.bin",
-    dest,
-    md5 = NULL,
-    max_tries = 1L
-  )
-
-  expect_false(seen_progress)
-  expect_true(file.exists(dest))
+    expect_false(seen_progress)
+    expect_true(file.exists(dest))
 })
 
 test_that("available space reports the filesystem capacity", {
-  space <- .abc_available_space(tempdir())
+    space <- .abc_available_space(tempdir())
 
-  expect_type(space, "double")
-  expect_length(space, 1L)
-  expect_true(is.na(space) || space >= 0)
+    expect_type(space, "double")
+    expect_length(space, 1L)
+    expect_true(is.na(space) || space >= 0)
 })
 
 test_that("POSIX available-space helper reports a scalar", {
-  skip_on_os("windows")
+    skip_on_os("windows")
 
-  space <- .abc_available_space_posix(tempdir())
+    space <- .abc_available_space_posix(tempdir())
 
-  expect_type(space, "double")
-  expect_length(space, 1L)
-  expect_true(is.na(space) || space >= 0)
+    expect_type(space, "double")
+    expect_length(space, 1L)
+    expect_true(is.na(space) || space >= 0)
 })
 
 test_that("POSIX available-space helper handles paths with spaces", {
-  skip_on_os("windows")
+    skip_on_os("windows")
 
-  dir <- file.path(withr::local_tempdir(), "dir with spaces")
-  dir.create(dir)
+    dir <- file.path(withr::local_tempdir(), "dir with spaces")
+    dir.create(dir)
 
-  space <- .abc_available_space_posix(dir)
+    space <- .abc_available_space_posix(dir)
 
-  expect_false(is.na(space))
-  expect_gt(space, 0)
+    expect_false(is.na(space))
+    expect_gt(space, 0)
 })
 
 test_that("POSIX df parsing tolerates spaces in filesystem and mount names", {
-  local_mocked_bindings(
-    .abc_command_output = function(command, args) {
-      c(
-        "Filesystem 1024-blocks Used Available Capacity Mounted on",
-        "map auto_home 100 40 60 40% /Volumes/my data"
-      )
-    }
-  )
+    local_mocked_bindings(
+        .abc_command_output = function(command, args) {
+            c(
+                "Filesystem 1024-blocks Used Available Capacity Mounted on",
+                "map auto_home 100 40 60 40% /Volumes/my data"
+            )
+        }
+    )
 
-  expect_identical(.abc_available_space_posix(tempdir()), 60 * 1024)
+    expect_identical(.abc_available_space_posix(tempdir()), 60 * 1024)
 })
 
 test_that("POSIX available-space helper returns NA when df fails", {
-  local_mocked_bindings(
-    .abc_command_output = function(command, args) character()
-  )
+    local_mocked_bindings(
+        .abc_command_output = function(command, args) character()
+    )
 
-  expect_identical(.abc_available_space_posix(tempdir()), NA_real_)
+    expect_identical(.abc_available_space_posix(tempdir()), NA_real_)
 })
 
 test_that("byte parsing accepts digits only, without warnings", {
-  expect_identical(.abc_parse_bytes("2048", 1024), 2048 * 1024)
-  expect_identical(.abc_parse_bytes(" 15 "), 15)
-  expect_no_warning(expect_true(is.na(.abc_parse_bytes("45%"))))
-  expect_true(is.na(.abc_parse_bytes("")))
-  expect_true(is.na(.abc_parse_bytes(NA_character_)))
-  expect_true(is.na(.abc_parse_bytes(c("1", "2"))))
+    expect_identical(.abc_parse_bytes("2048", 1024), 2048 * 1024)
+    expect_identical(.abc_parse_bytes(" 15 "), 15)
+    expect_no_warning(expect_true(is.na(.abc_parse_bytes("45%"))))
+    expect_true(is.na(.abc_parse_bytes("")))
+    expect_true(is.na(.abc_parse_bytes(NA_character_)))
+    expect_true(is.na(.abc_parse_bytes(c("1", "2"))))
 })
 
 test_that("Windows available-space helper reports a scalar", {
-  if (.Platform$OS.type != "windows") {
-    skip("Windows-specific test")
-  }
+    if (.Platform$OS.type != "windows") {
+        skip("Windows-specific test")
+    }
 
-  space <- .abc_available_space_windows(
-    normalizePath(tempdir(), winslash = "\\", mustWork = TRUE)
-  )
+    space <- .abc_available_space_windows(
+        normalizePath(tempdir(), winslash = "\\", mustWork = TRUE)
+    )
 
-  expect_type(space, "double")
-  expect_length(space, 1L)
-  expect_true(is.na(space) || space >= 0)
+    expect_type(space, "double")
+    expect_length(space, 1L)
+    expect_true(is.na(space) || space >= 0)
 })
 
 test_that("available space rejects a missing path", {
-  expect_error(
-    .abc_available_space(file.path(tempdir(), "does-not-exist")),
-    "Path does not exist"
-  )
+    expect_error(
+        .abc_available_space(file.path(tempdir(), "does-not-exist")),
+        "Path does not exist"
+    )
 })

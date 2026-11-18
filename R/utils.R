@@ -22,25 +22,27 @@
 #' abc_download_dir(cache_dir)
 #' @export
 abc_download_dir <- function(path = NULL) {
-  is_set <- function(x) !is.null(x) && length(x) == 1L && !is.na(x) && nzchar(x)
-
-  dir <- NULL
-  if (is_set(path)) {
-    dir <- path
-  } else if (is_set(getOption("ABCatlas.download_base"))) {
-    dir <- getOption("ABCatlas.download_base")
-  } else {
-    env <- Sys.getenv("ABC_ATLAS_CACHE", unset = "")
-    if (is_set(env)) {
-      dir <- env
-    } else {
-      dir <- tools::R_user_dir("ABCatlas", which = "cache")
+    is_set <- function(x) {
+        !is.null(x) && length(x) == 1L && !is.na(x) && nzchar(x)
     }
-  }
 
-  dir <- path.expand(dir)
-  if (!dir.exists(dir)) {
-    dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-  }
-  normalizePath(dir, mustWork = FALSE)
+    dir <- NULL
+    if (is_set(path)) {
+        dir <- path
+    } else if (is_set(getOption("ABCatlas.download_base"))) {
+        dir <- getOption("ABCatlas.download_base")
+    } else {
+        env <- Sys.getenv("ABC_ATLAS_CACHE", unset = "")
+        if (is_set(env)) {
+            dir <- env
+        } else {
+            dir <- tools::R_user_dir("ABCatlas", which = "cache")
+        }
+    }
+
+    dir <- path.expand(dir)
+    if (!dir.exists(dir)) {
+        dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+    }
+    normalizePath(dir, mustWork = FALSE)
 }

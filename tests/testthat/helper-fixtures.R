@@ -5,108 +5,110 @@
 # Write a minimal h5ad holding `counts` (cells x genes) as CSR, in the on-disk
 # layout used by the ABC Atlas files (anndata >= 0.8, `_index` attributes).
 write_h5ad <- function(path, counts, cell_labels, gene_ids, gene_symbols) {
-  csr <- methods::as(Matrix::Matrix(counts, sparse = TRUE), "RsparseMatrix")
-  rhdf5::h5createFile(path)
-  fid <- rhdf5::H5Fopen(path)
-  on.exit(rhdf5::H5Fclose(fid))
+    csr <- methods::as(Matrix::Matrix(counts, sparse = TRUE), "RsparseMatrix")
+    rhdf5::h5createFile(path)
+    fid <- rhdf5::H5Fopen(path)
+    on.exit(rhdf5::H5Fclose(fid))
 
-  set_attrs <- function(group, attrs) {
-    gid <- rhdf5::H5Gopen(fid, group)
-    on.exit(rhdf5::H5Gclose(gid))
-    for (n in names(attrs)) rhdf5::h5writeAttribute(attrs[[n]], gid, n)
-  }
+    set_attrs <- function(group, attrs) {
+        gid <- rhdf5::H5Gopen(fid, group)
+        on.exit(rhdf5::H5Gclose(gid))
+        for (n in names(attrs)) rhdf5::h5writeAttribute(attrs[[n]], gid, n)
+    }
 
-  rhdf5::h5createGroup(fid, "X")
-  rhdf5::h5write(as.numeric(csr@x), fid, "X/data")
-  rhdf5::h5write(as.integer(csr@j), fid, "X/indices")
-  rhdf5::h5write(as.integer(csr@p), fid, "X/indptr")
-  set_attrs("X", list(`encoding-type` = "csr_matrix", `encoding-version` = "0.1.0",
-                      shape = as.integer(dim(counts))))
+    rhdf5::h5createGroup(fid, "X")
+    rhdf5::h5write(as.numeric(csr@x), fid, "X/data")
+    rhdf5::h5write(as.integer(csr@j), fid, "X/indices")
+    rhdf5::h5write(as.integer(csr@p), fid, "X/indptr")
+    set_attrs("X", list(
+        `encoding-type` = "csr_matrix", `encoding-version` = "0.1.0",
+        shape = as.integer(dim(counts))
+    ))
 
-  rhdf5::h5createGroup(fid, "obs")
-  rhdf5::h5write(cell_labels, fid, "obs/cell_label")
-  set_attrs("obs", list(`_index` = "cell_label", `encoding-type` = "dataframe"))
+    rhdf5::h5createGroup(fid, "obs")
+    rhdf5::h5write(cell_labels, fid, "obs/cell_label")
+    set_attrs("obs", list(`_index` = "cell_label", `encoding-type` = "dataframe"))
 
-  rhdf5::h5createGroup(fid, "var")
-  rhdf5::h5write(gene_ids, fid, "var/gene_identifier")
-  rhdf5::h5write(gene_symbols, fid, "var/gene_symbol")
-  set_attrs("var", list(`_index` = "gene_identifier", `encoding-type` = "dataframe"))
-  invisible(path)
+    rhdf5::h5createGroup(fid, "var")
+    rhdf5::h5write(gene_ids, fid, "var/gene_identifier")
+    rhdf5::h5write(gene_symbols, fid, "var/gene_symbol")
+    set_attrs("var", list(`_index` = "gene_identifier", `encoding-type` = "dataframe"))
+    invisible(path)
 }
 
 # Write a minimal H5AD whose central /X matrix is a dense HDF5 dataset.
 # `counts` is cells x genes, matching the orientation accepted by write_h5ad().
 write_dense_h5ad <- function(path, counts, cell_labels, gene_ids, gene_symbols) {
-  rhdf5::h5createFile(path)
+    rhdf5::h5createFile(path)
 
-  fid <- rhdf5::H5Fopen(path)
-  on.exit(rhdf5::H5Fclose(fid))
+    fid <- rhdf5::H5Fopen(path)
+    on.exit(rhdf5::H5Fclose(fid))
 
-  set_attrs <- function(object, attrs) {
-    oid <- rhdf5::H5Oopen(fid, object)
-    on.exit(rhdf5::H5Oclose(oid), add = TRUE)
+    set_attrs <- function(object, attrs) {
+        oid <- rhdf5::H5Oopen(fid, object)
+        on.exit(rhdf5::H5Oclose(oid), add = TRUE)
 
-    for (n in names(attrs)) {
-      rhdf5::h5writeAttribute(
-        attrs[[n]],
-        oid,
-        n
-      )
+        for (n in names(attrs)) {
+            rhdf5::h5writeAttribute(
+                attrs[[n]],
+                oid,
+                n
+            )
+        }
     }
-  }
 
-  # rhdf5 writes R matrices with their dimensions reversed in the HDF5
-  # representation used by these fixtures. Writing t(counts) therefore
-  # produces /X as genes x cells, matching the published ABC files and the
-  # package's expression-reader contract.
-  rhdf5::h5write(
-    t(counts),
-    fid,
-    "X"
-  )
-
-  set_attrs(
-    "X",
-    list(
-      `encoding-type` = "array",
-      `encoding-version` = "0.2.0"
+    # rhdf5 writes R matrices with their dimensions reversed in the HDF5
+    # representation used by these fixtures. Writing t(counts) therefore
+    # produces /X as genes x cells, matching the published ABC files and the
+    # package's expression-reader contract.
+    rhdf5::h5write(
+        t(counts),
+        fid,
+        "X"
     )
-  )
 
-  rhdf5::h5createGroup(fid, "obs")
-  rhdf5::h5write(
-    cell_labels,
-    fid,
-    "obs/cell_label"
-  )
-  set_attrs(
-    "obs",
-    list(
-      `_index` = "cell_label",
-      `encoding-type` = "dataframe"
+    set_attrs(
+        "X",
+        list(
+            `encoding-type` = "array",
+            `encoding-version` = "0.2.0"
+        )
     )
-  )
 
-  rhdf5::h5createGroup(fid, "var")
-  rhdf5::h5write(
-    gene_ids,
-    fid,
-    "var/gene_identifier"
-  )
-  rhdf5::h5write(
-    gene_symbols,
-    fid,
-    "var/gene_symbol"
-  )
-  set_attrs(
-    "var",
-    list(
-      `_index` = "gene_identifier",
-      `encoding-type` = "dataframe"
+    rhdf5::h5createGroup(fid, "obs")
+    rhdf5::h5write(
+        cell_labels,
+        fid,
+        "obs/cell_label"
     )
-  )
+    set_attrs(
+        "obs",
+        list(
+            `_index` = "cell_label",
+            `encoding-type` = "dataframe"
+        )
+    )
 
-  invisible(path)
+    rhdf5::h5createGroup(fid, "var")
+    rhdf5::h5write(
+        gene_ids,
+        fid,
+        "var/gene_identifier"
+    )
+    rhdf5::h5write(
+        gene_symbols,
+        fid,
+        "var/gene_symbol"
+    )
+    set_attrs(
+        "var",
+        list(
+            `_index` = "gene_identifier",
+            `encoding-type` = "dataframe"
+        )
+    )
+
+    invisible(path)
 }
 
 # Build a fixture cache in `dir` for a WHB-like dataset "TEST-10X" with two
@@ -115,134 +117,150 @@ write_dense_h5ad <- function(path, counts, cell_labels, gene_ids, gene_symbols) 
 # Returns a list with the directory and the true dense counts (genes x cells).
 make_fixture_cache <- function(dir = withr::local_tempdir(.local_envir = parent.frame()),
                                var_ids = NULL) {
-  version <- "20250101"
-  listing <- list()
-  add_file <- function(directory, kind, name, rel, sub = NULL) {
-    path <- file.path(dir, rel)
-    entry <- list(version = version, relative_path = rel,
-                  url = paste0("https://example.invalid/", rel),
-                  size = file.size(path), file_hash = unname(tools::md5sum(path)))
-    files <- list(files = stats::setNames(list(entry), tools::file_ext(rel)))
-    if (is.null(sub)) {
-      listing[[directory]][[kind]][[name]] <<- files
-    } else {
-      listing[[directory]][[kind]][[name]][[sub]] <<- files
+    version <- "20250101"
+    listing <- list()
+    add_file <- function(directory, kind, name, rel, sub = NULL) {
+        path <- file.path(dir, rel)
+        entry <- list(
+            version = version, relative_path = rel,
+            url = paste0("https://example.invalid/", rel),
+            size = file.size(path), file_hash = unname(tools::md5sum(path))
+        )
+        files <- list(files = stats::setNames(list(entry), tools::file_ext(rel)))
+        if (is.null(sub)) {
+            listing[[directory]][[kind]][[name]] <<- files
+        } else {
+            listing[[directory]][[kind]][[name]][[sub]] <<- files
+        }
     }
-  }
-  write_csv <- function(df, directory, name) {
-    rel <- file.path("metadata", directory, version, paste0(name, ".csv"))
-    dir.create(file.path(dir, dirname(rel)), recursive = TRUE, showWarnings = FALSE)
-    utils::write.csv(df, file.path(dir, rel), row.names = FALSE, na = "")
-    add_file(directory, "metadata", name, rel)
-  }
-
-  cells <- data.frame(
-    cell_label = c("c1", "c2", "c3", "c4", "c5", "c6"),
-    feature_matrix_label = c("TEST-A", "TEST-A", "TEST-A", "TEST-B", "TEST-B", "TEST-B"),
-    dataset_label = "TEST-10X",
-    donor_sex = c("M", "F", "M", "F", NA, "M"),
-    region_of_interest_label = c("R1", "R2", "R1", "R2", "R1", "R1"),
-    cluster_alias = c(1L, 2L, 1L, 2L, 2L, 1L)
-  )
-  write_csv(cells, "TEST-10X", "cell_metadata")
-
-  genes <- data.frame(
-    gene_identifier = c("G1", "G2", "G3", "G4"),
-    gene_symbol = c("Aaa", "Bbb", "Aaa", "Ddd"),   # duplicated symbol on purpose
-    name = c("alpha ", "beta", "gamma", "delta")   # trailing space must survive
-  )
-  write_csv(genes, "TEST-10X", "gene")
-
-  write_csv(data.frame(region_of_interest_label = c("R1", "R2"),
-                       color_hex_triplet = c("#111111", "#222222")),
-            "TEST-10X", "region_of_interest_structure_map")
-
-  write_csv(data.frame(
-    cluster_alias = c(1L, 1L, 2L, 2L),
-    cluster_annotation_term_set_name = c("cluster", "supercluster", "cluster", "supercluster"),
-    cluster_annotation_term_name = c("cl1", "sup1", "cl2", NA),
-    color_hex_triplet = c("#aa0000", "#bb0000", "#cc0000", "#dd0000")
-  ), "TEST-taxonomy", "cluster_to_cluster_annotation_membership")
-  write_csv(data.frame(label = c("L1", "L2"), name = c("supercluster", "cluster")),
-            "TEST-taxonomy", "cluster_annotation_term_set")
-
-  # Expression: genes x cells truth, split across two files by cell.
-  truth <- matrix(c(1, 0, 3, 0,
-                    0, 2, 0, 0,
-                    5, 0, 0, 1,
-                    0, 0, 7, 0,
-                    0, 4, 0, 0,
-                    0, 0, 0, 0), nrow = 4,
-                  dimnames = list(genes$gene_identifier, cells$cell_label))
-  truth_log2 <- log2(truth + 1)
-
-  for (f in c("TEST-A", "TEST-B")) {
-    in_file <- cells$cell_label[cells$feature_matrix_label == f]
-    in_file <- rev(in_file)  # on-disk order differs from metadata order
-
-    for (data_type in c("raw", "log2")) {
-      values <- if (data_type == "raw") truth else truth_log2
-      rel <- file.path(
-        "expression_matrices",
-        "TEST-10X",
-        version,
-        paste0(f, "-", data_type, ".h5ad")
-      )
-      dir.create(
-        file.path(dir, dirname(rel)),
-        recursive = TRUE,
-        showWarnings = FALSE
-      )
-      write_h5ad(
-        file.path(dir, rel),
-        t(values[, in_file]),
-        in_file,
-        var_ids %||% genes$gene_identifier,
-        genes$gene_symbol
-      )
-      add_file(
-        "TEST-10X",
-        "expression_matrices",
-        f,
-        rel,
-        sub = data_type
-      )
+    write_csv <- function(df, directory, name) {
+        rel <- file.path("metadata", directory, version, paste0(name, ".csv"))
+        dir.create(file.path(dir, dirname(rel)), recursive = TRUE, showWarnings = FALSE)
+        utils::write.csv(df, file.path(dir, rel), row.names = FALSE, na = "")
+        add_file(directory, "metadata", name, rel)
     }
-  }
 
-  manifest <- list(version = version, resource_uri = "s3://example.invalid/",
-                   directory_listing = list(), file_listing = listing)
-  dir.create(file.path(dir, "releases", version), recursive = TRUE)
-  jsonlite::write_json(manifest, file.path(dir, "releases", version, "manifest.json"),
-                       auto_unbox = TRUE)
+    cells <- data.frame(
+        cell_label = c("c1", "c2", "c3", "c4", "c5", "c6"),
+        feature_matrix_label = c("TEST-A", "TEST-A", "TEST-A", "TEST-B", "TEST-B", "TEST-B"),
+        dataset_label = "TEST-10X",
+        donor_sex = c("M", "F", "M", "F", NA, "M"),
+        region_of_interest_label = c("R1", "R2", "R1", "R2", "R1", "R1"),
+        cluster_alias = c(1L, 2L, 1L, 2L, 2L, 1L)
+    )
+    write_csv(cells, "TEST-10X", "cell_metadata")
 
-  attr(cells, "abc_dataset") <- "TEST"
-  attr(cells, "abc_default_data_type") <- "raw"
-  attr(cells, "abc_available_data_types") <- c("raw", "log2")
-  attr(cells, "abc_expression_directories") <- "TEST-10X"
-  attr(cells, "abc_modality") <- "single_cell_transcriptomics"
-  attr(cells, "abc_spatial") <- FALSE
+    genes <- data.frame(
+        gene_identifier = c("G1", "G2", "G3", "G4"),
+        gene_symbol = c("Aaa", "Bbb", "Aaa", "Ddd"), # duplicated symbol on purpose
+        name = c("alpha ", "beta", "gamma", "delta") # trailing space must survive
+    )
+    write_csv(genes, "TEST-10X", "gene")
 
-  list(
-       dir = dir,
-       version = version,
-       truth = truth,
-       truth_log2 = truth_log2,
-       cells = cells,
-       genes = genes
-  )
+    write_csv(
+        data.frame(
+            region_of_interest_label = c("R1", "R2"),
+            color_hex_triplet = c("#111111", "#222222")
+        ),
+        "TEST-10X", "region_of_interest_structure_map"
+    )
+
+    write_csv(data.frame(
+        cluster_alias = c(1L, 1L, 2L, 2L),
+        cluster_annotation_term_set_name = c("cluster", "supercluster", "cluster", "supercluster"),
+        cluster_annotation_term_name = c("cl1", "sup1", "cl2", NA),
+        color_hex_triplet = c("#aa0000", "#bb0000", "#cc0000", "#dd0000")
+    ), "TEST-taxonomy", "cluster_to_cluster_annotation_membership")
+    write_csv(
+        data.frame(label = c("L1", "L2"), name = c("supercluster", "cluster")),
+        "TEST-taxonomy", "cluster_annotation_term_set"
+    )
+
+    # Expression: genes x cells truth, split across two files by cell.
+    truth <- matrix(
+        c(
+            1, 0, 3, 0,
+            0, 2, 0, 0,
+            5, 0, 0, 1,
+            0, 0, 7, 0,
+            0, 4, 0, 0,
+            0, 0, 0, 0
+        ),
+        nrow = 4,
+        dimnames = list(genes$gene_identifier, cells$cell_label)
+    )
+    truth_log2 <- log2(truth + 1)
+
+    for (f in c("TEST-A", "TEST-B")) {
+        in_file <- cells$cell_label[cells$feature_matrix_label == f]
+        in_file <- rev(in_file) # on-disk order differs from metadata order
+
+        for (data_type in c("raw", "log2")) {
+            values <- if (data_type == "raw") truth else truth_log2
+            rel <- file.path(
+                "expression_matrices",
+                "TEST-10X",
+                version,
+                paste0(f, "-", data_type, ".h5ad")
+            )
+            dir.create(
+                file.path(dir, dirname(rel)),
+                recursive = TRUE,
+                showWarnings = FALSE
+            )
+            write_h5ad(
+                file.path(dir, rel),
+                t(values[, in_file]),
+                in_file,
+                var_ids %||% genes$gene_identifier,
+                genes$gene_symbol
+            )
+            add_file(
+                "TEST-10X",
+                "expression_matrices",
+                f,
+                rel,
+                sub = data_type
+            )
+        }
+    }
+
+    manifest <- list(
+        version = version, resource_uri = "s3://example.invalid/",
+        directory_listing = list(), file_listing = listing
+    )
+    dir.create(file.path(dir, "releases", version), recursive = TRUE)
+    jsonlite::write_json(manifest, file.path(dir, "releases", version, "manifest.json"),
+        auto_unbox = TRUE
+    )
+
+    attr(cells, "abc_dataset") <- "TEST"
+    attr(cells, "abc_default_data_type") <- "raw"
+    attr(cells, "abc_available_data_types") <- c("raw", "log2")
+    attr(cells, "abc_expression_directories") <- "TEST-10X"
+    attr(cells, "abc_modality") <- "single_cell_transcriptomics"
+    attr(cells, "abc_spatial") <- FALSE
+
+    list(
+        dir = dir,
+        version = version,
+        truth = truth,
+        truth_log2 = truth_log2,
+        cells = cells,
+        genes = genes
+    )
 }
 
 # Dataset spec for the fixture, in the format of the .abc_datasets registry.
 fixture_spec <- list(
-  default_data_type = "raw",
-  available_data_types = c("raw", "log2"),
-  expression_directories = "TEST-10X",
-  modality = "single_cell_transcriptomics",
-  spatial = FALSE,
-  cell = list(dir = "TEST-10X", col_classes = c(cell_label = "character")),
-  taxonomy = "TEST-taxonomy",
-  roi = list(dir = "TEST-10X", file = "region_of_interest_structure_map"),
-  gene = list(dir = "TEST-10X"),
-  cols_of_interest = c("donor_sex", "cluster", "supercluster", "not_a_column")
+    default_data_type = "raw",
+    available_data_types = c("raw", "log2"),
+    expression_directories = "TEST-10X",
+    modality = "single_cell_transcriptomics",
+    spatial = FALSE,
+    cell = list(dir = "TEST-10X", col_classes = c(cell_label = "character")),
+    taxonomy = "TEST-taxonomy",
+    roi = list(dir = "TEST-10X", file = "region_of_interest_structure_map"),
+    gene = list(dir = "TEST-10X"),
+    cols_of_interest = c("donor_sex", "cluster", "supercluster", "not_a_column")
 )
