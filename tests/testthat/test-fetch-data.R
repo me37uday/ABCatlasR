@@ -1428,6 +1428,9 @@ test_that("matrix materialization preserves expression and metadata", {
 })
 
 test_that("Monocle materialization keeps raw expression and metadata", {
+    skip_if_not_installed("monocle")
+    skip_if_not_installed("Biobase")
+
     expression <- Matrix::Matrix(
         matrix(
             c(
@@ -1955,27 +1958,30 @@ test_that("all return formats preserve ABC provenance", {
         provenance
     )
 
-    monocle_out <- .abc_materialize(
-        expression,
-        metadata,
-        genes,
-        data_type = "raw",
-        return_type = "monocle",
-        provenance = provenance,
-        spatial = TRUE
-    )
+    if (requireNamespace("monocle", quietly = TRUE) &&
+        requireNamespace("Biobase", quietly = TRUE)) {
+        monocle_out <- .abc_materialize(
+            expression,
+            metadata,
+            genes,
+            data_type = "raw",
+            return_type = "monocle",
+            provenance = provenance,
+            spatial = TRUE
+        )
 
-    expect_s4_class(
-        monocle_out,
-        "CellDataSet"
-    )
+        expect_s4_class(
+            monocle_out,
+            "CellDataSet"
+        )
 
-    expect_identical(
-        Biobase::experimentData(
-            monocle_out
-        )@other$ABCatlas,
-        provenance
-    )
+        expect_identical(
+            Biobase::experimentData(
+                monocle_out
+            )@other$ABCatlas,
+            provenance
+        )
+    }
 
     sce_out <- .abc_materialize(
         expression,
@@ -2647,6 +2653,35 @@ test_that("materialization builds default provenance from metadata", {
             n_cells = 2L,
             n_genes = 2L
         )
+    )
+})
+
+test_that("monocle output without monocle installed fails before download", {
+    fx <- make_fixture_cache()
+
+    local_mocked_bindings(
+        .abc_expression_matrix = function(...) {
+            stop("expression matrix should not be read", call. = FALSE)
+        }
+    )
+    local_mocked_bindings(
+        requireNamespace = function(package, ...) {
+            !package %in% c("monocle", "Biobase")
+        },
+        .package = "base"
+    )
+
+    expect_error(
+        suppressMessages(fetch_data(
+            download_base = fx$dir,
+            metadata = fx$cells,
+            gene_data = fx$genes,
+            genes = "G1",
+            return_type = "monocle",
+            offline = TRUE,
+            release = fx$version
+        )),
+        "requires package 'monocle'"
     )
 })
 

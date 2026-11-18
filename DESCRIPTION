@@ -31,7 +31,6 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 SystemRequirements: An internet connection the first time each file is used.
 Imports:
-    Biobase,
     curl (>= 5.0.0),
     data.table,
     dplyr,
@@ -39,7 +38,6 @@ Imports:
     jsonlite,
     Matrix,
     methods,
-    monocle,
     processx,
     rhdf5,
     S4Vectors,
@@ -50,8 +48,10 @@ Imports:
     withr,
     xml2
 Suggests:
+    Biobase,
     BiocStyle,
     knitr,
+    monocle,
     rmarkdown,
     SummarizedExperiment,
     testthat (>= 3.0.0)

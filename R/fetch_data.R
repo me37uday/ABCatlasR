@@ -54,14 +54,16 @@
 }
 
 
-.abc_require_output_package <- function(package, return_type) {
-    if (!requireNamespace(package, quietly = TRUE)) {
-        stop(
-            "return_type='", return_type,
-            "' requires package '", package,
-            "'. Install it to use this output format.",
-            call. = FALSE
-        )
+.abc_require_output_package <- function(packages, return_type) {
+    for (package in packages) {
+        if (!requireNamespace(package, quietly = TRUE)) {
+            stop(
+                "return_type='", return_type,
+                "' requires package '", package,
+                "'. Install it to use this output format.",
+                call. = FALSE
+            )
+        }
     }
 }
 
@@ -324,6 +326,8 @@
             call. = FALSE
         )
     }
+
+    .abc_require_output_package(c("monocle", "Biobase"), "monocle")
 
     monocle_gene_data <- gene_data
 
@@ -641,6 +645,10 @@
             "a count-based Monocle 2 CellDataSet.",
             call. = FALSE
         )
+    }
+
+    if (identical(return_type, "monocle")) {
+        .abc_require_output_package(c("monocle", "Biobase"), "monocle")
     }
 
     if (identical(return_type, "spatial")) {
