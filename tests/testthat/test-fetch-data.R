@@ -989,9 +989,9 @@ test_that("plan_fetch counts resolved identifiers like symbols", {
 test_that("duplicate source genes align to H5AD occurrences one-to-one", {
   gene <- data.frame(
     gene_identifier = c(
-      "G1.iabdup1",
+      "G1.dup1",
       "G2",
-      "G1.iabdup2"
+      "G1.dup2"
     ),
     source_gene_identifier = c("G1", "G2", "G1"),
     source_gene_occurrence = c(1L, 1L, 2L),
@@ -1013,8 +1013,8 @@ test_that("duplicate source genes align to H5AD occurrences one-to-one", {
 test_that("duplicate source alignment rejects mismatched H5AD group sizes", {
   gene <- data.frame(
     gene_identifier = c(
-      "G1.iabdup1",
-      "G1.iabdup2"
+      "G1.dup1",
+      "G1.dup2"
     ),
     source_gene_identifier = c("G1", "G1"),
     source_gene_occurrence = c(1L, 2L),
@@ -1036,8 +1036,8 @@ test_that("duplicate source alignment rejects mismatched H5AD group sizes", {
 test_that("canonical H5AD identifiers remain preferred", {
   gene <- data.frame(
     gene_identifier = c(
-      "G1.iabdup1",
-      "G1.iabdup2"
+      "G1.dup1",
+      "G1.dup2"
     ),
     source_gene_identifier = c("G1", "G1"),
     source_gene_occurrence = c(1L, 2L),
@@ -1049,7 +1049,7 @@ test_that("canonical H5AD identifiers remain preferred", {
     .abc_gene_positions(
       gene,
       c(2L, 1L),
-      c("G1.iabdup1", "G1.iabdup2"),
+      c("G1.dup1", "G1.dup2"),
       "canonical.h5ad"
     ),
     c(2L, 1L)
@@ -1076,7 +1076,7 @@ test_that("expression matrix aligns normalized duplicate genes to H5AD occurrenc
 
   expect_identical(
     genes$gene_identifier,
-    c("G1.iabdup1", "G2", "G1.iabdup2", "G4")
+    c("G1.dup1", "G2", "G1.dup2", "G4")
   )
 
   expect_identical(
@@ -1120,7 +1120,7 @@ test_that("expression matrix aligns normalized duplicate genes to H5AD occurrenc
     )
   )
 
-  expect_equal(rownames(m), c("G1.iabdup2", "G1.iabdup1", "G4"))
+  expect_equal(rownames(m), c("G1.dup2", "G1.dup1", "G4"))
 
   expect_equal(
     colnames(m),
@@ -2386,8 +2386,8 @@ test_that("gene positions resolve accession-qualified NCBI features", {
 test_that("accession-qualified duplicate genes retain occurrence identity", {
   gene_data <- data.frame(
     gene_identifier = c(
-      "NCBIGene:693935.iabdup1",
-      "NCBIGene:693935.iabdup2"
+      "NCBIGene:693935.dup1",
+      "NCBIGene:693935.dup2"
     ),
     source_gene_identifier = c(
       "NCBIGene:693935",

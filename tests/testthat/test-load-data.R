@@ -664,7 +664,7 @@ test_that("gene normalization preserves duplicate source occurrence", {
   expect_s3_class(out, "data.frame")
   expect_identical(
     out$gene_identifier,
-    c("G1.iabdup1", "G2", "G1.iabdup2", "G1.iabdup3")
+    c("G1.dup1", "G2", "G1.dup2", "G1.dup3")
   )
   expect_identical(
     out$source_gene_identifier,
@@ -683,7 +683,7 @@ test_that("gene normalization preserves duplicate source occurrence", {
 
 test_that("gene normalization avoids collisions with published identifiers", {
   gene <- data.frame(
-    gene_identifier = c("G1", "G1.iabdup1", "G1"),
+    gene_identifier = c("G1", "G1.dup1", "G1"),
     gene_symbol = c("A1", "existing", "A2"),
     stringsAsFactors = FALSE
   )
@@ -693,7 +693,7 @@ test_that("gene normalization avoids collisions with published identifiers", {
   expect_s3_class(out, "data.frame")
   expect_identical(
     out$gene_identifier,
-    c("G1.iabdup2", "G1.iabdup1", "G1.iabdup3")
+    c("G1.dup2", "G1.dup1", "G1.dup3")
   )
   expect_identical(
     out$source_gene_occurrence,

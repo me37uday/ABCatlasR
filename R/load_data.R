@@ -827,7 +827,7 @@ print.abc_data <- function(x, ...) {
   out
 }
 
-# Give each member of a duplicated identifier group a unique "<id>.iabdup<k>"
+# Give each member of a duplicated identifier group a unique "<id>.dup<k>"
 # name, skipping suffixes that already exist as identifiers. `occurrence` is
 # the true ordinal within the original group; it deliberately differs from k
 # when an existing identifier forced a suffix to be skipped.
@@ -846,10 +846,10 @@ print.abc_data <- function(x, ...) {
     }
 
     index <- (if (value %in% names(seen)) seen[[value]] else 0L) + 1L
-    candidate <- paste0(value, ".iabdup", index)
+    candidate <- paste0(value, ".dup", index)
     while (candidate %in% used) {
       index <- index + 1L
-      candidate <- paste0(value, ".iabdup", index)
+      candidate <- paste0(value, ".dup", index)
     }
 
     seen[[value]] <- index
