@@ -528,7 +528,8 @@
 
   if (!isTRUE(plan$approved)) {
     stop(
-      "The fetch plan was not approved. Run plan_fetch() and approve the download first.",
+      "The fetch plan was not approved. ",
+      "Run plan_fetch() and approve the download first.",
       call. = FALSE
     )
   }

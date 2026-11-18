@@ -52,7 +52,9 @@ Load the installed package normally:
 library(ABCatlas)
 ```
 
-Core metadata and matrix functionality is R-native. The primary output is a sparse matrix bundle. SingleCellExperiment, SpatialExperiment, and Monocle 2 outputs are available directly as alternative representations.
+Core metadata and matrix functionality is R-native. The primary output is a
+sparse matrix bundle. SingleCellExperiment, SpatialExperiment, and Monocle 2
+outputs are available directly as alternative representations.
 
 ## Discovering datasets
 
@@ -116,15 +118,20 @@ abc$unique_values
 
 ## Selecting cells
 
-Cell selection can be performed during `load_data()` so that the cells included in the analysis are defined before expression data are requested.
+Cell selection can be performed during `load_data()` so that the cells
+included in the analysis are defined before expression data are requested.
 
-Cell selection determines which cells are included in the metadata and, later, in the expression analysis.
+Cell selection determines which cells are included in the metadata and,
+later, in the expression analysis.
 
-For example, restricting the analysis to the striatum removes cells from other anatomical divisions before expression data are requested.
+For example, restricting the analysis to the striatum removes cells from
+other anatomical divisions before expression data are requested.
 
 ### Metadata filters
 
-`filters` is a named list in which each name is a metadata column and each value specifies which cells to retain. For example, `anatomical_division_label = "STR"` keeps cells annotated to the striatum.
+`filters` is a named list in which each name is a metadata column and each
+value specifies which cells to retain. For example,
+`anatomical_division_label = "STR"` keeps cells annotated to the striatum.
 
 ```{r cell-selection}
 ## On the full atlas (downloads the AgingMouse metadata):
@@ -155,7 +162,8 @@ behave the same way in `plan_fetch()` and `fetch_data()`, so the
 female-donor restriction runs on this sample and keeps
 `r female_plan$n_cells` of the 1,000 cells.
 
-When the desired cells are already known, `cell_ids` selects those exact cell labels:
+When the desired cells are already known, `cell_ids` selects those exact
+cell labels:
 ```{r cell-id-selection, eval=FALSE}
 abc_exact <- load_data(
   "AgingMouse",
@@ -163,7 +171,8 @@ abc_exact <- load_data(
 )
 ```
 
-When the filtered population is still large, `n_cells` limits the number of cells returned. Use `seed` when the subset should be reproducible:
+When the filtered population is still large, `n_cells` limits the number of
+cells returned. Use `seed` when the subset should be reproducible:
 ```{r cell-sampling}
 ## On the full atlas (downloads the AgingMouse metadata):
 ## abc_sampled <- load_data(
@@ -246,7 +255,9 @@ x$gene_data
 x$provenance
 ```
 
-After reviewing the fetch plan and approving the download, pass that plan to `fetch_data()` to materialize the requested expression. The download is not confirmed again.
+After reviewing the fetch plan and approving the download, pass that plan to
+`fetch_data()` to materialize the requested expression. The download is not
+confirmed again.
 
 This returns an `abc_matrix` object containing sparse expression,
 selected metadata and provenance without requiring an analysis-framework
@@ -309,7 +320,11 @@ y <- fetch_data(
 )
 ```
 
-Spatial coordinates are attached to the SpatialExperiment. Automatic coordinate inference is restricted to routes declared spatial. For other metadata, verified coordinate columns must be supplied explicitly. This guard prevents dimensionality-reduction coordinates from being misrepresented as physical spatial locations.
+Spatial coordinates are attached to the SpatialExperiment. Automatic
+coordinate inference is restricted to routes declared spatial. For other
+metadata, verified coordinate columns must be supplied explicitly. This
+guard prevents dimensionality-reduction coordinates from being
+misrepresented as physical spatial locations.
 
 ## Raw, log2 and imputed expression
 

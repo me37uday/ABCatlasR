@@ -25,11 +25,11 @@ preserved.}
 \value{
 An \code{abc_cache} object: a list with the \code{download_base},
 \code{manifest_name}, \code{version} and \code{offline} fields, plus the
-functions \code{get_file_path(directory, file_name)} (returns the local path
-of a file, downloading it if needed) and
-\code{get_metadata_dataframe(directory, file_name, col_classes = NULL, ...)}
-(reads a metadata CSV into a data.frame; \code{...} goes to
-\code{data.table::fread}).
+functions \code{get_file_path(directory, file_name)} (returns the local
+path of a file, downloading it if needed) and
+\code{get_metadata_dataframe(directory, file_name, col_classes, ...)}
+(reads a metadata CSV into a data.frame; \code{col_classes} defaults to
+\code{NULL} and \code{...} goes to \code{data.table::fread}).
 }
 \description{
 Selects a release manifest and returns a handle used to locate, download and

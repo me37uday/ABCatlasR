@@ -3,11 +3,11 @@
 #
 # Re-implements the parts of abc_atlas_access's AbcProjectCache that the package
 # uses, with the same on-disk layout so a download directory can be shared with
-# the Python package:
-#   <download_base>/releases/<version>/manifest.json   release manifests
-#   <download_base>/<relative_path>                    data files, as in the manifest
-#   <download_base>/_manifest_last_used.txt            manifest pinned for this cache
-#   <download_base>/_downloaded_data.json              files fully downloaded and verified
+# the Python package (paths relative to <download_base>):
+#   releases/<version>/manifest.json   release manifests
+#   <relative_path>                    data files, as listed in the manifest
+#   _manifest_last_used.txt            manifest pinned for this cache
+#   _downloaded_data.json              files fully downloaded and verified
 # =============================================================================
 
 # Public S3 bucket holding every ABC Atlas release.
@@ -17,8 +17,8 @@
 .abc_manifest_compatibility <- c("20230101", "20300101")
 # ABC Atlas release validated against this package's dataset registry.
 .abc_default_release <- "20260711"
-# Strings pandas.read_csv treats as missing by default; reused so metadata tables
-# have the same missing values as with the Python package.
+# Strings pandas.read_csv treats as missing by default; reused so metadata
+# tables have the same missing values as with the Python package.
 .abc_na_strings <- c("", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN",
   "-NaN", "-nan", "1.#IND", "1.#QNAN", "<NA>", "N/A", "NA", "NULL", "NaN",
   "None", "n/a", "nan", "null")
@@ -49,11 +49,11 @@
 #'   preserved.
 #' @return An \code{abc_cache} object: a list with the \code{download_base},
 #'   \code{manifest_name}, \code{version} and \code{offline} fields, plus the
-#'   functions \code{get_file_path(directory, file_name)} (returns the local path
-#'   of a file, downloading it if needed) and
-#'   \code{get_metadata_dataframe(directory, file_name, col_classes = NULL, ...)}
-#'   (reads a metadata CSV into a data.frame; \code{...} goes to
-#'   \code{data.table::fread}).
+#'   functions \code{get_file_path(directory, file_name)} (returns the local
+#'   path of a file, downloading it if needed) and
+#'   \code{get_metadata_dataframe(directory, file_name, col_classes, ...)}
+#'   (reads a metadata CSV into a data.frame; \code{col_classes} defaults to
+#'   \code{NULL} and \code{...} goes to \code{data.table::fread}).
 #' @examples
 #' example_dir <- system.file(
 #'   "extdata", "ex",
@@ -333,7 +333,8 @@ print.abc_cache <- function(x, ...) {
       return(latest)
     }
     if (to_load != latest) {
-      warning("You are loading ", to_load, ". A more up to date version of the ",
+      warning("You are loading ", to_load,
+              ". A more up to date version of the ",
               "dataset -- ", latest, " -- exists. To use it, delete '",
               last_used_file, "' or point download_base to a new directory.",
               call. = FALSE)
@@ -343,8 +344,10 @@ print.abc_cache <- function(x, ...) {
 
   downloaded <- .abc_local_manifests(download_base)
   if (length(downloaded) > 0L && utils::tail(downloaded, 1L) != latest) {
-    warning("You are loading ", latest, ", which is newer than the most recent ",
-            "manifest previously used here (", utils::tail(downloaded, 1L), "). ",
+    warning("You are loading ", latest,
+            ", which is newer than the most recent ",
+            "manifest previously used here (",
+            utils::tail(downloaded, 1L), "). ",
             "Some data files may have changed between the two releases and ",
             "will be downloaded again (existing files are not overwritten).",
             call. = FALSE)
@@ -371,7 +374,8 @@ print.abc_cache <- function(x, ...) {
 
   dir_data <- cache$manifest$file_listing[[directory]]
   if (is.null(dir_data)) {
-    stop("Directory '", directory, "' not found in manifest ", cache$manifest_name, ".")
+    stop("Directory '", directory, "' not found in manifest ",
+         cache$manifest_name, ".")
   }
 
   entry <- NULL
@@ -471,7 +475,8 @@ print.abc_cache <- function(x, ...) {
 # Local path of a manifest file, downloading it first if needed (online only).
 # A file on disk counts as present only if it is recorded as fully downloaded;
 # otherwise it is fetched again, as abc_atlas_access does.
-.abc_get_file_path <- function(cache, directory, file_name, force_download = FALSE,
+.abc_get_file_path <- function(cache, directory, file_name,
+                               force_download = FALSE,
                                skip_hash_check = FALSE) {
   attrs <- .abc_file_attributes(cache, directory, file_name)
   path <- attrs$local_path
@@ -479,7 +484,8 @@ print.abc_cache <- function(x, ...) {
 
   if (cache$offline) {
     if (!file.exists(path)) {
-      stop("'", attrs$relative_path, "' is not available locally (offline = TRUE). ",
+      stop("'", attrs$relative_path,
+           "' is not available locally (offline = TRUE). ",
            "Run once with offline = FALSE to download it.")
     }
     return(path)
@@ -492,7 +498,8 @@ print.abc_cache <- function(x, ...) {
     unlink(path)
   }
   if (!file.exists(path)) {
-    message("Downloading ", attrs$relative_path, " (", .abc_format_size(attrs$size), ")")
+    message("Downloading ", attrs$relative_path,
+            " (", .abc_format_size(attrs$size), ")")
     .abc_download(attrs$url, path, if (!skip_hash_check) attrs$file_hash)
     .abc_record(base, path)
   }
@@ -809,7 +816,9 @@ print.abc_cache <- function(x, ...) {
 # Integers too large for R's integer type are read as doubles; surrounding
 # whitespace is kept, as pandas does.
 .abc_read_csv <- function(path, col_classes = NULL, ...) {
-  data.table::fread(path, colClasses = col_classes, na.strings = .abc_na_strings,
-                    integer64 = "double", strip.white = FALSE, data.table = FALSE,
-                    showProgress = FALSE, ...)
+  data.table::fread(
+    path, colClasses = col_classes, na.strings = .abc_na_strings,
+    integer64 = "double", strip.white = FALSE, data.table = FALSE,
+    showProgress = FALSE, ...
+  )
 }

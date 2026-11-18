@@ -10,7 +10,8 @@
 
 # ---- Dataset registry -------------------------------------------------------
 # Each entry is a declarative spec. Fields:
-#   cell             list(dir, file = "cell_metadata", col_classes = <named chr>)
+#   cell             list(dir, file = "cell_metadata",
+#                         col_classes = <named chr>)
 #   taxonomy         taxonomy directory (triggers the cluster reshape + join)
 #   roi              list(dir, file) for the region-of-interest colour join
 #   joins            ordered list of list(dir, file, key, suffix) left-joins
