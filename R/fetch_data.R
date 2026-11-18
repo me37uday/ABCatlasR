@@ -1,6 +1,7 @@
 # Resolve either an abc_data object or the legacy metadata/gene_data pair.
-.abc_fetch_inputs <- function(data = NULL, metadata = NULL, gene_data = NULL,
-                              download_base = NULL, release = NULL) {
+.abc_fetch_inputs <- function(
+        data = NULL, metadata = NULL, gene_data = NULL,
+        download_base = NULL, release = NULL) {
     if (!is.null(data)) {
         if (!inherits(data, "abc_data")) {
             stop(
@@ -134,8 +135,9 @@
     candidates[[which(present)[[1L]]]]
 }
 
-.abc_output_provenance <- function(metadata, gene_data, data_type,
-                                   release = NULL) {
+.abc_output_provenance <- function(
+        metadata, gene_data, data_type,
+        release = NULL) {
     list(
         dataset = attr(metadata, "abc_dataset"),
         release = release,
@@ -186,9 +188,9 @@
 }
 
 .abc_validate_materialization <- function(
-  expression,
-  cell_metadata,
-  gene_data
+        expression,
+        cell_metadata,
+        gene_data
 ) {
     if (ncol(expression) != nrow(cell_metadata)) {
         stop(
@@ -232,9 +234,9 @@
 }
 
 .abc_default_materialization_provenance <- function(
-  cell_metadata,
-  gene_data,
-  data_type
+        cell_metadata,
+        gene_data,
+        data_type
 ) {
     list(
         data_type = data_type,
@@ -251,11 +253,11 @@
 }
 
 .abc_prepare_materialization <- function(
-  expression,
-  cell_metadata,
-  gene_data,
-  data_type,
-  provenance = NULL
+        expression,
+        cell_metadata,
+        gene_data,
+        data_type,
+        provenance = NULL
 ) {
     expression <- .abc_as_dgc_matrix(
         expression
@@ -289,11 +291,11 @@
 }
 
 .abc_materialize_matrix <- function(
-  expression,
-  cell_metadata,
-  gene_data,
-  data_type,
-  provenance
+        expression,
+        cell_metadata,
+        gene_data,
+        data_type,
+        provenance
 ) {
     structure(
         list(
@@ -308,11 +310,11 @@
 }
 
 .abc_materialize_monocle <- function(
-  expression,
-  cell_metadata,
-  gene_data,
-  data_type,
-  provenance
+        expression,
+        cell_metadata,
+        gene_data,
+        data_type,
+        provenance
 ) {
     if (!identical(data_type, "raw")) {
         stop(
@@ -370,11 +372,11 @@
 }
 
 .abc_materialize_sce <- function(
-  expression,
-  cell_metadata,
-  gene_data,
-  data_type,
-  provenance
+        expression,
+        cell_metadata,
+        gene_data,
+        data_type,
+        provenance
 ) {
     .abc_require_output_package(
         "SingleCellExperiment",
@@ -399,13 +401,13 @@
 }
 
 .abc_materialize_spatial <- function(
-  expression,
-  cell_metadata,
-  gene_data,
-  data_type,
-  coordinate_columns,
-  provenance,
-  spatial
+        expression,
+        cell_metadata,
+        gene_data,
+        data_type,
+        coordinate_columns,
+        provenance,
+        spatial
 ) {
     .abc_require_output_package(
         "SpatialExperiment",
@@ -450,11 +452,11 @@
 }
 
 .abc_dispatch_materialization <- function(
-  prepared,
-  data_type,
-  return_type,
-  coordinate_columns,
-  spatial
+        prepared,
+        data_type,
+        return_type,
+        coordinate_columns,
+        spatial
 ) {
     switch(return_type,
         matrix = .abc_materialize_matrix(
@@ -491,14 +493,14 @@
 }
 
 .abc_materialize <- function(
-  expression,
-  cell_metadata,
-  gene_data,
-  data_type,
-  return_type = "matrix",
-  coordinate_columns = NULL,
-  provenance = NULL,
-  spatial = FALSE
+        expression,
+        cell_metadata,
+        gene_data,
+        data_type,
+        return_type = "matrix",
+        coordinate_columns = NULL,
+        provenance = NULL,
+        spatial = FALSE
 ) {
     return_type <- match.arg(
         return_type,
@@ -556,9 +558,10 @@
     )
 }
 
-.abc_fetch_context_from_inputs <- function(data, metadata, filters,
-                                           gene_data, genes, data_type,
-                                           offline, release, download_base) {
+.abc_fetch_context_from_inputs <- function(
+        data, metadata, filters,
+        gene_data, genes, data_type,
+        offline, release, download_base) {
     # Backward compatibility for the historical positional download_base.
     if (!is.null(data) && !inherits(data, "abc_data") &&
         is.character(data) && length(data) == 1L && is.null(download_base)) {
@@ -591,9 +594,10 @@
     )
 }
 
-.abc_fetch_expression <- function(abc_cache, filtered_meta, gene_data,
-                                  selected_gene_data, download_base,
-                                  data_type) {
+.abc_fetch_expression <- function(
+        abc_cache, filtered_meta, gene_data,
+        selected_gene_data, download_base,
+        data_type) {
     files <- .abc_expression_files(abc_cache, filtered_meta,
         data_type = data_type
     )
@@ -625,10 +629,10 @@
 # resolved or downloaded, so incompatible requests fail without a transfer.
 # The materializers repeat these checks as a second line of defence.
 .abc_validate_output_request <- function(
-  return_type,
-  data_type,
-  cell_metadata,
-  coordinate_columns
+        return_type,
+        data_type,
+        cell_metadata,
+        coordinate_columns
 ) {
     if (identical(return_type, "monocle") && !identical(data_type, "raw")) {
         stop(
@@ -665,15 +669,15 @@
 # representation. Arguments that would otherwise be silently ignored are
 # rejected so the user knows the plan, not those arguments, defines the request.
 .abc_reject_plan_overrides <- function(
-  data,
-  metadata,
-  filters,
-  gene_data,
-  genes,
-  data_type,
-  offline,
-  release,
-  download_base
+        data,
+        metadata,
+        filters,
+        gene_data,
+        genes,
+        data_type,
+        offline,
+        release,
+        download_base
 ) {
     supplied <- c(
         data = !is.null(data),
@@ -758,12 +762,13 @@
 #' )
 #' x$expression
 #' @export
-fetch_data <- function(data = NULL, metadata = NULL, filters = list(),
-                       gene_data = NULL, genes = NULL,
-                       return_type = c("matrix", "sce", "spatial", "monocle"),
-                       coordinate_columns = NULL, data_type = NULL,
-                       offline = FALSE, release = NULL, download_base = NULL,
-                       plan = NULL) {
+fetch_data <- function(
+        data = NULL, metadata = NULL, filters = list(),
+        gene_data = NULL, genes = NULL,
+        return_type = c("matrix", "sce", "spatial", "monocle"),
+        coordinate_columns = NULL, data_type = NULL,
+        offline = FALSE, release = NULL, download_base = NULL,
+        plan = NULL) {
     return_type <- match.arg(return_type)
     context <- .abc_fetch_context(
         plan = plan, data = data, metadata = metadata, filters = filters,
@@ -799,9 +804,10 @@ fetch_data <- function(data = NULL, metadata = NULL, filters = list(),
 
 # Resolve the request from an approved plan, rejecting arguments the plan
 # would otherwise silently override, or else from the individual arguments.
-.abc_fetch_context <- function(plan, data, metadata, filters,
-                               gene_data, genes, data_type, offline,
-                               release, download_base) {
+.abc_fetch_context <- function(
+        plan, data, metadata, filters,
+        gene_data, genes, data_type, offline,
+        release, download_base) {
     if (is.null(plan)) {
         return(.abc_fetch_context_from_inputs(
             data = data, metadata = metadata, filters = filters,
@@ -863,11 +869,12 @@ fetch_data <- function(data = NULL, metadata = NULL, filters = list(),
 #' )
 #' plan
 #' @export
-plan_fetch <- function(data = NULL, metadata = NULL, filters = list(),
-                       gene_data = NULL, genes = NULL, data_type = NULL,
-                       offline = FALSE, release = NULL,
-                       download_base = NULL,
-                       confirm = interactive()) {
+plan_fetch <- function(
+        data = NULL, metadata = NULL, filters = list(),
+        gene_data = NULL, genes = NULL, data_type = NULL,
+        offline = FALSE, release = NULL,
+        download_base = NULL,
+        confirm = interactive()) {
     context <- .abc_fetch_context_from_inputs(
         data = data, metadata = metadata, filters = filters,
         gene_data = gene_data, genes = genes, data_type = data_type,
@@ -1024,10 +1031,10 @@ print.abc_fetch_plan <- function(x, ...) {
 # identifiers when available, and finally symbols. Each request must identify
 # exactly one gene; absent genes are never silently replaced by zero rows.
 .abc_resolve_gene_request <- function(
-  query,
-  ids,
-  source_ids,
-  symbols
+        query,
+        ids,
+        source_ids,
+        symbols
 ) {
     matches <- which(ids == query)
 
@@ -1074,8 +1081,8 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_validate_gene_resolution_inputs <- function(
-  gene_data,
-  genes
+        gene_data,
+        genes
 ) {
     if (!"gene_identifier" %in% names(gene_data)) {
         stop(
@@ -1129,8 +1136,8 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_finalize_gene_resolution <- function(
-  gene_data,
-  selected
+        gene_data,
+        selected
 ) {
     out <- gene_data[
         selected, ,
@@ -1154,8 +1161,8 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_resolve_genes <- function(
-  gene_data,
-  genes = NULL
+        gene_data,
+        genes = NULL
 ) {
     inputs <- .abc_validate_gene_resolution_inputs(
         gene_data = gene_data,
@@ -1207,8 +1214,8 @@ print.abc_fetch_plan <- function(x, ...) {
 
 # Select cells consistently for metadata loading, planning and fetching.
 .abc_validate_cell_id_selection <- function(
-  metadata,
-  cell_ids
+        metadata,
+        cell_ids
 ) {
     if (!is.character(cell_ids)) {
         stop(
@@ -1255,9 +1262,9 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_match_cell_ids <- function(
-  metadata,
-  cell_ids,
-  labels
+        metadata,
+        cell_ids,
+        labels
 ) {
     pos <- match(
         cell_ids,
@@ -1288,8 +1295,8 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_select_cell_ids <- function(
-  metadata,
-  cell_ids
+        metadata,
+        cell_ids
 ) {
     if (is.null(cell_ids)) {
         return(metadata)
@@ -1308,8 +1315,8 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_apply_cell_filters <- function(
-  metadata,
-  filters
+        metadata,
+        filters
 ) {
     if (
         !is.list(filters) ||
@@ -1347,9 +1354,9 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_validate_cell_sample <- function(
-  metadata,
-  n_cells,
-  seed
+        metadata,
+        n_cells,
+        seed
 ) {
     if (is.null(n_cells)) {
         return(NULL)
@@ -1394,9 +1401,9 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_sample_cell_rows <- function(
-  metadata,
-  n_cells,
-  seed
+        metadata,
+        n_cells,
+        seed
 ) {
     keep <- withr::with_seed(
         seed,
@@ -1414,9 +1421,9 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_sample_cells <- function(
-  metadata,
-  n_cells,
-  seed
+        metadata,
+        n_cells,
+        seed
 ) {
     n_cells <- .abc_validate_cell_sample(
         metadata = metadata,
@@ -1438,8 +1445,9 @@ print.abc_fetch_plan <- function(x, ...) {
     )
 }
 
-.abc_select_cells <- function(metadata, filters = list(), cell_ids = NULL,
-                              n_cells = NULL, seed = 1L) {
+.abc_select_cells <- function(
+        metadata, filters = list(), cell_ids = NULL,
+        n_cells = NULL, seed = 1L) {
     out <- metadata
 
     out <- .abc_apply_cell_filters(
@@ -1523,8 +1531,8 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_apply_expression_matrix_map <- function(
-  matrix_labels,
-  cells
+        matrix_labels,
+        cells
 ) {
     matrix_map <- attr(
         cells,
@@ -1578,8 +1586,8 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_legacy_expression_route_pairs <- function(
-  cells,
-  matrix_labels
+        cells,
+        matrix_labels
 ) {
     if (!"dataset_label" %in% names(cells)) {
         stop(
@@ -1616,9 +1624,9 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_expression_route_inventory <- function(
-  abc_cache,
-  expression_dirs,
-  data_type
+        abc_cache,
+        expression_dirs,
+        data_type
 ) {
     expression_dirs <- unique(
         as.character(expression_dirs)
@@ -1640,10 +1648,10 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_match_expression_route_label <- function(
-  inventory,
-  label,
-  expression_dirs,
-  data_type
+        inventory,
+        label,
+        expression_dirs,
+        data_type
 ) {
     matches <- inventory[
         inventory$feature_matrix_label == label,
@@ -1690,10 +1698,10 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_inventory_expression_route_pairs <- function(
-  abc_cache,
-  expression_dirs,
-  matrix_labels,
-  data_type
+        abc_cache,
+        expression_dirs,
+        matrix_labels,
+        data_type
 ) {
     expression_dirs <- unique(
         as.character(expression_dirs)
@@ -1719,10 +1727,10 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_expression_route_pairs <- function(
-  abc_cache,
-  cells,
-  matrix_labels,
-  data_type
+        abc_cache,
+        cells,
+        matrix_labels,
+        data_type
 ) {
     expression_dirs <- attr(
         cells,
@@ -1772,8 +1780,9 @@ print.abc_fetch_plan <- function(x, ...) {
 
 # Size and local cache state (complete file and resumable .part bytes) of one
 # expression matrix file, as one row of the fetch plan's file table.
-.abc_expression_file_row <- function(abc_cache, directory, matrix_file,
-                                     data_type, matrix_labels) {
+.abc_expression_file_row <- function(
+        abc_cache, directory, matrix_file,
+        data_type, matrix_labels) {
     attrs <- .abc_file_attributes(
         abc_cache, directory, paste0(matrix_file, "/", data_type)
     )
@@ -1841,8 +1850,8 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_h5ad_expression_from_layout <- function(
-  path,
-  layout
+        path,
+        layout
 ) {
     otype <- layout$otype
     encoding <- layout$encoding
@@ -1937,8 +1946,9 @@ print.abc_fetch_plan <- function(x, ...) {
 # Read the requested genes x cells blocks from one H5AD expression file and
 # return them as triplet pieces (row, column, value). Cells absent from the
 # file contribute no entries.
-.abc_expression_file_blocks <- function(path, cells, gene_data, gene_sel,
-                                        block_size) {
+.abc_expression_file_blocks <- function(
+        path, cells, gene_data, gene_sel,
+        block_size) {
     var_index <- .h5ad_index(path, "var")
     obs_index <- .h5ad_index(path, "obs")
     gene_pos <- .abc_gene_positions(
@@ -1986,8 +1996,9 @@ print.abc_fetch_plan <- function(x, ...) {
 # gene/cell blocks are realized. Rows follow the requested gene order and are
 # named by gene_identifier; columns follow the order of `cells`. Cells not
 # found in any file are all-zero columns.
-.abc_expression_matrix <- function(abc_cache, cells, gene_data, gene_sel,
-                                   data_type = "raw", block_size = 50000L) {
+.abc_expression_matrix <- function(
+        abc_cache, cells, gene_data, gene_sel,
+        data_type = "raw", block_size = 50000L) {
     if (!requireNamespace("HDF5Array", quietly = TRUE)) {
         stop(
             "Package 'HDF5Array' is required to read expression matrices.",
@@ -2031,8 +2042,9 @@ print.abc_fetch_plan <- function(x, ...) {
 # requested blocks under a single-line spinner. Download/cache resolution
 # happens before the spinner starts so that curl's real download progress
 # display is never overwritten.
-.abc_read_expression_file <- function(abc_cache, entry, cells, gene_data,
-                                      gene_sel, data_type, block_size) {
+.abc_read_expression_file <- function(
+        abc_cache, entry, cells, gene_data,
+        gene_sel, data_type, block_size) {
     matrix_file <- entry$feature_matrix_label
     path <- abc_cache$get_file_path(
         directory = entry$dataset_label,
@@ -2106,10 +2118,10 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_resolve_source_gene_positions <- function(
-  gene_data,
-  sel,
-  var,
-  pos
+        gene_data,
+        sel,
+        var,
+        pos
 ) {
     required <- c(
         "source_gene_identifier",

@@ -70,8 +70,9 @@
 #' cache
 #'
 #' @export
-abc_cache_connect <- function(download_base = NULL, offline = FALSE,
-                              release = .abc_default_release) {
+abc_cache_connect <- function(
+        download_base = NULL, offline = FALSE,
+        release = .abc_default_release) {
     download_base <- abc_download_dir(download_base)
     offline <- isTRUE(offline)
 
@@ -175,15 +176,17 @@ abc_cache_connect <- function(download_base = NULL, offline = FALSE,
         offline = offline,
         manifest = manifest
     )
-    cache$get_file_path <- function(directory, file_name,
-                                    force_download = FALSE,
-                                    skip_hash_check = FALSE) {
+    cache$get_file_path <- function(
+            directory, file_name,
+            force_download = FALSE,
+            skip_hash_check = FALSE) {
         .abc_get_file_path(
             cache, directory, file_name, force_download, skip_hash_check
         )
     }
-    cache$get_metadata_dataframe <- function(directory, file_name,
-                                             col_classes = NULL, ...) {
+    cache$get_metadata_dataframe <- function(
+            directory, file_name,
+            col_classes = NULL, ...) {
         .abc_read_csv(
             cache$get_file_path(directory, file_name), col_classes, ...
         )
@@ -222,10 +225,10 @@ print.abc_cache <- function(x, ...) {
 }
 
 .abc_fetch_memory_retry <- function(
-  url,
-  max_tries = 5L,
-  connect_timeout = 10,
-  timeout = 30
+        url,
+        max_tries = 5L,
+        connect_timeout = 10,
+        timeout = 30
 ) {
     max_tries <- as.integer(max_tries)
 
@@ -508,9 +511,10 @@ print.abc_cache <- function(x, ...) {
 # Local path of a manifest file, downloading it first if needed (online only).
 # A file on disk counts as present only if it is recorded as fully downloaded;
 # otherwise it is fetched again, as abc_atlas_access does.
-.abc_get_file_path <- function(cache, directory, file_name,
-                               force_download = FALSE,
-                               skip_hash_check = FALSE) {
+.abc_get_file_path <- function(
+        cache, directory, file_name,
+        force_download = FALSE,
+        skip_hash_check = FALSE) {
     attrs <- .abc_file_attributes(cache, directory, file_name)
     path <- attrs$local_path
     if (dir.exists(path)) stop(path, " exists but is not a file.")
@@ -551,8 +555,8 @@ print.abc_cache <- function(x, ...) {
     isTRUE(getOption("ABCatlas.download_progress", TRUE))
 }
 .abc_stop_if_download_interrupted <- function(
-  result,
-  part
+        result,
+        part
 ) {
     if (
         length(result$success) != 1L ||
@@ -585,10 +589,10 @@ print.abc_cache <- function(x, ...) {
 }
 
 .abc_finalize_download_attempt <- function(
-  result,
-  part,
-  dest,
-  md5
+        result,
+        part,
+        dest,
+        md5
 ) {
     ok <- isTRUE(result$success)
 
@@ -639,8 +643,8 @@ print.abc_cache <- function(x, ...) {
 }
 
 .abc_report_download_retry <- function(
-  attempt,
-  result
+        attempt,
+        result
 ) {
     message(
         "Download attempt ",
@@ -654,9 +658,9 @@ print.abc_cache <- function(x, ...) {
 }
 
 .abc_stop_download_failed <- function(
-  url,
-  max_tries,
-  result
+        url,
+        max_tries,
+        result
 ) {
     stop(
         "Could not download ",

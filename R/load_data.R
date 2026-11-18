@@ -665,9 +665,10 @@
 #' names(WHB$unique_values)
 #' }
 #' @export
-load_data <- function(dataset, download_base = NULL, offline = FALSE,
-                      release = .abc_default_release, filters = list(),
-                      cell_ids = NULL, n_cells = NULL, seed = 1L) {
+load_data <- function(
+        dataset, download_base = NULL, offline = FALSE,
+        release = .abc_default_release, filters = list(),
+        cell_ids = NULL, n_cells = NULL, seed = 1L) {
     datasets <- names(.abc_datasets)
     if (missing(dataset)) {
         stop("Specify a dataset, one of: ", paste(datasets, collapse = ", "))
@@ -748,8 +749,9 @@ print.abc_data <- function(x, ...) {
 # Left many-to-one metadata join that preserves cell count and row order.
 # Annotation tables must have a non-missing unique join key; otherwise joining
 # them could silently duplicate cells.
-.abc_safe_join <- function(left, right, key, suffix = "annotation",
-                           column_suffix = paste0("__", suffix)) {
+.abc_safe_join <- function(
+        left, right, key, suffix = "annotation",
+        column_suffix = paste0("__", suffix)) {
     if (!key %in% names(left) || !key %in% names(right)) {
         stop(suffix, ": join key ", key, " missing.", call. = FALSE)
     }
@@ -903,10 +905,10 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_apply_dataset_subset <- function(
-  cell_metadata,
-  subset_spec,
-  abc_cache,
-  dataset
+        cell_metadata,
+        subset_spec,
+        abc_cache,
+        dataset
 ) {
     subset_metadata <- abc_cache$get_metadata_dataframe(
         directory = subset_spec$dir,
@@ -938,9 +940,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_apply_standard_metadata_joins <- function(
-  cell_metadata,
-  cell_dir,
-  abc_cache
+        cell_metadata,
+        cell_dir,
+        abc_cache
 ) {
     standard_joins <- list(
         list(file = "library", key = "library_label"),
@@ -979,8 +981,9 @@ print.abc_data <- function(x, ...) {
     cell_metadata
 }
 
-.abc_apply_taxonomy_membership <- function(cell_metadata, cell_dir,
-                                           taxonomy_dir, abc_cache) {
+.abc_apply_taxonomy_membership <- function(
+        cell_metadata, cell_dir,
+        taxonomy_dir, abc_cache) {
     membership_dir <- NULL
     for (candidate in c(cell_dir, taxonomy_dir)) {
         if (.abc_metadata_exists(
@@ -1018,9 +1021,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_join_taxonomy_annotations <- function(
-  cell_metadata,
-  taxonomy_dir,
-  abc_cache
+        cell_metadata,
+        taxonomy_dir,
+        abc_cache
 ) {
     taxonomy <- .build_taxonomy(
         abc_cache,
@@ -1048,10 +1051,10 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_apply_dataset_taxonomy <- function(
-  cell_metadata,
-  cell_dir,
-  taxonomy_dir,
-  abc_cache
+        cell_metadata,
+        cell_dir,
+        taxonomy_dir,
+        abc_cache
 ) {
     cell_metadata <- .abc_apply_taxonomy_membership(
         cell_metadata = cell_metadata,
@@ -1068,9 +1071,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_apply_spatial_metadata <- function(
-  cell_metadata,
-  cell_dir,
-  abc_cache
+        cell_metadata,
+        cell_dir,
+        abc_cache
 ) {
     spatial_files <- c(
         "slab_plane_coordinates",
@@ -1101,9 +1104,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_apply_roi_colors <- function(
-  cell_metadata,
-  roi_spec,
-  abc_cache
+        cell_metadata,
+        roi_spec,
+        abc_cache
 ) {
     roi <- abc_cache$get_metadata_dataframe(
         directory = roi_spec$dir,
@@ -1134,9 +1137,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_apply_configured_metadata_joins <- function(
-  cell_metadata,
-  joins,
-  abc_cache
+        cell_metadata,
+        joins,
+        abc_cache
 ) {
     for (join in joins %||% list()) {
         auxiliary <- abc_cache$get_metadata_dataframe(
@@ -1158,9 +1161,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_load_dataset_genes <- function(
-  gene_spec,
-  abc_cache,
-  dataset
+        gene_spec,
+        abc_cache,
+        dataset
 ) {
     gene <- abc_cache$get_metadata_dataframe(
         directory = gene_spec$dir,
@@ -1186,10 +1189,10 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_finalize_dataset <- function(
-  cell_metadata,
-  gene_data,
-  spec,
-  dataset
+        cell_metadata,
+        gene_data,
+        spec,
+        dataset
 ) {
     cols <- intersect(
         spec$cols_of_interest,
@@ -1235,9 +1238,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_enrich_dataset_cells <- function(
-  cell_metadata,
-  spec,
-  abc_cache
+        cell_metadata,
+        spec,
+        abc_cache
 ) {
     if (!is.null(spec$taxonomy)) {
         cell_metadata <- .abc_apply_dataset_taxonomy(
@@ -1278,9 +1281,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_assemble_dataset_cells <- function(
-  spec,
-  abc_cache,
-  dataset
+        spec,
+        abc_cache,
+        dataset
 ) {
     cell_metadata <- abc_cache$get_metadata_dataframe(
         directory = spec$cell$dir,
@@ -1345,9 +1348,9 @@ print.abc_data <- function(x, ...) {
 # directory's membership + term-set tables, keyed by cluster_alias. Shared by
 # every dataset that declares a `taxonomy` (currently WHB and WMB).
 .abc_validate_taxonomy_alias <- function(
-  x,
-  source,
-  taxonomy_dir
+        x,
+        source,
+        taxonomy_dir
 ) {
     if (!"cluster_alias" %in% names(x)) {
         stop(
@@ -1380,9 +1383,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_add_taxonomy_term_names <- function(
-  membership,
-  abc_cache,
-  taxonomy_dir
+        membership,
+        abc_cache,
+        taxonomy_dir
 ) {
     if ("cluster_annotation_term_name" %in% names(membership)) {
         return(membership)
@@ -1429,9 +1432,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_add_taxonomy_term_set_names <- function(
-  membership,
-  abc_cache,
-  taxonomy_dir
+        membership,
+        abc_cache,
+        taxonomy_dir
 ) {
     if ("cluster_annotation_term_set_name" %in% names(membership)) {
         return(membership)
@@ -1478,9 +1481,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_enrich_taxonomy_membership <- function(
-  membership,
-  abc_cache,
-  taxonomy_dir
+        membership,
+        abc_cache,
+        taxonomy_dir
 ) {
     membership <- .abc_add_taxonomy_term_names(
         membership = membership,
@@ -1496,8 +1499,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_validate_taxonomy_membership_keys <- function(
-  membership,
-  taxonomy_dir
+        membership,
+        taxonomy_dir
 ) {
     required <- c(
         "cluster_alias",
@@ -1539,8 +1542,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_validate_taxonomy_membership_conflicts <- function(
-  membership,
-  taxonomy_dir
+        membership,
+        taxonomy_dir
 ) {
     key <- paste(
         membership$cluster_alias,
@@ -1566,8 +1569,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_validate_taxonomy_membership <- function(
-  membership,
-  taxonomy_dir
+        membership,
+        taxonomy_dir
 ) {
     membership <- .abc_validate_taxonomy_membership_keys(
         membership = membership,
@@ -1581,8 +1584,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_load_taxonomy_membership <- function(
-  abc_cache,
-  taxonomy_dir
+        abc_cache,
+        taxonomy_dir
 ) {
     if (!.abc_metadata_exists(
         abc_cache,
@@ -1610,8 +1613,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_load_pivoted_taxonomy_details <- function(
-  abc_cache,
-  taxonomy_dir
+        abc_cache,
+        taxonomy_dir
 ) {
     .abc_validate_taxonomy_alias(
         abc_cache$get_metadata_dataframe(
@@ -1624,8 +1627,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_reshape_taxonomy_details <- function(
-  membership,
-  taxonomy_dir
+        membership,
+        taxonomy_dir
 ) {
     if (is.null(membership)) {
         stop(
@@ -1667,9 +1670,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_get_taxonomy_details <- function(
-  abc_cache,
-  taxonomy_dir,
-  membership
+        abc_cache,
+        taxonomy_dir,
+        membership
 ) {
     if (.abc_metadata_exists(
         abc_cache,
@@ -1706,9 +1709,9 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_build_taxonomy_details <- function(
-  abc_cache,
-  taxonomy_dir,
-  membership
+        abc_cache,
+        taxonomy_dir,
+        membership
 ) {
     cluster_details <- .abc_get_taxonomy_details(
         abc_cache = abc_cache,
@@ -1722,8 +1725,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_validate_taxonomy_color_conflicts <- function(
-  color,
-  taxonomy_dir
+        color,
+        taxonomy_dir
 ) {
     color_key <- paste(
         color$cluster_alias,
@@ -1749,8 +1752,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_reshape_taxonomy_colors <- function(
-  color,
-  taxonomy_dir
+        color,
+        taxonomy_dir
 ) {
     cluster_colors <- stats::reshape(
         color,
@@ -1773,8 +1776,8 @@ print.abc_data <- function(x, ...) {
 }
 
 .abc_build_taxonomy_colors <- function(
-  membership,
-  taxonomy_dir
+        membership,
+        taxonomy_dir
 ) {
     if (
         is.null(membership) ||
