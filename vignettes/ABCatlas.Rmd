@@ -22,6 +22,15 @@ options(ABCatlas.download_progress = FALSE)
 [Allen Brain Cell (ABC)
 Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
 
+The ABC Atlas, from the Allen Institute, brings together whole-brain
+single-cell, single-nucleus and spatial transcriptomics datasets from the
+mouse, human, macaque and marmoset brain, together with their cell type
+taxonomies. Its H5AD expression matrices and CSV metadata files are
+distributed through a public Amazon S3 bucket that requires no account.
+`ABCatlas` lets R users find these datasets, select cells and genes from
+their metadata, check the size of a request before downloading, and read
+the selected expression into R.
+
 The package separates metadata discovery and cell selection from
 expression transfer:
 
@@ -79,9 +88,13 @@ network access.
 `load_data()` loads and assembles cell and gene metadata. It does not
 fetch the large expression matrices.
 
-This vignette uses `Zhuang4`, a MERFISH spatial transcriptomics dataset
-and one of the smallest routes in the atlas. Its metadata take about
-40 MB and its raw expression about 64 MB.
+This vignette uses `Zhuang4`, one of four MERFISH datasets from Zhang et
+al. (2023). It covers three sagittal sections of an adult mouse brain
+measured with a 1,122-gene panel, and its cells are mapped to the whole
+mouse brain taxonomy of Yao et al. (2023). The ABC Atlas distributes the
+approximately 0.16 million cells that passed the mapping confidence
+threshold. Its metadata take about 40 MB and its raw expression about
+64 MB.
 
 ```{r load-data}
 abc <- load_data("Zhuang4")
@@ -303,10 +316,13 @@ x_again <- fetch_data(plan = plan_again)
 identical(x$expression, x_again$expression)
 ```
 
-Other datasets use the same cache. `HMBA_PatchSeq` is a small Patch-seq
-dataset from the macaque basal ganglia. It is not spatial and is
-published only as `log2` expression, which is therefore its default
-representation:
+Other datasets use the same cache. `HMBA_PatchSeq` holds 717 Patch-seq
+cells from macaque striatum, part of the Human and Mammalian Brain Atlas
+(HMBA) basal ganglia data. Patch-seq combines patch-clamp
+electrophysiology with single-cell RNA sequencing; these cells are mapped
+to striatal neuron types of the HMBA basal ganglia taxonomy. The dataset
+is not spatial and is published only as `log2` expression, which is
+therefore its default representation:
 
 ```{r second-dataset}
 patch_seq <- load_data("HMBA_PatchSeq")
@@ -340,6 +356,24 @@ reproducible analyses, for example with
 
 After required files are cached, `offline = TRUE` prevents network
 access.
+
+## References
+
+-   Allen Institute for Brain Science. Allen Brain Cell Atlas
+    (RRID:SCR_024440).
+    <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
+-   Allen Institute for Brain Science. Human-Mammalian Brain - Basal
+    Ganglia: Macaque Patch-seq cells multimodal data
+    (HMBA-Macaque-PatchSeq, version 20260228) [dataset]. Described in the
+    ABC Atlas data access documentation,
+    <https://alleninstitute.github.io/abc_atlas_access/>.
+-   Yao Z, van Velthoven CTJ, Kunst M, et al. (2023). A high-resolution
+    transcriptomic and spatial atlas of cell types in the whole mouse
+    brain. *Nature* 624(7991), 317-332.
+    <https://doi.org/10.1038/s41586-023-06812-z>
+-   Zhang M, Pan X, Jung W, et al. (2023). Molecularly defined and
+    spatially resolved cell atlas of the whole mouse brain. *Nature*
+    624(7991), 343-354. <https://doi.org/10.1038/s41586-023-06808-9>
 
 ## Session information
 
