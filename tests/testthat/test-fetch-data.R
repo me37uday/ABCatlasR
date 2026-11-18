@@ -2731,3 +2731,28 @@ test_that("a plan cannot be combined with arguments it would ignore", {
     "Remove: filters, data_type"
   )
 })
+
+test_that("plan printing aligns the storage lines in both branches", {
+  example_dir <- system.file("extdata", "ex", package = "ABCatlas")
+  example_data <- readRDS(file.path(example_dir, "example-data.rds"))
+  plan <- suppressMessages(plan_fetch(
+    download_base = example_dir,
+    metadata = example_data$cells,
+    gene_data = example_data$genes,
+    genes = c("G1", "G4"),
+    offline = TRUE,
+    release = "20250101",
+    confirm = FALSE
+  ))
+
+  plan$available_space <- NA_real_
+  out <- capture.output(print(plan))
+  expect_true("  available disk space: unable to determine" %in% out)
+  expect_true("  storage check:        unable to determine" %in% out)
+
+  plan$available_space <- 1e12
+  plan$storage_sufficient <- TRUE
+  out <- capture.output(print(plan))
+  expect_true(any(grepl("^  available disk space: [0-9.]+ [kMGT]?B$", out)))
+  expect_true("  storage check:        PASS" %in% out)
+})

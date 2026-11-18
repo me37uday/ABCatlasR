@@ -616,55 +616,32 @@
   )
 }
 
-.abc_fetch_expression <- function(
-    abc_cache,
-    filtered_meta,
-    gene_data,
-    selected_gene_data,
-    download_base,
-    data_type
-) {
-  files <- .abc_expression_files(
-    abc_cache,
-    filtered_meta,
-    data_type = data_type
-  )
-
+.abc_fetch_expression <- function(abc_cache, filtered_meta, gene_data,
+                                  selected_gene_data, download_base,
+                                  data_type) {
+  files <- .abc_expression_files(abc_cache, filtered_meta,
+                                 data_type = data_type)
   additional_download <- ifelse(
-    files$cached,
-    0,
-    pmax(
-      files$size - files$partial_bytes,
-      0
-    )
+    files$cached, 0, pmax(files$size - files$partial_bytes, 0)
   )
-
   total_download <- sum(additional_download)
   available_space <- .abc_available_space(download_base)
 
-  if (
-    total_download > 0 &&
-    !is.na(available_space) &&
-    available_space < total_download
-  ) {
-    shortfall <- total_download - available_space
-
+  if (total_download > 0 && !is.na(available_space) &&
+      available_space < total_download) {
     stop(
       "Insufficient disk space for this download. ",
       "Required: ", .abc_format_size(total_download),
       "; available: ", .abc_format_size(available_space),
-      "; shortfall: ", .abc_format_size(shortfall),
+      "; shortfall: ", .abc_format_size(total_download - available_space),
       ". No expression files were downloaded.",
       call. = FALSE
     )
   }
 
   .abc_expression_matrix(
-    abc_cache = abc_cache,
-    cells = filtered_meta,
-    gene_data = gene_data,
-    gene_sel = selected_gene_data$.abc_gene_index,
-    data_type = data_type
+    abc_cache = abc_cache, cells = filtered_meta, gene_data = gene_data,
+    gene_sel = selected_gene_data$.abc_gene_index, data_type = data_type
   )
 }
 
@@ -803,89 +780,64 @@
 #' )
 #' x$expression
 #' @export
-fetch_data <- function(
-    data = NULL,
-    metadata = NULL,
-    filters = list(),
-    gene_data = NULL,
-    genes = NULL,
-    return_type = c("matrix", "sce", "spatial", "monocle"),
-    coordinate_columns = NULL,
-    data_type = NULL,
-    offline = FALSE,
-    release = NULL,
-    download_base = NULL,
-    plan = NULL
-) {
+fetch_data <- function(data = NULL, metadata = NULL, filters = list(),
+                       gene_data = NULL, genes = NULL,
+                       return_type = c("matrix", "sce", "spatial", "monocle"),
+                       coordinate_columns = NULL, data_type = NULL,
+                       offline = FALSE, release = NULL, download_base = NULL,
+                       plan = NULL) {
   return_type <- match.arg(return_type)
-
-  if (!is.null(plan)) {
-    .abc_reject_plan_overrides(
-      data = data,
-      metadata = metadata,
-      filters = filters,
-      gene_data = gene_data,
-      genes = genes,
-      data_type = data_type,
-      offline = offline,
-      release = release,
-      download_base = download_base
-    )
-  }
-
-  context <- if (!is.null(plan)) {
-    .abc_fetch_context_from_plan(plan)
-  } else {
-    .abc_fetch_context_from_inputs(
-      data = data,
-      metadata = metadata,
-      filters = filters,
-      gene_data = gene_data,
-      genes = genes,
-      data_type = data_type,
-      offline = offline,
-      release = release,
-      download_base = download_base
-    )
-  }
-
+  context <- .abc_fetch_context(
+    plan = plan, data = data, metadata = metadata, filters = filters,
+    gene_data = gene_data, genes = genes, data_type = data_type,
+    offline = offline, release = release, download_base = download_base
+  )
   .abc_validate_output_request(
-    return_type = return_type,
-    data_type = context$data_type,
+    return_type = return_type, data_type = context$data_type,
     cell_metadata = context$filtered_meta,
     coordinate_columns = coordinate_columns
   )
 
   expression <- .abc_fetch_expression(
-    abc_cache = context$abc_cache,
-    filtered_meta = context$filtered_meta,
+    abc_cache = context$abc_cache, filtered_meta = context$filtered_meta,
     gene_data = context$gene_data,
     selected_gene_data = context$selected_gene_data,
-    download_base = context$download_base,
-    data_type = context$data_type
+    download_base = context$download_base, data_type = context$data_type
   )
-
   context$selected_gene_data$.abc_gene_index <- NULL
-
   provenance <- .abc_output_provenance(
-    context$filtered_meta,
-    context$selected_gene_data,
-    data_type = context$data_type,
-    release = context$release
+    context$filtered_meta, context$selected_gene_data,
+    data_type = context$data_type, release = context$release
   )
 
   .abc_materialize(
-    expression = expression,
-    cell_metadata = context$filtered_meta,
-    gene_data = context$selected_gene_data,
-    data_type = context$data_type,
-    return_type = return_type,
-    coordinate_columns = coordinate_columns,
+    expression = expression, cell_metadata = context$filtered_meta,
+    gene_data = context$selected_gene_data, data_type = context$data_type,
+    return_type = return_type, coordinate_columns = coordinate_columns,
     provenance = provenance,
-    spatial = isTRUE(
-      attr(context$filtered_meta, "abc_spatial")
-    )
+    spatial = isTRUE(attr(context$filtered_meta, "abc_spatial"))
   )
+}
+
+# Resolve the request from an approved plan, rejecting arguments the plan
+# would otherwise silently override, or else from the individual arguments.
+.abc_fetch_context <- function(plan, data, metadata, filters,
+                               gene_data, genes, data_type, offline,
+                               release, download_base) {
+  if (is.null(plan)) {
+    return(.abc_fetch_context_from_inputs(
+      data = data, metadata = metadata, filters = filters,
+      gene_data = gene_data, genes = genes, data_type = data_type,
+      offline = offline, release = release, download_base = download_base
+    ))
+  }
+
+  .abc_reject_plan_overrides(
+    data = data, metadata = metadata, filters = filters,
+    gene_data = gene_data, genes = genes, data_type = data_type,
+    offline = offline, release = release, download_base = download_base
+  )
+  .abc_fetch_context_from_plan(plan)
 }
 
 #' Plan an ABC Atlas expression fetch without downloading expression files
@@ -1029,23 +981,19 @@ print.abc_fetch_plan <- function(x, ...) {
     "  release:        ", x$release, "\n",
     "  representation: ", x$data_type, "\n",
     "  requested:      ", x$n_genes, " genes x ", x$n_cells, " cells\n",
+    "\nExpression files:\n",
     sep = ""
   )
-
-  cat("\nExpression files:\n")
-
   for (i in seq_len(nrow(x$files))) {
-    f <- x$files[i, ]
+    .abc_print_plan_file(x$files[i, ])
+  }
 
-    cat(
-      "  ", f$dataset_label, "/", f$feature_matrix_label, "/", f$data_type,
-      " [", f$n_cells, " cells]\n",
-      "    size:                ", .abc_format_size(f$size), "\n",
-      "    cached:              ", if (f$cached) "yes" else "no", "\n",
-      "    resumable partial:   ", .abc_format_size(f$partial_bytes), "\n",
-      "    additional download: ", .abc_format_size(f$additional_download), "\n",
-      sep = ""
-    )
+  if (is.na(x$available_space)) {
+    space <- "unable to determine"
+    check <- "unable to determine"
+  } else {
+    space <- .abc_format_size(x$available_space)
+    check <- if (x$storage_sufficient) "PASS" else "INSUFFICIENT"
   }
 
   cat(
@@ -1053,30 +1001,26 @@ print.abc_fetch_plan <- function(x, ...) {
     "  selected-file size:   ", .abc_format_size(x$total_size), "\n",
     "  resumable partial:    ", .abc_format_size(x$total_partial), "\n",
     "  additional download:  ", .abc_format_size(x$total_download), "\n",
-    sep = ""
-  )
-
-  if (is.na(x$available_space)) {
-    cat(
-      "  available disk space: unable to determine\n",
-      "  storage check:        unable to determine\n"
-    )
-  } else {
-    cat(
-      "  available disk space: ",
-      .abc_format_size(x$available_space),
-      "\n",
-      "  storage check:        ",
-      if (x$storage_sufficient) "PASS\n" else "INSUFFICIENT\n"
-    )
-  }
-
-  cat(
+    "  available disk space: ", space, "\n",
+    "  storage check:        ", check, "\n",
     "\nNo expression files were downloaded.\n",
     sep = ""
   )
-
   invisible(x)
+}
+
+# One expression-file entry of a printed fetch plan.
+.abc_print_plan_file <- function(f) {
+  cat(
+    "  ", f$dataset_label, "/", f$feature_matrix_label, "/", f$data_type,
+    " [", f$n_cells, " cells]\n",
+    "    size:                ", .abc_format_size(f$size), "\n",
+    "    cached:              ", if (f$cached) "yes" else "no", "\n",
+    "    resumable partial:   ", .abc_format_size(f$partial_bytes), "\n",
+    "    additional download: ", .abc_format_size(f$additional_download),
+    "\n",
+    sep = ""
+  )
 }
 
 # Resolve an expression representation from dataset metadata.
@@ -1853,22 +1797,12 @@ print.abc_fetch_plan <- function(x, ...) {
   )
 }
 
-.abc_expression_files <- function(
-    abc_cache,
-    cells,
-    data_type = "raw"
-) {
-  matrix_labels <- .abc_expression_matrix_labels(
-    cells
-  )
-
+.abc_expression_files <- function(abc_cache, cells, data_type = "raw") {
+  matrix_labels <- .abc_expression_matrix_labels(cells)
   pairs <- .abc_expression_route_pairs(
-    abc_cache = abc_cache,
-    cells = cells,
-    matrix_labels = matrix_labels,
-    data_type = data_type
+    abc_cache = abc_cache, cells = cells,
+    matrix_labels = matrix_labels, data_type = data_type
   )
-
   pairs <- pairs[
     order(pairs$directory, pairs$feature_matrix_label, method = "radix"),
     ,
@@ -1876,37 +1810,40 @@ print.abc_fetch_plan <- function(x, ...) {
   ]
 
   out <- vector("list", nrow(pairs))
-
   for (k in seq_len(nrow(pairs))) {
-    directory <- as.character(pairs$directory[k])
-    matrix_file <- as.character(pairs$feature_matrix_label[k])
-
-    attrs <- .abc_file_attributes(
+    out[[k]] <- .abc_expression_file_row(
       abc_cache,
-      directory,
-      paste0(matrix_file, "/", data_type)
-    )
-    part <- paste0(attrs$local_path, ".part")
-
-    out[[k]] <- data.frame(
-      dataset_label = directory,
-      feature_matrix_label = matrix_file,
+      directory = as.character(pairs$directory[k]),
+      matrix_file = as.character(pairs$feature_matrix_label[k]),
       data_type = data_type,
-      n_cells = sum(matrix_labels == matrix_file),
-      size = as.numeric(attrs$size),
-      relative_path = attrs$relative_path,
-      local_path = attrs$local_path,
-      cached = file.exists(attrs$local_path),
-      partial_bytes = if (file.exists(part)) {
-        as.numeric(file.info(part)$size)
-      } else {
-        0
-      },
-      stringsAsFactors = FALSE
+      matrix_labels = matrix_labels
     )
   }
-
   do.call(rbind, out)
+}
+
+# Size and local cache state (complete file and resumable .part bytes) of one
+# expression matrix file, as one row of the fetch plan's file table.
+.abc_expression_file_row <- function(abc_cache, directory, matrix_file,
+                                     data_type, matrix_labels) {
+  attrs <- .abc_file_attributes(
+    abc_cache, directory, paste0(matrix_file, "/", data_type)
+  )
+  part <- paste0(attrs$local_path, ".part")
+  partial <- if (file.exists(part)) as.numeric(file.info(part)$size) else 0
+
+  data.frame(
+    dataset_label = directory,
+    feature_matrix_label = matrix_file,
+    data_type = data_type,
+    n_cells = sum(matrix_labels == matrix_file),
+    size = as.numeric(attrs$size),
+    relative_path = attrs$relative_path,
+    local_path = attrs$local_path,
+    cached = file.exists(attrs$local_path),
+    partial_bytes = partial,
+    stringsAsFactors = FALSE
+  )
 }
 
 # Open the central H5AD expression matrix without realizing it in memory.
@@ -2053,84 +1990,43 @@ print.abc_fetch_plan <- function(x, ...) {
 # Read the requested genes x cells blocks from one H5AD expression file and
 # return them as triplet pieces (row, column, value). Cells absent from the
 # file contribute no entries.
-.abc_expression_file_blocks <- function(
-    path,
-    cells,
-    gene_data,
-    gene_sel,
-    block_size
-) {
-  cell_ids <- rownames(cells)
-
-  var_index <- .h5ad_index(
-    path,
-    "var"
-  )
-
-  obs_index <- .h5ad_index(
-    path,
-    "obs"
-  )
-
+.abc_expression_file_blocks <- function(path, cells, gene_data, gene_sel,
+                                        block_size) {
+  var_index <- .h5ad_index(path, "var")
+  obs_index <- .h5ad_index(path, "obs")
   gene_pos <- .abc_gene_positions(
-    gene_data,
-    gene_sel,
-    var_index,
-    basename(path)
+    gene_data, gene_sel, var_index, basename(path)
   )
 
-  file_pos <- match(
-    cell_ids,
-    obs_index
-  )
-
-  wanted <- which(
-    !is.na(file_pos)
-  )
-
-  wanted <- wanted[
-    order(file_pos[wanted])
-  ]
+  file_pos <- match(rownames(cells), obs_index)
+  wanted <- which(!is.na(file_pos))
+  wanted <- wanted[order(file_pos[wanted])]
 
   X <- .abc_h5ad_expression(
-    path,
-    n_genes = length(var_index),
-    n_cells = length(obs_index)
+    path, n_genes = length(var_index), n_cells = length(obs_index)
   )
+  blocks <- split(wanted, ceiling(seq_along(wanted) / block_size))
+  .abc_read_expression_blocks(X, gene_pos, file_pos, blocks)
+}
 
+# Realize each block of cells for the selected genes and keep its non-zero
+# entries. `blocks` holds positions in `cells`; `file_pos` maps them to columns
+# of the file.
+.abc_read_expression_blocks <- function(X, gene_pos, file_pos, blocks) {
   rows <- cols <- vals <- list()
 
-  blocks <- split(
-    wanted,
-    ceiling(
-      seq_along(wanted) / block_size
+  for (block in blocks) {
+    m <- methods::as(
+      X[gene_pos, file_pos[block], drop = FALSE],
+      "dgCMatrix"
     )
-  )
-
-  if (length(blocks)) {
-    for (block in blocks) {
-      m <- methods::as(
-        X[
-          gene_pos,
-          file_pos[block],
-          drop = FALSE
-        ],
-        "dgCMatrix"
-      )
-
-      nz <- Matrix::summary(m)
-
-      rows[[length(rows) + 1L]] <- nz$i
-      cols[[length(cols) + 1L]] <- block[nz$j]
-      vals[[length(vals) + 1L]] <- nz$x
-    }
+    nz <- Matrix::summary(m)
+    rows[[length(rows) + 1L]] <- nz$i
+    cols[[length(cols) + 1L]] <- block[nz$j]
+    vals[[length(vals) + 1L]] <- nz$x
   }
 
-  list(
-    rows = rows,
-    cols = cols,
-    vals = vals
-  )
+  list(rows = rows, cols = cols, vals = vals)
 }
 
 # Sparse genes x cells expression matrix (dgCMatrix) for `cells` (rownames are
@@ -2295,53 +2191,27 @@ print.abc_fetch_plan <- function(x, ...) {
 # Zeng-Aging-Mouse-10Xv3, genes with a duplicated symbol have a printed pandas
 # Series embedding the real identifier. The existing positional fallback for
 # that published-data defect is retained after ordinary identifier matching.
-.abc_source_gene_position <- function(
-    gene_data,
-    row,
-    var,
-    var_source
-) {
-  source <- as.character(
-    gene_data$source_gene_identifier[[row]]
-  )
+.abc_source_gene_position <- function(gene_data, row, var, var_source) {
+  source <- as.character(gene_data$source_gene_identifier[[row]])
+  occurrence <- as.integer(gene_data$source_gene_occurrence[[row]])
+  group_size <- as.integer(gene_data$source_gene_group_size[[row]])
 
-  occurrence <- as.integer(
-    gene_data$source_gene_occurrence[[row]]
-  )
-
-  group_size <- as.integer(
-    gene_data$source_gene_group_size[[row]]
-  )
-
-  if (
-    is.na(source) ||
-    !nzchar(source) ||
-    is.na(occurrence) ||
-    occurrence < 1L ||
-    is.na(group_size) ||
-    group_size < 1L
-  ) {
+  if (is.na(source) || !nzchar(source) ||
+      is.na(occurrence) || occurrence < 1L ||
+      is.na(group_size) || group_size < 1L) {
     return(NA_integer_)
   }
 
   hits <- which(var == source)
-
   if (!length(hits)) {
     hits <- which(var_source == source)
   }
 
-  if (
-    length(hits) == 1L &&
-    group_size == 1L
-  ) {
+  if (length(hits) == 1L && group_size == 1L) {
     return(hits[[1L]])
   }
-
-  if (
-    group_size > 1L &&
-    length(hits) == group_size &&
-    occurrence <= length(hits)
-  ) {
+  if (group_size > 1L && length(hits) == group_size &&
+      occurrence <= length(hits)) {
     return(hits[[occurrence]])
   }
 
@@ -2394,46 +2264,37 @@ print.abc_fetch_plan <- function(x, ...) {
 
 .abc_gene_positions <- function(gene_data, sel, var, file) {
   sel <- as.integer(sel)
-
-  ids <- as.character(
-    gene_data$gene_identifier %||% rownames(gene_data)
-  )
+  ids <- as.character(gene_data$gene_identifier %||% rownames(gene_data))
 
   pos <- match(ids[sel], var)
-  unresolved <- which(is.na(pos))
-
-  if (!length(unresolved)) {
-    return(pos)
-  }
-
-  pos <- .abc_resolve_source_gene_positions(
-    gene_data = gene_data,
-    sel = sel,
-    var = var,
-    pos = pos
-  )
-
   if (!anyNA(pos)) {
     return(pos)
   }
 
-  # Preserve the existing AgingMouse compatibility fallback.
+  pos <- .abc_resolve_source_gene_positions(
+    gene_data = gene_data, sel = sel, var = var, pos = pos
+  )
+  if (!anyNA(pos)) {
+    return(pos)
+  }
+
+  .abc_positional_gene_fallback(
+    ids, sel, var, file, n_missing = sum(is.na(pos))
+  )
+}
+
+# Preserve the existing AgingMouse compatibility fallback: when every
+# mismatching var entry embeds the expected identifier, align by position.
+# Otherwise the selected genes are genuinely missing from the file.
+.abc_positional_gene_fallback <- function(ids, sel, var, file, n_missing) {
   if (length(var) == length(ids)) {
     bad <- which(var != ids)
 
-    if (
-      length(bad) &&
-      all(mapply(
-        grepl,
-        ids[bad],
-        var[bad],
-        MoreArgs = list(fixed = TRUE)
-      ))
-    ) {
+    if (length(bad) &&
+        all(mapply(grepl, ids[bad], var[bad],
+                   MoreArgs = list(fixed = TRUE)))) {
       warning(
-        length(bad),
-        " gene identifiers in ",
-        file,
+        length(bad), " gene identifiers in ", file,
         " are malformed; genes were aligned by position.",
         call. = FALSE
       )
@@ -2442,9 +2303,7 @@ print.abc_fetch_plan <- function(x, ...) {
   }
 
   stop(
-    sum(is.na(pos)),
-    " of the selected genes are missing from ",
-    file,
+    n_missing, " of the selected genes are missing from ", file,
     "; is gene_data from the same dataset?",
     call. = FALSE
   )
