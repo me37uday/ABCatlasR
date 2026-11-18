@@ -660,10 +660,13 @@
 #' @return An \code{abc_data} object containing \code{cell_metadata},
 #'   \code{gene_data}, \code{unique_values}, and dataset/cache provenance.
 #' @examples
-#' \donttest{
-#' WHB <- load_data("WHB")
-#' names(WHB$unique_values)
-#' }
+#' # Cache the downloaded metadata in a temporary folder.
+#' abc <- load_data(
+#'     "HMBA_PatchSeq",
+#'     download_base = file.path(tempdir(), "ABCatlas")
+#' )
+#' abc
+#' dim(abc$cell_metadata)
 #' @export
 load_data <- function(
         dataset, download_base = NULL, offline = FALSE,

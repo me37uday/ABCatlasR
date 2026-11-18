@@ -51,8 +51,11 @@ interest) is described declaratively in an internal registry rather than in
 per-dataset functions.
 }
 \examples{
-\donttest{
-WHB <- load_data("WHB")
-names(WHB$unique_values)
-}
+# Cache the downloaded metadata in a temporary folder.
+abc <- load_data(
+    "HMBA_PatchSeq",
+    download_base = file.path(tempdir(), "ABCatlas")
+)
+abc
+dim(abc$cell_metadata)
 }
