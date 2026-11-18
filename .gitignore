@@ -53,3 +53,4 @@ po/*~
 rsconnect/
 # macOS metadata
 .DS_Store
+vignettes/*.R
