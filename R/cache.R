@@ -32,10 +32,12 @@
 #' manifests and files already on disk are used, and the network is never
 #' contacted and nothing is written to \code{download_base}.
 #'
-#' The manifest is chosen as in the Python \code{abc_atlas_access} package: the
-#' one last used with this directory if any (with a warning when a newer release
-#' exists), otherwise the latest release. The directory layout is also the same,
-#' so a download directory can be shared with the Python package.
+#' By default the release validated against this package is used. With
+#' \code{release = NULL}, the manifest is chosen as in the Python
+#' \code{abc_atlas_access} package: the one last used with this directory if
+#' any (with a warning when a newer release exists), otherwise the latest
+#' release. The directory layout is the same as in the Python package, so a
+#' download directory can be shared between them.
 #'
 #' @param download_base Download/cache directory; resolved by
 #'   \code{\link{abc_download_dir}}.

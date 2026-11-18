@@ -758,8 +758,10 @@
 #'   metadata.
 #' @param gene_data A data.frame with 'gene_identifier' and 'gene_symbol'
 #'   columns, typically the `gene_data` element returned by [load_data()].
-#' @param genes A character vector of gene names to include. If \code{NULL},
-#'   all genes in \code{gene_data$gene_symbol} will be used.
+#' @param genes Character vector of genes to include. Each entry is matched
+#'   first against \code{gene_identifier}, then against the published source
+#'   identifier, then against \code{gene_symbol}; a symbol shared by several
+#'   genes is reported as ambiguous. If \code{NULL}, all genes are used.
 #' @param return_type Output format: \code{"matrix"} for the primary sparse
 #'   expression bundle, \code{"sce"} for a SingleCellExperiment,
 #'   \code{"spatial"} for a SpatialExperiment, or \code{"monocle"} for
@@ -898,7 +900,10 @@ fetch_data <- function(
 #' @param metadata Cell metadata, typically from [load_data()].
 #' @param filters Named list of column = value filters.
 #' @param gene_data Gene metadata, typically from [load_data()].
-#' @param genes Character vector of gene symbols. If `NULL`, all genes are used.
+#' @param genes Character vector of genes to include. Each entry is matched
+#'   first against \code{gene_identifier}, then against the published source
+#'   identifier, then against \code{gene_symbol}; a symbol shared by several
+#'   genes is reported as ambiguous. If \code{NULL}, all genes are used.
 #' @param data_type Published expression representation (`"raw"` or `"log2"`).
 #'   If `NULL`, the dataset route's declared default is used.
 #' @param offline If `TRUE`, use only the locally cached manifest.
@@ -2045,16 +2050,9 @@ print.abc_fetch_plan <- function(x, ...) {
   X
 }
 
-# Sparse genes x cells expression matrix (dgCMatrix) for `cells` (rownames are
-# cell labels) and the genes of `gene_data` whose symbol is in `selected_genes`.
-#
-# Cells are grouped by the expression file that holds them (dataset_label +
-# feature_matrix_label); each file is downloaded if needed and opened as an
-# on-disk delayed matrix. Both sparse H5AD groups and dense /X datasets are
-# supported, and only requested gene/cell blocks are realized. Rows follow
-# the resolved gene request order and are named by (made unique) gene symbol;
-# columns
-# follow the order of `cells`. Cells not found in any file are all-zero columns.
+# Read the requested genes x cells blocks from one H5AD expression file and
+# return them as triplet pieces (row, column, value). Cells absent from the
+# file contribute no entries.
 .abc_expression_file_blocks <- function(
     path,
     cells,
@@ -2135,6 +2133,15 @@ print.abc_fetch_plan <- function(x, ...) {
   )
 }
 
+# Sparse genes x cells expression matrix (dgCMatrix) for `cells` (rownames are
+# cell labels) and the rows of `gene_data` selected by `gene_sel`.
+#
+# Cells are grouped by the expression file that holds them; each file is
+# downloaded if needed and opened as an on-disk delayed matrix. Both sparse
+# H5AD groups and dense /X datasets are supported, and only requested
+# gene/cell blocks are realized. Rows follow the requested gene order and are
+# named by gene_identifier; columns follow the order of `cells`. Cells not
+# found in any file are all-zero columns.
 .abc_expression_matrix <- function(
     abc_cache,
     cells,
@@ -2165,6 +2172,8 @@ print.abc_fetch_plan <- function(x, ...) {
   for (k in seq_len(nrow(files))) {
     matrix_file <- files$feature_matrix_label[k]
 
+    # Download/cache resolution happens before the spinner starts so that
+    # curl's real download progress display is never overwritten.
     path <- abc_cache$get_file_path(
       directory = files$dataset_label[k],
       file_name = paste0(

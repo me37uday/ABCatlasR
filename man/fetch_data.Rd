@@ -33,8 +33,10 @@ metadata.}
 \item{gene_data}{A data.frame with 'gene_identifier' and 'gene_symbol'
 columns, typically the \code{gene_data} element returned by \code{\link[=load_data]{load_data()}}.}
 
-\item{genes}{A character vector of gene names to include. If \code{NULL},
-all genes in \code{gene_data$gene_symbol} will be used.}
+\item{genes}{Character vector of genes to include. Each entry is matched
+first against \code{gene_identifier}, then against the published source
+identifier, then against \code{gene_symbol}; a symbol shared by several
+genes is reported as ambiguous. If \code{NULL}, all genes are used.}
 
 \item{return_type}{Output format: \code{"matrix"} for the primary sparse
 expression bundle, \code{"sce"} for a SingleCellExperiment,

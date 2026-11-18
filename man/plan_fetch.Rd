@@ -28,7 +28,10 @@ cache directory, and release are reused automatically.}
 
 \item{gene_data}{Gene metadata, typically from \code{\link[=load_data]{load_data()}}.}
 
-\item{genes}{Character vector of gene symbols. If \code{NULL}, all genes are used.}
+\item{genes}{Character vector of genes to include. Each entry is matched
+first against \code{gene_identifier}, then against the published source
+identifier, then against \code{gene_symbol}; a symbol shared by several
+genes is reported as ambiguous. If \code{NULL}, all genes are used.}
 
 \item{data_type}{Published expression representation (\code{"raw"} or \code{"log2"}).
 If \code{NULL}, the dataset route's declared default is used.}

@@ -638,9 +638,9 @@
 #' interest) is described declaratively in an internal registry rather than in
 #' per-dataset functions.
 #'
-#' @param dataset Dataset name. One of \code{"WHB"}, \code{"WMB"},
-#'   \code{"AgingMouse"}, \code{"HMBA"}, \code{"PMDBS"} (partial matching
-#'   allowed).
+#' @param dataset Dataset route name. Run [list_datasets()] to see every
+#'   supported route (for example \code{"WHB"}, \code{"AgingMouse"} or
+#'   \code{"MERFISH"}). Unambiguous partial names are accepted.
 #' @param download_base Directory where ABC Atlas data is downloaded and cached.
 #'   If \code{NULL} (default), it is resolved by \code{\link{abc_download_dir}}.
 #' @param offline If \code{TRUE}, use only locally cached data and never contact
