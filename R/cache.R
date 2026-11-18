@@ -692,11 +692,16 @@ print.abc_cache <- function(x, ...) {
     part <- paste0(dest, ".part")
 
     for (i in seq_len(max_tries)) {
+        # Abort a connection that cannot be opened within 10 s or that stays
+        # below 1 kB/s for 60 s; the loop then retries and resumes the file.
         res <- curl::multi_download(
             url,
             part,
             resume = TRUE,
-            progress = .abc_download_progress()
+            progress = .abc_download_progress(),
+            connecttimeout = 10,
+            low_speed_limit = 1000,
+            low_speed_time = 60
         )
 
         .abc_stop_if_download_interrupted(
