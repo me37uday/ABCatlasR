@@ -522,59 +522,6 @@
 }
 
 
-#' Fetch selected ABC Atlas expression into an R analysis representation
-#'
-#' @param data Optional \code{abc_data} object returned by \code{load_data()}.
-#'   This is the preferred interface. When supplied, its metadata, gene data,
-#'   cache directory, and release are reused automatically.
-#' @param download_base Directory where ABC Atlas data is downloaded and cached.
-#'   If `NULL` (default), it is resolved by [abc_download_dir()] (option,
-#'   `ABC_ATLAS_CACHE` env var, or a per-user cache directory).
-#' @param metadata A data.frame containing ABC atlas cell metadata (e.g., the
-#'   `cell_metadata` element returned by [load_data()]).
-#' @param filters A named list of column = value pairs used to filter the
-#'   metadata.
-#' @param gene_data A data.frame with 'gene_identifier' and 'gene_symbol'
-#'   columns, typically the `gene_data` element returned by [load_data()].
-#' @param genes A character vector of gene names to include. If \code{NULL},
-#'   all genes in \code{gene_data$gene_symbol} will be used.
-#' @param return_type Output format: \code{"matrix"} for the primary sparse
-#'   expression bundle, \code{"sce"} for a SingleCellExperiment,
-#'   \code{"spatial"} for a SpatialExperiment, or \code{"monocle"} for
-#'   a Monocle 2 CellDataSet. The default is \code{"matrix"}.
-#' @param coordinate_columns Optional length-two character vector naming the
-#'   spatial x/y columns. Used only for \code{return_type = "spatial"}.
-#' @param data_type Published expression representation (`"raw"` or `"log2"`).
-#'   If `NULL`, the dataset route's declared default is used. Raw expression
-#'   retains count semantics. Upstream log2 expression remains transformed
-#'   data and is never presented as counts.
-#' @param offline If `TRUE`, use only locally cached expression data and never
-#'   contact S3 (see [abc_cache_connect()]).
-#' @param release Optional ABC Atlas release version in \code{YYYYMMDD} form.
-#'   Defaults to the release validated against this package. Advanced users may
-#'   supply another release explicitly.
-#' @return The requested expression representation: a sparse matrix bundle,
-#'   SingleCellExperiment, SpatialExperiment, or Monocle 2 CellDataSet.
-#' @examples
-#' example_dir <- system.file(
-#'   "extdata", "ex",
-#'   package = "ABCatlas"
-#' )
-#' example_data <- readRDS(
-#'   file.path(example_dir, "example-data.rds")
-#' )
-#'
-#' x <- fetch_data(
-#'   download_base = example_dir,
-#'   metadata = example_data$cells,
-#'   gene_data = example_data$genes,
-#'   genes = c("G1", "G4"),
-#'   return_type = "matrix",
-#'   offline = TRUE,
-#'   release = "20250101"
-#' )
-#' x$expression
-#' @export
 .abc_fetch_context_from_plan <- function(plan) {
   if (!inherits(plan, "abc_fetch_plan")) {
     stop(
@@ -721,6 +668,63 @@
   )
 }
 
+#' Fetch selected ABC Atlas expression into an R analysis representation
+#'
+#' @param data Optional \code{abc_data} object returned by \code{load_data()}.
+#'   This is the preferred interface. When supplied, its metadata, gene data,
+#'   cache directory, and release are reused automatically.
+#' @param download_base Directory where ABC Atlas data is downloaded and cached.
+#'   If `NULL` (default), it is resolved by [abc_download_dir()] (option,
+#'   `ABC_ATLAS_CACHE` env var, or a per-user cache directory).
+#' @param metadata A data.frame containing ABC atlas cell metadata (e.g., the
+#'   `cell_metadata` element returned by [load_data()]).
+#' @param filters A named list of column = value pairs used to filter the
+#'   metadata.
+#' @param gene_data A data.frame with 'gene_identifier' and 'gene_symbol'
+#'   columns, typically the `gene_data` element returned by [load_data()].
+#' @param genes A character vector of gene names to include. If \code{NULL},
+#'   all genes in \code{gene_data$gene_symbol} will be used.
+#' @param return_type Output format: \code{"matrix"} for the primary sparse
+#'   expression bundle, \code{"sce"} for a SingleCellExperiment,
+#'   \code{"spatial"} for a SpatialExperiment, or \code{"monocle"} for
+#'   a Monocle 2 CellDataSet. The default is \code{"matrix"}.
+#' @param coordinate_columns Optional length-two character vector naming the
+#'   spatial x/y columns. Used only for \code{return_type = "spatial"}.
+#' @param data_type Published expression representation (`"raw"` or `"log2"`).
+#'   If `NULL`, the dataset route's declared default is used. Raw expression
+#'   retains count semantics. Upstream log2 expression remains transformed
+#'   data and is never presented as counts.
+#' @param offline If `TRUE`, use only locally cached expression data and never
+#'   contact S3 (see [abc_cache_connect()]).
+#' @param release Optional ABC Atlas release version in \code{YYYYMMDD} form.
+#'   Defaults to the release validated against this package. Advanced users may
+#'   supply another release explicitly.
+#' @param plan Optional \code{abc_fetch_plan} object returned by
+#'   [plan_fetch()] and approved interactively. When supplied, the cells,
+#'   genes, release, cache directory and representation stored in the plan
+#'   are used, and the download is not confirmed again.
+#' @return The requested expression representation: a sparse matrix bundle,
+#'   SingleCellExperiment, SpatialExperiment, or Monocle 2 CellDataSet.
+#' @examples
+#' example_dir <- system.file(
+#'   "extdata", "ex",
+#'   package = "ABCatlas"
+#' )
+#' example_data <- readRDS(
+#'   file.path(example_dir, "example-data.rds")
+#' )
+#'
+#' x <- fetch_data(
+#'   download_base = example_dir,
+#'   metadata = example_data$cells,
+#'   gene_data = example_data$genes,
+#'   genes = c("G1", "G4"),
+#'   return_type = "matrix",
+#'   offline = TRUE,
+#'   release = "20250101"
+#' )
+#' x$expression
+#' @export
 fetch_data <- function(
     data = NULL,
     metadata = NULL,
@@ -800,6 +804,10 @@ fetch_data <- function(
 #'   If `NULL`, the dataset route's declared default is used.
 #' @param offline If `TRUE`, use only the locally cached manifest.
 #' @param release ABC Atlas release. Defaults to the package-validated release.
+#' @param confirm If `TRUE` (the default in interactive sessions) and a
+#'   download is required, the plan is printed and the user is asked to
+#'   approve it. In non-interactive sessions a plan that requires a download
+#'   is returned unapproved.
 #' @return An `abc_fetch_plan` object describing the requested output and
 #'   expression files required to produce it.
 #' @examples

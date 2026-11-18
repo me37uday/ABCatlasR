@@ -15,7 +15,8 @@ fetch_data(
   data_type = NULL,
   offline = FALSE,
   release = NULL,
-  download_base = NULL
+  download_base = NULL,
+  plan = NULL
 )
 }
 \arguments{
@@ -58,6 +59,11 @@ supply another release explicitly.}
 \item{download_base}{Directory where ABC Atlas data is downloaded and cached.
 If \code{NULL} (default), it is resolved by \code{\link[=abc_download_dir]{abc_download_dir()}} (option,
 \code{ABC_ATLAS_CACHE} env var, or a per-user cache directory).}
+
+\item{plan}{Optional \code{abc_fetch_plan} object returned by
+\code{\link[=plan_fetch]{plan_fetch()}} and approved interactively. When supplied, the cells,
+genes, release, cache directory and representation stored in the plan
+are used, and the download is not confirmed again.}
 }
 \value{
 The requested expression representation: a sparse matrix bundle,

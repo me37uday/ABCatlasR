@@ -13,7 +13,8 @@ plan_fetch(
   data_type = NULL,
   offline = FALSE,
   release = NULL,
-  download_base = NULL
+  download_base = NULL,
+  confirm = interactive()
 )
 }
 \arguments{
@@ -37,6 +38,11 @@ If \code{NULL}, the dataset route's declared default is used.}
 \item{release}{ABC Atlas release. Defaults to the package-validated release.}
 
 \item{download_base}{Directory where ABC Atlas data is downloaded and cached.}
+
+\item{confirm}{If \code{TRUE} (the default in interactive sessions) and a
+download is required, the plan is printed and the user is asked to
+approve it. In non-interactive sessions a plan that requires a download
+is returned unapproved.}
 }
 \value{
 An \code{abc_fetch_plan} object describing the requested output and
