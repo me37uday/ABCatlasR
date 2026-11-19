@@ -319,23 +319,20 @@ x_again <- fetch_data(plan = plan_again)
 identical(x$expression, x_again$expression)
 ```
 
-Other datasets use the same cache. `HMBA_PatchSeq` holds 717 Patch-seq
-cells from macaque striatum, part of the Human and Mammalian Brain Atlas
-(HMBA) basal ganglia data. Patch-seq combines patch-clamp
-electrophysiology with single-cell RNA sequencing; these cells are mapped
-to striatal neuron types of the HMBA basal ganglia taxonomy. The dataset
-is not spatial and is published only as `log2` expression, which is
-therefore its default representation:
+Other datasets use the same cache. `Zhuang2` is another MERFISH dataset
+from Zhang et al. (2023), measured with the same gene panel, so the genes
+selected above can be fetched from it too. Here `n_cells` and `seed`
+select a reproducible sample of 5,000 cells:
 
 ```{r second-dataset}
-patch_seq <- load_data("HMBA_PatchSeq")
-patch_seq
+abc2 <- load_data("Zhuang2", n_cells = 5000, seed = 1)
+abc2
 ```
 
 ```{r second-fetch}
-y <- fetch_data(patch_seq, genes = c("GAD1", "PPP1R1B", "DRD1", "DRD2"))
+y <- fetch_data(abc2, genes = genes)
 dim(y$expression)
-y$data_type
+Matrix::rowSums(y$expression > 0)
 ```
 
 ## Cache location and releases
@@ -365,11 +362,6 @@ access.
 -   Allen Institute for Brain Science. Allen Brain Cell Atlas
     (RRID:SCR_024440).
     <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
--   Allen Institute for Brain Science. Human-Mammalian Brain - Basal
-    Ganglia: Macaque Patch-seq cells multimodal data
-    (HMBA-Macaque-PatchSeq, version 20260228) [dataset]. Described in the
-    ABC Atlas data access documentation,
-    <https://alleninstitute.github.io/abc_atlas_access/>.
 -   Yao Z, van Velthoven CTJ, Kunst M, et al. (2023). A high-resolution
     transcriptomic and spatial atlas of cell types in the whole mouse
     brain. *Nature* 624(7991), 317-332.
