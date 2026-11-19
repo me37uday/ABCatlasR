@@ -62,30 +62,11 @@ test_that("remote manifest listing reports HTTP errors", {
     expect_error(.abc_remote_manifests(), "HTTP 503", fixed = TRUE)
 })
 
-test_that("plan_fetch accepts the historical positional download_base", {
-    ex <- example_inputs()
-    by_name <- suppressMessages(plan_fetch(
-        download_base = ex$dir, metadata = ex$data$cells,
-        gene_data = ex$data$genes, genes = c("G1", "G4"),
-        offline = TRUE, release = "20250101", confirm = FALSE
-    ))
-    by_position <- suppressMessages(plan_fetch(
-        ex$dir,
-        metadata = ex$data$cells,
-        gene_data = ex$data$genes, genes = c("G1", "G4"),
-        offline = TRUE, release = "20250101", confirm = FALSE
-    ))
-    expect_identical(by_position$n_cells, by_name$n_cells)
-    expect_identical(by_position$files, by_name$files)
-})
-
-test_that("plan_fetch uses the package release when none is given", {
-    ex <- example_inputs()
+test_that("plan_fetch uses the package release when data records none", {
+    abc <- example_abc_data()
+    abc$release <- NULL
     expect_error(
-        plan_fetch(
-            download_base = ex$dir, metadata = ex$data$cells,
-            gene_data = ex$data$genes, offline = TRUE, confirm = FALSE
-        ),
+        plan_fetch(abc, offline = TRUE),
         paste0("'", .abc_default_release, "' is not available"),
         fixed = TRUE
     )
@@ -104,11 +85,6 @@ test_that("spatial coordinates reject unusable inputs", {
         x = c(1, 2),
         y = c(3, NA),
         u = 1:2
-    )
-    expect_error(
-        .abc_spatial_coordinates(md, "x"),
-        "exactly two non-missing column names",
-        fixed = TRUE
     )
     expect_error(
         .abc_spatial_coordinates(md[, c("cell_label", "u")]),
@@ -133,12 +109,13 @@ test_that("catalog rows fall back to defaults for sparse registry entries", {
 })
 
 test_that("files served from the cache are reported", {
-    ex <- example_inputs()
+    abc <- example_abc_data()
     expect_message(
-        plan_and_fetch(
-            download_base = ex$dir, metadata = ex$data$cells,
-            gene_data = ex$data$genes, genes = c("G1", "G4"),
-            offline = TRUE, release = "20250101"
+        fetch_data(
+            abc,
+            cell_ids = abc$cell_metadata$cell_label,
+            genes = c("G1", "G4"),
+            offline = TRUE
         ),
         "Using cached .*no download needed"
     )

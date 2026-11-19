@@ -186,18 +186,15 @@ test_that("malformed identifiers in the file fall back to positional alignment",
     )
 })
 
-test_that("fetch_data filters cells and returns the default matrix bundle", {
+test_that("fetch_data returns the selected cells and genes as a matrix bundle", {
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        plan_and_fetch(
-            download_base = fx$dir,
-            metadata = fx$cells,
-            filters = list(donor_sex = "M"),
-            gene_data = fx$genes,
+        fetch_data(
+            fixture_data(fx),
+            cell_ids = c("c1", "c3", "c6"),
             genes = c("G1", "G3", "G4"),
-            offline = TRUE,
-            release = fx$version
+            offline = TRUE
         )
     )
 
@@ -227,23 +224,33 @@ test_that("fetch_data filters cells and returns the default matrix bundle", {
     )
 })
 
-test_that("fetch_data validates filters", {
+test_that("fetch_data validates cell_ids", {
     fx <- make_fixture_cache()
+    data <- fixture_data(fx)
+
     expect_error(
-        plan_and_fetch(
-            download_base = fx$dir, metadata = fx$cells,
-            filters = list(nope = 1), gene_data = fx$genes,
-            offline = TRUE, release = fx$version
-        ),
-        "not found in metadata"
+        fetch_data(data, offline = TRUE),
+        "cell_ids is required"
     )
     expect_error(
-        plan_and_fetch(
-            download_base = fx$dir, metadata = fx$cells,
-            filters = list(donor_sex = "X"), gene_data = fx$genes,
-            offline = TRUE, release = fx$version
-        ),
-        "No cells left"
+        fetch_data(data, cell_ids = NULL, offline = TRUE),
+        "at least one cell"
+    )
+    expect_error(
+        fetch_data(data, cell_ids = c("c1", "ghost"), offline = TRUE),
+        "1 requested cell not found in this dataset: ghost"
+    )
+    expect_error(
+        fetch_data(data, cell_ids = c("c1", "c1"), offline = TRUE),
+        "no duplicates"
+    )
+    expect_error(
+        fetch_data(data, cell_ids = 1:2, offline = TRUE),
+        "character vector"
+    )
+    expect_error(
+        fetch_data(fx$cells, cell_ids = "c1", offline = TRUE),
+        "abc_data object returned by load_data"
     )
 })
 
@@ -264,109 +271,134 @@ test_that("fetch_data stops before download when disk space is insufficient", {
 
     local_mocked_bindings(
         .abc_available_space = function(path) 1,
+        .abc_system_volume = function(path) FALSE,
         .abc_expression_matrix = function(...) {
             stop("expression matrix should not be read", call. = FALSE)
         }
     )
 
     expect_error(
-        plan_and_fetch(
-            download_base = fx$dir,
-            metadata = fx$cells,
-            filters = list(donor_sex = "M"),
-            gene_data = fx$genes,
+        fetch_data(
+            fixture_data(fx),
+            cell_ids = c("c1", "c3", "c6"),
             genes = c("G1", "G3", "G4"),
-            offline = TRUE,
-            release = fx$version
+            offline = TRUE
         ),
-        "Insufficient disk space"
+        "Not enough disk space"
     )
+})
+
+test_that("the system disk keeps 500 MB free after a download", {
+    fx <- make_fixture_cache()
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
+    attrs <- .abc_file_attributes(cache, "TEST-10X", "TEST-A/raw")
+    unlink(attrs$local_path)
+    download <- attrs$size
+
+    local_mocked_bindings(
+        .abc_expression_matrix = function(...) {
+            stop("storage check passed", call. = FALSE)
+        }
+    )
+    fetch <- function() {
+        suppressMessages(fetch_data(
+            fixture_data(fx),
+            cell_ids = "c1",
+            genes = "G1",
+            offline = TRUE
+        ))
+    }
+
+    # System disk: 400 MB would remain, so the download is refused.
+    local_mocked_bindings(
+        .abc_available_space = function(path) download + 400e6,
+        .abc_system_volume = function(path) TRUE
+    )
+    expect_error(fetch(), "500 MB that must stay free on the system disk")
+
+    # Exactly 500 MB would remain: still refused.
+    local_mocked_bindings(
+        .abc_available_space = function(path) download + 500e6
+    )
+    expect_error(fetch(), "Not enough disk space")
+
+    # Another disk only needs room for the download itself.
+    local_mocked_bindings(
+        .abc_available_space = function(path) download,
+        .abc_system_volume = function(path) FALSE
+    )
+    expect_error(fetch(), "storage check passed")
+
+    # Unknown free space does not block the download.
+    local_mocked_bindings(
+        .abc_available_space = function(path) NA_real_
+    )
+    expect_error(fetch(), "storage check passed")
+})
+
+test_that("no space is required when every file is cached", {
+    fx <- make_fixture_cache()
+
+    local_mocked_bindings(
+        .abc_available_space = function(path) 0,
+        .abc_system_volume = function(path) TRUE
+    )
+
+    obj <- suppressMessages(
+        fetch_data(fixture_data(fx), cell_ids = "c1", offline = TRUE)
+    )
+    expect_identical(colnames(obj$expression), "c1")
 })
 
 test_that("plan_fetch reports the request without downloading expression files", {
     fx <- make_fixture_cache()
 
     plan <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        filters = list(donor_sex = "M"),
-        gene_data = fx$genes,
-        genes = c("G1", "G3", "G4"),
-        offline = TRUE,
-        release = fx$version
+        fixture_data(fx),
+        cell_ids = c("c1", "c3", "c6"),
+        offline = TRUE
     )
 
     expect_s3_class(plan, "abc_fetch_plan")
     expect_equal(plan$data_type, "raw")
     expect_equal(plan$n_cells, 3)
-    expect_equal(plan$n_genes, 3)
     expect_equal(plan$release, fx$version)
     expect_equal(plan$files$feature_matrix_label, c("TEST-A", "TEST-B"))
     expect_equal(plan$files$n_cells, c(2, 1))
     expect_equal(plan$total_download, 0)
-    expect_equal(plan$storage_required, 0)
-    expect_type(plan$available_space, "double")
-    expect_length(plan$available_space, 1L)
-    expect_type(plan$storage_sufficient, "logical")
-    expect_length(plan$storage_sufficient, 1L)
+    expect_type(plan$storage$available, "double")
+    expect_length(plan$storage$available, 1L)
+    expect_true(plan$storage$sufficient)
 })
 
-test_that("approved fetch plan executes without a second confirmation", {
+test_that("plan_fetch covers every cell by default and lists only needed files", {
     fx <- make_fixture_cache()
+    data <- fixture_data(fx)
 
-    plan <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        gene_data = fx$genes,
-        genes = c("G1", "G3", "G4"),
-        offline = TRUE,
-        release = fx$version,
-        confirm = FALSE
-    )
+    all_cells <- plan_fetch(data, offline = TRUE)
+    expect_equal(all_cells$n_cells, 6)
+    expect_equal(all_cells$files$feature_matrix_label, c("TEST-A", "TEST-B"))
 
-    expect_true(plan$approved)
-
-    local_mocked_bindings(
-        .abc_confirm_download = function(...) {
-            stop("fetch_data should not ask for confirmation", call. = FALSE)
-        }
-    )
-
-    out <- fetch_data(
-        plan = plan,
-        return_type = "matrix"
-    )
-
-    expect_s3_class(out, "abc_matrix")
-    expect_equal(dim(out$expression), c(3L, 6L))
-    expect_identical(
-        rownames(out$expression),
-        c("G1", "G3", "G4")
-    )
-    expect_identical(
-        colnames(out$expression),
-        paste0("c", 1:6)
-    )
+    one_file <- plan_fetch(data, cell_ids = c("c2", "c1"), offline = TRUE)
+    expect_equal(one_file$n_cells, 2)
+    expect_equal(one_file$files$feature_matrix_label, "TEST-A")
 })
 
-test_that("unapproved fetch plan is rejected", {
+test_that("plan_fetch and fetch_data reject the removed arguments", {
     fx <- make_fixture_cache()
+    data <- fixture_data(fx)
 
-    plan <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        gene_data = fx$genes,
-        genes = "G1",
-        offline = TRUE,
-        release = fx$version,
-        confirm = FALSE
-    )
-
-    plan$approved <- FALSE
-
+    expect_error(plan_fetch(data, genes = "G1"), "unused argument")
+    expect_error(plan_fetch(data, filters = list()), "unused argument")
+    expect_error(plan_fetch(data, n_cells = 2), "unused argument")
+    expect_error(plan_fetch(data, confirm = FALSE), "unused argument")
     expect_error(
-        fetch_data(plan = plan),
-        "fetch plan was not approved"
+        fetch_data(data, cell_ids = "c1", plan = list()),
+        "unused argument"
+    )
+    expect_error(
+        fetch_data(data, cell_ids = "c1", coordinate_columns = c("x", "y")),
+        "unused argument"
     )
 })
 
@@ -383,12 +415,8 @@ test_that("plan_fetch reports remaining bytes without downloading", {
     size_before <- file.info(part)$size
 
     plan <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        gene_data = fx$genes,
-        genes = "G1",
-        offline = TRUE,
-        release = fx$version
+        fixture_data(fx),
+        offline = TRUE
     )
 
     row <- plan$files[plan$files$feature_matrix_label == "TEST-A", ]
@@ -396,6 +424,7 @@ test_that("plan_fetch reports remaining bytes without downloading", {
     expect_false(row$cached)
     expect_equal(row$partial_bytes, 10)
     expect_equal(row$additional_download, row$size - 10)
+    expect_equal(plan$total_download, row$size - 10)
     expect_equal(file.info(part)$size, size_before)
     expect_false(file.exists(attrs$local_path))
 })
@@ -404,20 +433,17 @@ test_that("abc_fetch_plan prints a readable preflight summary", {
     fx <- make_fixture_cache()
 
     plan <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        filters = list(donor_sex = "M"),
-        gene_data = fx$genes,
-        genes = c("G1", "G3", "G4"),
-        offline = TRUE,
-        release = fx$version
+        fixture_data(fx),
+        cell_ids = c("c1", "c3", "c6"),
+        offline = TRUE
     )
 
     expect_output(print(plan), "<abc_fetch_plan>")
-    expect_output(print(plan), "3 genes x 3 cells")
+    expect_output(print(plan), "cells: +3")
     expect_output(print(plan), "TEST-10X/TEST-A/raw")
     expect_output(print(plan), "additional download")
     expect_output(print(plan), "available disk space")
+    expect_output(print(plan), "required free space")
     expect_output(print(plan), "storage check")
     expect_output(print(plan), "No expression files were downloaded")
 })
@@ -462,23 +488,15 @@ test_that("plan_fetch routes raw and log2 to the requested representation", {
     fx <- make_fixture_cache()
 
     raw <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        gene_data = fx$genes,
-        genes = "G1",
+        fixture_data(fx),
         data_type = "raw",
-        offline = TRUE,
-        release = fx$version
+        offline = TRUE
     )
 
     log2 <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        gene_data = fx$genes,
-        genes = "G1",
+        fixture_data(fx),
         data_type = "log2",
-        offline = TRUE,
-        release = fx$version
+        offline = TRUE
     )
 
     expect_equal(raw$data_type, "raw")
@@ -488,6 +506,24 @@ test_that("plan_fetch routes raw and log2 to the requested representation", {
     expect_equal(log2$data_type, "log2")
     expect_true(all(log2$files$data_type == "log2"))
     expect_match(log2$files$relative_path, "-log2\\.h5ad$")
+})
+
+test_that("a log2-only dataset defaults to log2 and rejects raw", {
+    fx <- make_fixture_cache()
+    cells <- fx$cells
+    attr(cells, "abc_default_data_type") <- "log2"
+    attr(cells, "abc_available_data_types") <- "log2"
+    data <- fixture_data(fx, cells = cells)
+
+    expect_equal(plan_fetch(data, offline = TRUE)$data_type, "log2")
+    obj <- suppressMessages(
+        fetch_data(data, cell_ids = "c1", genes = "G1", offline = TRUE)
+    )
+    expect_identical(obj$data_type, "log2")
+    expect_error(
+        fetch_data(data, cell_ids = "c1", data_type = "raw", offline = TRUE),
+        "does not publish data_type='raw'"
+    )
 })
 
 test_that("expression matrix reads log2 representation without transforming it", {
@@ -523,14 +559,12 @@ test_that("fetch_data returns raw expression in the default matrix bundle", {
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        plan_and_fetch(
-            download_base = fx$dir,
-            metadata = fx$cells,
-            gene_data = fx$genes,
+        fetch_data(
+            fixture_data(fx),
+            cell_ids = fx$cells$cell_label,
             genes = c("G1", "G3", "G4"),
             data_type = "raw",
-            offline = TRUE,
-            release = fx$version
+            offline = TRUE
         )
     )
 
@@ -559,14 +593,12 @@ test_that("fetch_data returns published log2 expression without transforming it"
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        plan_and_fetch(
-            download_base = fx$dir,
-            metadata = fx$cells,
-            gene_data = fx$genes,
+        fetch_data(
+            fixture_data(fx),
+            cell_ids = fx$cells$cell_label,
             genes = c("G1", "G3", "G4"),
             data_type = "log2",
-            offline = TRUE,
-            release = fx$version
+            offline = TRUE
         )
     )
 
@@ -596,13 +628,11 @@ test_that("fetch_data uses the route default representation", {
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        plan_and_fetch(
-            download_base = fx$dir,
-            metadata = fx$cells,
-            gene_data = fx$genes,
+        fetch_data(
+            fixture_data(fx),
+            cell_ids = fx$cells$cell_label,
             genes = "Ddd",
-            offline = TRUE,
-            release = fx$version
+            offline = TRUE
         )
     )
 
@@ -945,13 +975,11 @@ test_that("fetch_data accepts gene identifiers without extra user options", {
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        plan_and_fetch(
-            download_base = fx$dir,
-            metadata = fx$cells[1:3, , drop = FALSE],
-            gene_data = fx$genes,
+        fetch_data(
+            fixture_data(fx),
+            cell_ids = c("c1", "c2", "c3"),
             genes = c("G4", "G2"),
-            offline = TRUE,
-            release = fx$version
+            offline = TRUE
         )
     )
 
@@ -970,22 +998,6 @@ test_that("fetch_data accepts gene identifiers without extra user options", {
         c("c1", "c2", "c3")
     )
 })
-test_that("plan_fetch counts resolved identifiers like symbols", {
-    fx <- make_fixture_cache()
-
-    plan <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells[1:3, , drop = FALSE],
-        gene_data = fx$genes,
-        genes = c("G4", "G2"),
-        offline = TRUE,
-        release = fx$version
-    )
-
-    expect_identical(plan$n_genes, 2L)
-    expect_identical(plan$n_cells, 3L)
-})
-
 test_that("duplicate source genes align to H5AD occurrences one-to-one", {
     gene <- data.frame(
         gene_identifier = c(
@@ -1167,68 +1179,6 @@ test_that("expression routing can map published cell labels to another matrix", 
     )
 })
 
-test_that("fetch inputs resolve abc_data provenance", {
-    metadata <- data.frame(
-        cell_label = c("c1", "c2"),
-        stringsAsFactors = FALSE
-    )
-
-    gene_data <- data.frame(
-        gene_identifier = c("G1", "G2"),
-        gene_symbol = c("A", "B"),
-        stringsAsFactors = FALSE
-    )
-
-    data <- structure(
-        list(
-            cell_metadata = metadata,
-            gene_data = gene_data,
-            unique_values = list(),
-            dataset = "TEST",
-            download_base = "/tmp/test-cache",
-            release = "20260711"
-        ),
-        class = c("abc_data", "list")
-    )
-
-    out <- .abc_fetch_inputs(data = data)
-
-    expect_identical(out$metadata, metadata)
-    expect_identical(out$gene_data, gene_data)
-    expect_identical(
-        out$download_base,
-        "/tmp/test-cache"
-    )
-    expect_identical(
-        out$release,
-        "20260711"
-    )
-})
-
-test_that("fetch inputs reject conflicting interfaces", {
-    data <- structure(
-        list(
-            cell_metadata = data.frame(cell_label = "c1"),
-            gene_data = data.frame(
-                gene_identifier = "G1",
-                gene_symbol = "A"
-            ),
-            download_base = "/tmp/test-cache",
-            release = "20260711"
-        ),
-        class = c("abc_data", "list")
-    )
-
-    expect_error(
-        .abc_fetch_inputs(
-            data = data,
-            metadata = data$cell_metadata
-        ),
-        "either data or metadata/gene_data",
-        fixed = TRUE
-    )
-})
-
 test_that("plan_fetch accepts abc_data directly", {
     fx <- make_fixture_cache()
 
@@ -1260,71 +1210,15 @@ test_that("plan_fetch accepts abc_data directly", {
 
     plan <- plan_fetch(
         data,
-        genes = "G1",
         offline = TRUE
     )
 
     expect_s3_class(plan, "abc_fetch_plan")
-    expect_identical(plan$n_genes, 1L)
     expect_identical(plan$n_cells, 6L)
     expect_identical(plan$release, fx$version)
 })
 
-test_that("plan_fetch abc_data and legacy inputs agree", {
-    fx <- make_fixture_cache()
-
-    cache <- abc_cache_connect(
-        fx$dir,
-        offline = TRUE,
-        release = fx$version
-    )
-
-    built <- suppressMessages(
-        .build_dataset(
-            fixture_spec,
-            cache,
-            "TEST"
-        )
-    )
-
-    data <- structure(
-        c(
-            built,
-            list(
-                dataset = "TEST",
-                download_base = fx$dir,
-                release = fx$version
-            )
-        ),
-        class = c("abc_data", "list")
-    )
-
-    modern <- plan_fetch(
-        data,
-        genes = "G1",
-        offline = TRUE
-    )
-
-    legacy <- plan_fetch(
-        metadata = data$cell_metadata,
-        gene_data = data$gene_data,
-        genes = "G1",
-        download_base = fx$dir,
-        release = fx$version,
-        offline = TRUE
-    )
-
-    expect_identical(modern$n_cells, legacy$n_cells)
-    expect_identical(modern$n_genes, legacy$n_genes)
-    expect_identical(modern$data_type, legacy$data_type)
-
-    expect_identical(
-        modern$files$feature_matrix_label,
-        legacy$files$feature_matrix_label
-    )
-})
-
-test_that("load_data output passes directly to plan_fetch", {
+test_that("load_data output passes directly to plan_fetch and fetch_data", {
     fx <- make_fixture_cache()
 
     local_mocked_bindings(
@@ -1349,15 +1243,21 @@ test_that("load_data output passes directly to plan_fetch", {
     plan <- plan_fetch(
         data,
         cell_ids = c("c6", "c1", "c3"),
-        genes = "G1",
         offline = TRUE
     )
-    expect_identical(rownames(plan$.metadata), c("c6", "c1", "c3"))
 
     expect_s3_class(plan, "abc_fetch_plan")
     expect_identical(plan$n_cells, 3L)
-    expect_identical(plan$n_genes, 1L)
     expect_identical(plan$release, fx$version)
+
+    x <- suppressMessages(fetch_data(
+        data,
+        cell_ids = c("c6", "c1", "c3"),
+        genes = "G1",
+        offline = TRUE
+    ))
+    expect_identical(colnames(x$expression), c("c6", "c1", "c3"))
+    expect_identical(x$provenance$release, fx$version)
 })
 
 test_that("matrix materialization preserves expression and metadata", {
@@ -1450,30 +1350,6 @@ test_that("spatial coordinate selection prefers canonical route coordinates", {
     expect_equal(
         unname(coords),
         matrix(c(1, 2, 3, 4), ncol = 2L)
-    )
-})
-
-test_that("spatial coordinate selection accepts an explicit pair", {
-    metadata <- data.frame(
-        cell_label = c("c1", "c2"),
-        x_experiment = c(100, 200),
-        y_experiment = c(300, 400),
-        x_slab_mm = c(1, 2),
-        y_slab_mm = c(3, 4),
-        stringsAsFactors = FALSE
-    )
-
-    coords <- .abc_spatial_coordinates(
-        metadata,
-        coordinate_columns = c(
-            "x_experiment",
-            "y_experiment"
-        )
-    )
-
-    expect_identical(
-        colnames(coords),
-        c("x_experiment", "y_experiment")
     )
 })
 
@@ -1612,6 +1488,7 @@ test_that("SpatialExperiment raw materialization preserves coordinates and count
         y_slab_mm = c(3, 4),
         stringsAsFactors = FALSE
     )
+    attr(metadata, "abc_spatial") <- TRUE
 
     genes <- data.frame(
         gene_identifier = c("G1", "G2"),
@@ -1624,8 +1501,7 @@ test_that("SpatialExperiment raw materialization preserves coordinates and count
         metadata,
         genes,
         data_type = "raw",
-        return_type = "spatial",
-        spatial = TRUE
+        return_type = "spatial"
     )
 
     expect_s4_class(out, "SpatialExperiment")
@@ -1680,6 +1556,7 @@ test_that("SpatialExperiment log2 materialization preserves transformed semantic
         y_experiment = c(300, 400),
         stringsAsFactors = FALSE
     )
+    attr(metadata, "abc_spatial") <- TRUE
 
     genes <- data.frame(
         gene_identifier = c("G1", "G2"),
@@ -1692,11 +1569,7 @@ test_that("SpatialExperiment log2 materialization preserves transformed semantic
         metadata,
         genes,
         data_type = "log2",
-        return_type = "spatial",
-        coordinate_columns = c(
-            "x_experiment",
-            "y_experiment"
-        )
+        return_type = "spatial"
     )
 
     expect_s4_class(out, "SpatialExperiment")
@@ -1726,7 +1599,7 @@ test_that("SpatialExperiment log2 materialization preserves transformed semantic
     )
 })
 
-test_that("spatial output requires declared modality or explicit coordinates", {
+test_that("spatial output requires a dataset declared spatial", {
     skip_if_not_installed("SpatialExperiment")
     expression <- Matrix::Matrix(
         matrix(
@@ -1746,6 +1619,7 @@ test_that("spatial output requires declared modality or explicit coordinates", {
         y_experiment = c(300, 400),
         stringsAsFactors = FALSE
     )
+    attr(metadata, "abc_dataset") <- "TEST"
 
     genes <- data.frame(
         gene_identifier = "G1",
@@ -1761,20 +1635,17 @@ test_that("spatial output requires declared modality or explicit coordinates", {
             data_type = "raw",
             return_type = "spatial"
         ),
-        "No declared spatial modality",
+        "TEST has no spatial coordinates",
         fixed = TRUE
     )
 
+    attr(metadata, "abc_spatial") <- TRUE
     out <- .abc_materialize(
         expression,
         metadata,
         genes,
         data_type = "raw",
-        return_type = "spatial",
-        coordinate_columns = c(
-            "x_experiment",
-            "y_experiment"
-        )
+        return_type = "spatial"
     )
 
     expect_s4_class(out, "SpatialExperiment")
@@ -1807,6 +1678,7 @@ test_that("all return formats preserve ABC provenance", {
         y_experiment = c(300, 400),
         stringsAsFactors = FALSE
     )
+    attr(metadata, "abc_spatial") <- TRUE
 
     genes <- data.frame(
         gene_identifier = c("G1", "G2"),
@@ -1831,8 +1703,7 @@ test_that("all return formats preserve ABC provenance", {
         genes,
         data_type = "raw",
         return_type = "matrix",
-        provenance = provenance,
-        spatial = TRUE
+        provenance = provenance
     )
 
     expect_identical(
@@ -1846,8 +1717,7 @@ test_that("all return formats preserve ABC provenance", {
         genes,
         data_type = "raw",
         return_type = "sce",
-        provenance = provenance,
-        spatial = TRUE
+        provenance = provenance
     )
 
     expect_identical(
@@ -1861,8 +1731,7 @@ test_that("all return formats preserve ABC provenance", {
         genes,
         data_type = "raw",
         return_type = "spatial",
-        provenance = provenance,
-        spatial = TRUE
+        provenance = provenance
     )
 
     spatial_provenance <-
@@ -2522,99 +2391,56 @@ test_that("invalid output requests fail before expression is read", {
         }
     )
 
-    base_args <- list(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        gene_data = fx$genes,
-        genes = "G1",
-        offline = TRUE,
-        release = fx$version
-    )
+    request <- function(return_type) {
+        suppressMessages(fetch_data(
+            fixture_data(fx),
+            cell_ids = "c1",
+            genes = "G1",
+            return_type = return_type,
+            offline = TRUE
+        ))
+    }
 
-    expect_error(
-        do.call(plan_and_fetch, c(base_args, list(return_type = "banana"))),
-        "should be one of"
-    )
+    expect_error(request("banana"), "should be one of")
+    expect_error(request("monocle"), "is not built in")
+    expect_error(request("seurat"), "Converting to other formats")
 
-    expect_error(
-        do.call(plan_and_fetch, c(base_args, list(return_type = "monocle"))),
-        "is not built in"
-    )
-
-    expect_error(
-        do.call(plan_and_fetch, c(base_args, list(return_type = "seurat"))),
-        "Converting to other formats"
-    )
-
-    expect_error(
-        suppressMessages(do.call(
-            plan_and_fetch,
-            c(base_args, list(return_type = "spatial"))
-        )),
-        "No declared spatial modality"
-    )
-
-    expect_error(
-        suppressMessages(do.call(
-            plan_and_fetch,
-            c(base_args, list(
-                return_type = "spatial",
-                coordinate_columns = c("x_missing", "y_missing")
-            ))
-        )),
-        "not found in cell metadata"
-    )
+    skip_if_not_installed("SpatialExperiment")
+    expect_error(request("spatial"), "TEST has no spatial coordinates")
 })
 
-test_that("a plan cannot be combined with arguments it would ignore", {
-    fx <- make_fixture_cache()
-
-    plan <- plan_fetch(
-        download_base = fx$dir,
-        metadata = fx$cells,
-        gene_data = fx$genes,
-        genes = "G1",
-        offline = TRUE,
-        release = fx$version,
-        confirm = FALSE
-    )
-
+test_that("a missing output package is named with its install command", {
     expect_error(
-        fetch_data(plan = plan, genes = "G4"),
-        "unused argument"
-    )
-
-    expect_error(
-        fetch_data(
-            plan = plan,
-            data_type = "log2",
-            filters = list(donor_sex = "M")
+        .abc_require_output_package("notAnInstalledPackage", "spatial"),
+        paste0(
+            "return_type = \"spatial\" needs the notAnInstalledPackage ",
+            "package. Install it with ",
+            "BiocManager::install(\"notAnInstalledPackage\")"
         ),
-        "unused argument"
+        fixed = TRUE
     )
 })
 
 test_that("plan printing aligns the storage lines in both branches", {
-    example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
-    example_data <- readRDS(file.path(example_dir, "example-data.rds"))
-    plan <- suppressMessages(plan_fetch(
-        download_base = example_dir,
-        metadata = example_data$cells,
-        gene_data = example_data$genes,
-        genes = c("G1", "G4"),
-        offline = TRUE,
-        release = "20250101",
-        confirm = FALSE
-    ))
+    plan <- suppressMessages(plan_fetch(example_abc_data(), offline = TRUE))
 
-    plan$available_space <- NA_real_
+    plan$total_download <- 1e6
+    plan$storage$available <- NA_real_
     out <- capture.output(print(plan))
     expect_true("  available disk space: unable to determine" %in% out)
     expect_true("  storage check:        unable to determine" %in% out)
 
-    plan$available_space <- 1e12
-    plan$storage_sufficient <- TRUE
+    plan$storage$available <- 1e12
+    plan$storage$sufficient <- TRUE
     out <- capture.output(print(plan))
     expect_true(any(grepl("^  available disk space: [0-9.]+ [kMGT]?B$", out)))
     expect_true("  storage check:        PASS" %in% out)
+
+    plan$storage$sufficient <- FALSE
+    out <- capture.output(print(plan))
+    expect_true("  storage check:        INSUFFICIENT" %in% out)
+
+    plan$total_download <- 0
+    out <- capture.output(print(plan))
+    expect_true("  storage check:        PASS (nothing to download)" %in% out)
 })

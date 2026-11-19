@@ -642,8 +642,9 @@
 #' per-dataset functions.
 #'
 #' The full cell and gene metadata of the dataset are loaded. Cells and
-#' genes are selected afterwards, when the expression request is defined
-#' with [plan_fetch()].
+#' genes are selected afterwards, by passing their labels and names to
+#' [fetch_data()]. The returned object records the release and cache
+#' directory, which [plan_fetch()] and [fetch_data()] reuse.
 #'
 #' @param dataset Dataset route name. Run [list_datasets()] to see every
 #'   supported route (for example \code{"WHB"}, \code{"AgingMouse"} or
@@ -652,8 +653,9 @@
 #'   If \code{NULL} (default), it is resolved by \code{\link{abc_download_dir}}.
 #' @param offline If \code{TRUE}, use only locally cached data and never contact
 #'   S3 (see \code{\link{abc_cache_connect}}).
-#' @param release Optional ABC Atlas release version in \code{YYYYMMDD} form.
-#'   When supplied, metadata are loaded from exactly that release.
+#' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to
+#'   `r .abc_default_release`, the release validated against this package.
+#'   Metadata are loaded from exactly that release.
 #' @return An \code{abc_data} object containing \code{cell_metadata},
 #'   \code{gene_data}, \code{unique_values}, and dataset/cache provenance.
 #' @examples
@@ -684,7 +686,7 @@ load_data <- function(
     out <- .build_dataset(spec, abc_cache, dataset)
     rownames(out$cell_metadata) <- as.character(out$cell_metadata$cell_label)
 
-    # Filter choices: the values of the route's curated columns of interest.
+    # Values of the route's curated columns of interest, to help choose cells.
     cols <- intersect(
         spec$cols_of_interest %||% character(), names(out$cell_metadata)
     )

@@ -49,59 +49,62 @@ library(ABCatlasR)
 
 ## Quick start
 
-The basic workflow is: choose a dataset, load its metadata, select cells and genes while checking the download, and fetch expression.
-
-### 1. See the available datasets
+The basic workflow is: choose a dataset, load its metadata, choose cells and genes, optionally check the download, and fetch expression.
 
 ```r
+library(ABCatlasR)
+
+# 1. See the available datasets.
 list_datasets()
-```
 
-This shows the supported datasets, including which are spatial and which expression types are available.
-
-### 2. Load metadata
-
-```r
-abc <- load_data("Zhuang4")
-```
-
-`load_data()` loads the full cell and gene metadata. It does **not** download the large expression matrices.
-
-### 3. Select cells and genes, and check the download
-
-```r
-genes <- c("Htr7", "Sema3c", "Itga8", "Rxrg")
-
-plan <- plan_fetch(
-  abc,
-  filters = list(
-    brain_section_label = "Zhuang-ABCA-4.002",
-    neurotransmitter = c("GABA", "Glut")
-  ),
-  n_cells = 500,
-  seed = 1,
-  genes = genes
+# 2. Load metadata. Expression is not downloaded yet.
+abc <- load_data(
+  dataset = "Zhuang4",
+  download_base = "~/abc_atlas_cache",
+  release = "20260711"
 )
+
+# 3. Choose cells by their cell_label, for example from the metadata.
+head(abc$cell_metadata)
+cells <- head(abc$cell_metadata$cell_label, 5)
+
+# 4. Optional: see the files these cells need, their size, cache status
+#    and the disk space required. Nothing is downloaded.
+plan_fetch(
+  data = abc,
+  cell_ids = cells,
+  data_type = "raw"
+)
+
+# 5. Download what is needed and read the expression into R.
+genes <- c("Htr7", "Sema3c", "Itga8", "Rxrg")
+x <- fetch_data(
+  data = abc,
+  cell_ids = cells,
+  genes = genes,
+  data_type = "raw",
+  return_type = "matrix"
+)
+
+x$expression
+x$cell_metadata
+x$gene_data
 ```
 
-For exact cells, use `cell_ids = my_cell_labels` instead of `filters`.
-
-`plan_fetch()` selects the cells and genes and shows which expression files are needed, their sizes, whether they are already cached, and how much additional data must be downloaded. In an interactive session it then asks `Proceed with download? [y/n]:`. Answering `y` approves the plan; answering `n` leaves it unapproved, and the request must be planned again before fetching. `confirm = FALSE` approves the plan without asking, which is the default in non-interactive sessions such as batch jobs.
-
-### 4. Fetch expression
-
-```r
-x <- fetch_data(plan)
-```
-
-`fetch_data()` downloads the files listed in the approved plan and reads the planned cells and genes. Downloaded files are reused from the local cache on future requests.
+- `load_data()` loads the full cell and gene metadata of a dataset. The returned object records the release and the cache folder, which `plan_fetch()` and `fetch_data()` reuse.
+- `cell_ids` is any vector of `cell_label` values. A subset of the metadata gives one, for example `abc$cell_metadata$cell_label[abc$cell_metadata$neurotransmitter %in% "GABA"]`. `abc$unique_values` lists the values of the main metadata columns.
+- `plan_fetch()` is optional; `fetch_data()` does not need it. Without `cell_ids`, it reports the files of every cell in the dataset. Expression files are downloaded whole, so the report does not depend on the genes.
+- `fetch_data()` requires `cell_ids`; to fetch every cell, use `cell_ids = abc$cell_metadata$cell_label`. With `genes = NULL`, the default, every gene of the expression file is returned.
+- Before downloading, `fetch_data()` checks the free space of the disk holding the cache. A download that does not fit is refused, and on the disk the operating system runs from at least 500 MB must remain free afterwards. Files already cached need no space.
 
 ## Choosing an output format
+
+`return_type` selects the output of `fetch_data()`.
 
 ### Sparse matrix
 
 ```r
-x <- fetch_data(plan, return_type = "matrix")
+x <- fetch_data(abc, cell_ids = cells, genes = genes, return_type = "matrix")
 ```
 
 The default. A list with the sparse `expression` matrix (genes x cells), `cell_metadata`, `gene_data`, `data_type` and `provenance`.
@@ -109,7 +112,7 @@ The default. A list with the sparse `expression` matrix (genes x cells), `cell_m
 ### SingleCellExperiment
 
 ```r
-x <- fetch_data(plan, return_type = "sce")
+x <- fetch_data(abc, cell_ids = cells, genes = genes, return_type = "sce")
 ```
 
 Raw expression is stored in a `counts` assay and log2 expression in a `log2` assay.
@@ -117,10 +120,14 @@ Raw expression is stored in a `counts` assay and log2 expression in a `log2` ass
 ### SpatialExperiment
 
 ```r
-x <- fetch_data(plan, return_type = "spatial")
+x <- fetch_data(abc, cell_ids = cells, genes = genes, return_type = "spatial")
 ```
 
-For spatial datasets such as `Zhuang4`, the spatial coordinates are included in the returned object. For other datasets, name the coordinate columns with `coordinate_columns`. Requires `SpatialExperiment`.
+Available for spatial datasets such as `Zhuang4`; the spatial coordinates are included in the returned object. `SpatialExperiment` is suggested rather than required, so install it first:
+
+```r
+BiocManager::install("SpatialExperiment")
+```
 
 ### Seurat and Monocle 3
 
@@ -128,8 +135,7 @@ For spatial datasets such as `Zhuang4`, the spatial coordinates are included in 
 a matrix bundle and convert it with the package you use:
 
 ```r
-plan <- plan_fetch(abc, genes = genes, data_type = "raw")
-x <- fetch_data(plan)
+x <- fetch_data(abc, cell_ids = cells, genes = genes, data_type = "raw")
 
 # Seurat (requires SeuratObject). Seurat replaces "_" in feature names.
 counts <- x$expression
@@ -159,14 +165,9 @@ Use `list_datasets()` to see which representations are available.
 - `"raw"` — raw counts.
 - `"log2"` — log2-transformed expression published by the ABC Atlas.
 
-If `data_type` is not specified in `plan_fetch()`, the package uses the dataset's default representation.
+If `data_type` is not specified, the dataset's default is used: `"raw"` where it is published, otherwise `"log2"`.
 
-```r
-plan <- plan_fetch(abc, genes = genes, data_type = "raw")
-x <- fetch_data(plan, return_type = "matrix")
-```
-
-Some representations contain only a subset of the genes listed in the dataset metadata. `plan_fetch()` reports requested genes that are missing from the expression file.
+Some representations contain only a subset of the genes listed in the dataset metadata. `fetch_data()` reports requested genes that are missing from the expression file.
 
 ## Downloads and local cache
 
@@ -174,7 +175,7 @@ Downloaded files are cached so they do not need to be downloaded again. Only the
 
 The cache directory is chosen in this order:
 
-1. the `download_base` argument of `load_data()`, `plan_fetch()` or `abc_cache_connect()`;
+1. the `download_base` argument of `load_data()` or `abc_cache_connect()`;
 2. `options(ABCatlasR.download_base = "/path/to/abc_atlas")`;
 3. the `ABC_ATLAS_CACHE` environment variable;
 4. a per-user cache directory, `tools::R_user_dir("ABCatlasR", which = "cache")`.
@@ -196,36 +197,7 @@ Cached files are reused automatically. To also forbid network access, for exampl
 ```r
 abc <- load_data("Zhuang4", offline = TRUE)
 
-plan <- plan_fetch(abc, genes = genes, offline = TRUE)
-x <- fetch_data(plan)
-```
-
-## Complete example
-
-```r
-library(ABCatlasR)
-
-list_datasets()
-
-abc <- load_data("Zhuang4")
-
-genes <- c("Htr7", "Sema3c", "Itga8", "Rxrg")
-
-plan <- plan_fetch(
-  abc,
-  filters = list(
-    brain_section_label = "Zhuang-ABCA-4.002",
-    neurotransmitter = c("GABA", "Glut")
-  ),
-  n_cells = 500,
-  seed = 1,
-  genes = genes
-)   # answer y to the prompt
-
-x <- fetch_data(plan)
-
-dim(x$expression)
-x$provenance
+x <- fetch_data(abc, cell_ids = cells, genes = genes, offline = TRUE)
 ```
 
 ## Getting help

@@ -25,27 +25,6 @@
     invisible(NULL)
 }
 
-.abc_confirm_download <- function() {
-    repeat {
-        answer <- trimws(
-            readline("Proceed with download? [y/n]: ")
-        )
-
-        if (answer %in% c("y", "yes")) {
-            return(TRUE)
-        }
-
-        if (answer %in% c("n", "no")) {
-            message(
-                "Download cancelled. No expression files were downloaded."
-            )
-            return(FALSE)
-        }
-
-        message("Please enter y or n.")
-    }
-}
-
 .abc_spinner_start <- function(label) {
     if (!.abc_progress_enabled()) {
         return(NULL)

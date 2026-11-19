@@ -68,7 +68,6 @@ Imports:
     SingleCellExperiment,
     stats,
     tools,
-    withr,
     xml2
 Suggests:
     BiocStyle,
@@ -76,7 +75,8 @@ Suggests:
     rmarkdown,
     SpatialExperiment,
     SummarizedExperiment,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/testthat/reporter: progress

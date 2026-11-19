@@ -22,8 +22,9 @@ If \code{NULL} (default), it is resolved by \code{\link{abc_download_dir}}.}
 \item{offline}{If \code{TRUE}, use only locally cached data and never contact
 S3 (see \code{\link{abc_cache_connect}}).}
 
-\item{release}{Optional ABC Atlas release version in \code{YYYYMMDD} form.
-When supplied, metadata are loaded from exactly that release.}
+\item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to
+20260711, the release validated against this package.
+Metadata are loaded from exactly that release.}
 }
 \value{
 An \code{abc_data} object containing \code{cell_metadata},
@@ -37,8 +38,9 @@ per-dataset functions.
 }
 \details{
 The full cell and gene metadata of the dataset are loaded. Cells and
-genes are selected afterwards, when the expression request is defined
-with \code{\link[=plan_fetch]{plan_fetch()}}.
+genes are selected afterwards, by passing their labels and names to
+\code{\link[=fetch_data]{fetch_data()}}. The returned object records the release and cache
+directory, which \code{\link[=plan_fetch]{plan_fetch()}} and \code{\link[=fetch_data]{fetch_data()}} reuse.
 }
 \examples{
 # Cache the downloaded metadata in a temporary folder.

@@ -34,14 +34,14 @@ distributed through a public Amazon S3 bucket that requires no account.
 their metadata, check the size of a request before downloading, and read
 the selected expression into R.
 
-The package separates metadata discovery, cell and gene selection, and
-expression transfer:
+The package separates metadata discovery from expression transfer:
 
 1.  `list_datasets()` discovers curated dataset routes.
 2.  `load_data()` loads the cell and gene metadata of a dataset.
-3.  `plan_fetch()` selects cells and genes and previews the required files.
-4.  `fetch_data()` reads selected expression into the requested R
-    representation.
+3.  `plan_fetch()` reports the expression files a selection of cells
+    needs, their sizes and the disk space required. It is optional.
+4.  `fetch_data()` downloads and reads the expression of the selected
+    cells and genes into the requested R representation.
 
 ## Installation
 
@@ -100,7 +100,7 @@ threshold. Its metadata take about 40 MB and its raw expression about
 64 MB.
 
 ```{r load-data}
-abc <- load_data("Zhuang4")
+abc <- load_data(dataset = "Zhuang4", release = "20260711")
 abc
 ```
 
@@ -119,8 +119,8 @@ head(abc$gene_data)
 ```
 
 `unique_values` lists the values found in the main metadata columns,
-which can be used as cell filters. The number of values per column and
-the first few of each:
+which helps when choosing cells. The number of values per column and the
+first few of each:
 
 ```{r unique-values}
 lengths(abc$unique_values)
@@ -129,46 +129,39 @@ lapply(abc$unique_values, head, n = 3)
 
 ## Selecting cells and genes
 
-`load_data()` returns the full metadata. Cells and genes are selected
-with `plan_fetch()`, which defines the expression request. The cells and
-genes below are taken from the outputs shown in the previous section.
+Cells are selected by their `cell_label` and genes by their identifier
+or symbol; both are passed to `fetch_data()`. The cells and genes below
+are taken from the outputs shown in the previous section.
 
 ### Cell selection
 
-`filters` is a named list in which each name is a metadata column and
-each value specifies which cells to retain. Cells must match every
-filter, and any of the values within one filter. Here, brain section
-`Zhuang-ABCA-4.002` and the GABAergic and glutamatergic cells in it:
+Any subset of the cell metadata gives a vector of cell labels. Here,
+brain section `Zhuang-ABCA-4.002` and the GABAergic and glutamatergic
+cells in it:
 
 ```{r cell-selection}
-filters <- list(
-    brain_section_label = "Zhuang-ABCA-4.002",
-    neurotransmitter = c("GABA", "Glut")
-)
-plan_filtered <- plan_fetch(abc, filters = filters)
-plan_filtered$n_cells
+keep <- abc$cell_metadata$brain_section_label %in% "Zhuang-ABCA-4.002" &
+    abc$cell_metadata$neurotransmitter %in% c("GABA", "Glut")
+cells <- abc$cell_metadata$cell_label[keep]
+length(cells)
+table(abc$cell_metadata$neurotransmitter[keep])
 ```
 
-When the desired cells are already known, `cell_ids` selects those exact
-cell labels. Here, the first three cells of `head(abc$cell_metadata)`:
+When the desired cells are already known, their labels can be listed
+directly. Here, the first three cells of `head(abc$cell_metadata)`:
 
 ```{r cell-id-selection}
 my_cell_labels <- head(abc$cell_metadata$cell_label, 3)
-plan_exact <- plan_fetch(abc, cell_ids = my_cell_labels)
-plan_exact$n_cells
+my_cell_labels
 ```
 
-When the filtered population is still large, `n_cells` limits the number
-of cells selected. Use `seed` when the subset should be reproducible:
+When the selected population is still large, a random subset keeps the
+request small. `set.seed()` makes the subset reproducible:
 
 ```{r cell-sampling}
-plan_sampled <- plan_fetch(
-    abc,
-    filters = filters,
-    n_cells = 1000,
-    seed = 42
-)
-plan_sampled$n_cells
+set.seed(42)
+cells_sampled <- sample(cells, 1000)
+length(cells_sampled)
 ```
 
 ### Gene selection
@@ -191,42 +184,44 @@ abc$gene_data[
 ## Planning expression access
 
 Expression files can be several gigabytes. Before downloading them,
-inspect the request with `plan_fetch()`:
+`plan_fetch()` reports what a selection of cells needs. It is optional:
+`fetch_data()` does not use its result.
 
 ```{r plan-fetch}
-plan <- plan_fetch(abc, filters = filters, genes = genes)
-plan
+plan_fetch(abc, cell_ids = cells)
 ```
 
-A fetch plan reports:
+The report lists:
 
 -   the resolved ABC Atlas release;
 -   the published representation (`raw` or `log2`);
--   requested genes and cells;
+-   the number of selected cells;
 -   expression files involved;
 -   selected-file sizes;
 -   whether each file is cached;
 -   resumable partial bytes;
--   additional download required.
+-   additional download required;
+-   available disk space and the storage check.
 
-`plan_fetch()` does not download expression matrices.
+Expression files are downloaded whole, so the report does not depend on
+the genes. `plan_fetch()` does not download expression matrices.
 
-In an interactive R session, `plan_fetch()` asks
-`Proceed with download? [y/n]:`. Answering `y` approves the plan, and
-`fetch_data(plan)` then downloads and reads what was planned. Answering
-`n` leaves the plan unapproved, and the request must be planned again
-before fetching. `confirm = FALSE` approves the plan without asking; it
-is the default outside interactive sessions, such as batch jobs and this
-vignette.
+Before downloading, `fetch_data()` checks the free space of the disk
+that holds the cache, whether or not `plan_fetch()` was called. A
+download that does not fit is refused, and on the disk the operating
+system runs from at least 500 MB must remain free after the download.
 
 ## Fetching expression
 
-`fetch_data()` downloads the expression files the plan needs, then
-reads only the planned cells and genes:
+`fetch_data()` downloads the expression files the selected cells need,
+then reads only the selected cells and genes:
 
 ```{r fetch-matrix}
 x <- fetch_data(
-    plan,
+    abc,
+    cell_ids = cells,
+    genes = genes,
+    data_type = "raw",
     return_type = "matrix" # could pick "sce" or "spatial"
 )
 dim(x$expression)
@@ -242,12 +237,15 @@ selected metadata and provenance. Rows are genes, keyed by
 each gene is detected. The provenance records the dataset, release,
 representation, modality, spatial status and selected dimensions.
 
-Depending on the downstream analysis, set `data_type` in `plan_fetch()`
-to `"raw"` for raw counts or `"log2"` for the log2-transformed values
-published by the ABC Atlas. `list_datasets()` shows the default and
-available representations of each route. Each representation is a
-separate file, so only one is downloaded: this request used the
-`Zhuang4` default, `raw`.
+Depending on the downstream analysis, choose `data_type = "raw"` for raw
+counts or `data_type = "log2"` for the log2-transformed values published
+by the ABC Atlas. Without `data_type`, the dataset's default is used:
+`raw` where it is published, otherwise `log2`. `list_datasets()` shows
+the default and available representations of each route. Each
+representation is a separate file, so only one is downloaded.
+
+With `genes = NULL`, the default, every gene of the expression file is
+returned.
 
 ## Output representations
 
@@ -257,11 +255,9 @@ separate file, so only one is downloaded: this request used the
     above.
 -   `"sce"` returns a SingleCellExperiment. Raw expression uses a
     `counts` assay. Upstream transformed expression uses a `log2` assay.
--   `"spatial"` returns a SpatialExperiment with the spatial coordinates
-    attached. Automatic coordinate inference is restricted to routes
-    declared spatial, such as `Zhuang4`. For other metadata, verified
-    coordinate columns must be supplied explicitly with
-    `coordinate_columns`.
+-   `"spatial"` returns a SpatialExperiment with the dataset's spatial
+    coordinates attached. It is available for routes declared spatial,
+    such as `Zhuang4`, and needs the SpatialExperiment package.
 
 SingleCellExperiment and SpatialExperiment objects store the provenance
 in object metadata, and SpatialExperiment provenance additionally
@@ -294,22 +290,19 @@ cds <- monocle3::new_cell_data_set(
 
 ## Reusing cached data
 
-Downloaded files are reused from the local cache. Planning the same
-request again shows that nothing needs to be downloaded, so the plan is
-approved automatically:
+Downloaded files are reused from the local cache. The report for the same
+cells now shows that nothing needs to be downloaded:
 
 ```{r reuse-plan}
-plan_again <- plan_fetch(abc, filters = filters, genes = genes)
+plan_again <- plan_fetch(abc, cell_ids = cells)
 plan_again$total_download
-plan_again$approved
 ```
 
-Because it is approved, the plan can be passed to `fetch_data()`. The
-expression file is read from the cache, and the message reports that no
-download was needed:
+Fetching the same request again reads the expression file from the
+cache, and the message reports that no download was needed:
 
 ```{r reuse-fetch}
-x_again <- fetch_data(plan_again)
+x_again <- fetch_data(abc, cell_ids = cells, genes = genes, data_type = "raw")
 identical(x$expression, x_again$expression)
 ```
 
@@ -318,15 +311,16 @@ from Zhang et al. (2023), measured with the same gene panel, so the genes
 selected above can be fetched from it too:
 
 ```{r second-dataset}
-abc2 <- load_data("Zhuang2")
+abc2 <- load_data(dataset = "Zhuang2", release = "20260711")
 abc2
 ```
 
-Here `n_cells` and `seed` select a reproducible sample of 5,000 cells:
+Here, a reproducible random sample of 5,000 cells:
 
 ```{r second-fetch}
-plan2 <- plan_fetch(abc2, n_cells = 5000, seed = 1, genes = genes)
-y <- fetch_data(plan2)
+set.seed(1)
+cells2 <- sample(abc2$cell_metadata$cell_label, 5000)
+y <- fetch_data(abc2, cell_ids = cells2, genes = genes)
 dim(y$expression)
 Matrix::rowSums(y$expression > 0)
 ```
@@ -338,13 +332,15 @@ downloaded once and reused from a local cache.
 
 The cache directory is resolved in this order:
 
-1.  explicit `download_base`;
+1.  the `download_base` argument of `load_data()`;
 2.  `options(ABCatlasR.download_base = ...)`;
 3.  the `ABC_ATLAS_CACHE` environment variable;
 4.  a per-user package cache directory.
 
 For example, `options(ABCatlasR.download_base = "~/ABCatlasR-cache")` keeps
-the cache in a folder of your home directory.
+the cache in a folder of your home directory. The object returned by
+`load_data()` records its cache directory, which `plan_fetch()` and
+`fetch_data()` reuse.
 
 The package is release-aware. A release can be pinned explicitly for
 reproducible analyses, for example with

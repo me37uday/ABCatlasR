@@ -184,14 +184,27 @@ jsonlite::write_json(
     auto_unbox = TRUE
 )
 
-# example-data.rds: the cell and gene tables used directly by the man page
-# examples, with the dataset attributes that load_data() would attach. The
+# example-data.rds: an abc_data object for these files, in the form
+# load_data() returns, used by the man page examples. Its download_base is
+# NULL; the examples point it at the installed example directory. The
 # missing donor_sex is stored as an empty string, as in the CSV file.
 cells$donor_sex[is.na(cells$donor_sex)] <- ""
+rownames(cells) <- cells$cell_label
 attr(cells, "abc_dataset") <- "TEST"
 attr(cells, "abc_default_data_type") <- "raw"
 attr(cells, "abc_available_data_types") <- c("raw", "log2")
 attr(cells, "abc_expression_directories") <- "TEST-10X"
 attr(cells, "abc_modality") <- "single_cell_transcriptomics"
 attr(cells, "abc_spatial") <- FALSE
-saveRDS(list(cells = cells, genes = genes), file.path(out, "example-data.rds"))
+example <- list(
+    cell_metadata = cells,
+    gene_data = genes,
+    unique_values = lapply(
+        cells[c("donor_sex", "region_of_interest_label")], unique
+    ),
+    dataset = "TEST",
+    download_base = NULL,
+    release = version
+)
+class(example) <- c("abc_data", "list")
+saveRDS(example, file.path(out, "example-data.rds"))

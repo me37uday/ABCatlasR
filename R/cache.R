@@ -601,6 +601,24 @@ print.abc_cache <- function(x, ...) {
     )
 }
 
+# A failed write (a full disk or an exhausted storage quota) is not retried,
+# because retrying cannot free space. The partial file is kept for a resume.
+.abc_stop_if_write_failed <- function(result, dest) {
+    error <- result$error
+
+    if (length(error) != 1L || is.na(error) ||
+        !grepl("writ|no space|quota", error, ignore.case = TRUE)) {
+        return(invisible(FALSE))
+    }
+
+    stop(
+        "Could not write ", basename(dest), " (", error, "). The disk or ",
+        "your storage quota may be full. The partial download is kept and ",
+        "resumes on the next request.",
+        call. = FALSE
+    )
+}
+
 .abc_finalize_download_attempt <- function(
         result,
         part,
@@ -708,6 +726,7 @@ print.abc_cache <- function(x, ...) {
             result = res,
             part = part
         )
+        .abc_stop_if_write_failed(res, dest)
 
         if (.abc_finalize_download_attempt(
             result = res,
@@ -841,6 +860,90 @@ print.abc_cache <- function(x, ...) {
     }
 
     .abc_parse_bytes(out[[1L]])
+}
+
+# ---- Storage check before an expression download ---------------------------
+
+# Space that must stay free on the disk the operating system runs from, after
+# a download, so the system keeps room for swap and temporary files.
+.abc_min_free_space <- 500e6
+
+# Check whether `total_download` bytes fit in the cache directory. On the
+# system disk .abc_min_free_space must also remain free; on other disks (HPC
+# scratch or project storage, external drives) the download only has to fit.
+# Unknown free space never blocks a download.
+.abc_storage_check <- function(download_base, total_download) {
+    available <- .abc_available_space(download_base)
+    system_disk <- .abc_system_volume(download_base)
+    headroom <- if (system_disk) .abc_min_free_space else 0
+    required <- total_download + headroom
+
+    list(
+        available = available,
+        download = total_download,
+        system_disk = system_disk,
+        headroom = headroom,
+        required = required,
+        sufficient = total_download == 0 || is.na(available) ||
+            (if (system_disk) available > required else available >= required)
+    )
+}
+
+.abc_storage_message <- function(storage) {
+    paste0(
+        "Not enough disk space for this download. Download: ",
+        .abc_format_size(storage$download),
+        if (storage$system_disk) {
+            paste0(
+                " plus ", .abc_format_size(storage$headroom),
+                " that must stay free on the system disk"
+            )
+        },
+        "; available: ", .abc_format_size(storage$available),
+        ". Free up space or point the cache at a larger disk ",
+        "(see ?abc_download_dir). No expression files were downloaded."
+    )
+}
+
+# TRUE when `path` is on the disk the operating system runs from: the system
+# drive on Windows, or a path mounted at "/" (or at macOS's
+# "/System/Volumes/Data", which shares the system disk). An undetermined
+# mount point counts as the system disk.
+.abc_system_volume <- function(path) {
+    path <- normalizePath(path.expand(path), winslash = "/", mustWork = FALSE)
+
+    if (.Platform$OS.type == "windows") {
+        if (!grepl("^[A-Za-z]:", path)) {
+            return(FALSE) # a network share
+        }
+        system_drive <- Sys.getenv("SystemDrive", "C:")
+        return(identical(
+            toupper(substr(path, 1L, 1L)),
+            toupper(substr(system_drive, 1L, 1L))
+        ))
+    }
+
+    mount <- .abc_mount_point(path)
+    is.na(mount) || mount %in% c("/", "/System/Volumes/Data")
+}
+
+# Mount point of the filesystem holding `path`, from the last column of
+# `df -P`; NA if it cannot be determined.
+.abc_mount_point <- function(path) {
+    out <- .abc_command_output("df", c("-Pk", shQuote(path)))
+
+    if (length(out) < 2L) {
+        return(NA_character_)
+    }
+
+    fields <- strsplit(trimws(out[[length(out)]]), "[[:space:]]+")[[1L]]
+    capacity <- which(grepl("^[0-9]+%$", fields))
+
+    if (!length(capacity) || capacity[[1L]] >= length(fields)) {
+        return(NA_character_)
+    }
+
+    paste(fields[(capacity[[1L]] + 1L):length(fields)], collapse = " ")
 }
 
 # ---- Record of completed downloads (_downloaded_data.json) -------------------

@@ -1,10 +1,10 @@
 test_that("abc_matrix prints a short summary", {
-    example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
-    example_data <- readRDS(file.path(example_dir, "example-data.rds"))
-    x <- suppressMessages(plan_and_fetch(
-        download_base = example_dir, metadata = example_data$cells,
-        gene_data = example_data$genes, genes = c("G1", "G4"),
-        offline = TRUE, release = "20250101"
+    abc <- example_abc_data()
+    x <- suppressMessages(fetch_data(
+        abc,
+        cell_ids = abc$cell_metadata$cell_label,
+        genes = c("G1", "G4"),
+        offline = TRUE
     ))
     out <- capture.output(res <- print(x))
     expect_identical(out[1], "<abc_matrix>")

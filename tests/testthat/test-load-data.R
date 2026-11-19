@@ -1416,21 +1416,6 @@ test_that("aligned HMBA declares its authoritative shared taxonomy", {
     )
 })
 
-test_that("shared cell selection applies filters exactly", {
-    metadata <- data.frame(
-        cell_label = c("c1", "c2", "c3", "c4"),
-        group = c("A", "B", "A", "B"),
-        stringsAsFactors = FALSE
-    )
-
-    out <- .abc_select_cells(
-        metadata,
-        filters = list(group = "A")
-    )
-
-    expect_identical(out$cell_label, c("c1", "c3"))
-})
-
 test_that("shared cell selection preserves requested cell order", {
     metadata <- data.frame(
         cell_label = c("c1", "c2", "c3", "c4"),
@@ -1449,31 +1434,6 @@ test_that("shared cell selection preserves requested cell order", {
     )
 })
 
-test_that("shared cell selection samples reproducibly", {
-    metadata <- data.frame(
-        cell_label = paste0("c", seq_len(20L)),
-        stringsAsFactors = FALSE
-    )
-
-    first <- .abc_select_cells(
-        metadata,
-        n_cells = 5L,
-        seed = 42L
-    )
-
-    second <- .abc_select_cells(
-        metadata,
-        n_cells = 5L,
-        seed = 42L
-    )
-
-    expect_identical(
-        first$cell_label,
-        second$cell_label
-    )
-    expect_equal(nrow(first), 5L)
-})
-
 test_that("shared cell selection validates exact cell requests", {
     metadata <- data.frame(
         cell_label = c("c1", "c2", "c3"),
@@ -1485,7 +1445,7 @@ test_that("shared cell selection validates exact cell requests", {
             metadata,
             cell_ids = c("c1", "ghost")
         ),
-        "1 requested cell absent after filtering",
+        "1 requested cell not found in this dataset",
         fixed = TRUE
     )
 
@@ -1521,7 +1481,7 @@ test_that("abc_data preserves the established load-data components", {
 
     out$cell_metadata <- .abc_select_cells(
         out$cell_metadata,
-        filters = list(donor_sex = "M")
+        cell_ids = c("c1", "c3", "c6")
     )
 
     cols <- intersect(
@@ -1584,9 +1544,7 @@ test_that("cell selection preserves ABC routing provenance", {
 
     out <- .abc_select_cells(
         metadata,
-        filters = list(group = "B"),
-        n_cells = 2L,
-        seed = 42L
+        cell_ids = c("c5", "c3")
     )
 
     expect_identical(
@@ -1612,86 +1570,6 @@ test_that("cell selection preserves ABC routing provenance", {
     expect_identical(
         attr(out, "abc_spatial"),
         FALSE
-    )
-})
-
-test_that("cell sampling preserves an existing RNG state", {
-    metadata <- data.frame(
-        cell_label = paste0("c", seq_len(20L)),
-        stringsAsFactors = FALSE
-    )
-
-    set.seed(123L)
-    before <- .Random.seed
-
-    .abc_select_cells(
-        metadata,
-        n_cells = 5L,
-        seed = 42L
-    )
-
-    expect_identical(.Random.seed, before)
-})
-
-test_that("cell sampling does not create a persistent RNG state", {
-    had_seed <- exists(
-        ".Random.seed",
-        envir = .GlobalEnv,
-        inherits = FALSE
-    )
-
-    if (had_seed) {
-        old_seed <- get(
-            ".Random.seed",
-            envir = .GlobalEnv,
-            inherits = FALSE
-        )
-    }
-
-    on.exit(
-        {
-            if (had_seed) {
-                assign(
-                    ".Random.seed",
-                    old_seed,
-                    envir = .GlobalEnv
-                )
-            } else if (exists(
-                ".Random.seed",
-                envir = .GlobalEnv,
-                inherits = FALSE
-            )) {
-                rm(".Random.seed", envir = .GlobalEnv)
-            }
-        },
-        add = TRUE
-    )
-
-    if (exists(
-        ".Random.seed",
-        envir = .GlobalEnv,
-        inherits = FALSE
-    )) {
-        rm(".Random.seed", envir = .GlobalEnv)
-    }
-
-    metadata <- data.frame(
-        cell_label = paste0("c", seq_len(20L)),
-        stringsAsFactors = FALSE
-    )
-
-    .abc_select_cells(
-        metadata,
-        n_cells = 5L,
-        seed = 42L
-    )
-
-    expect_false(
-        exists(
-            ".Random.seed",
-            envir = .GlobalEnv,
-            inherits = FALSE
-        )
     )
 })
 

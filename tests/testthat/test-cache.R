@@ -389,3 +389,77 @@ test_that("available space rejects a missing path", {
         "Path does not exist"
     )
 })
+
+test_that("the mount point of the cache is read from df", {
+    df_lines <- function(mount) {
+        c(
+            "Filesystem 1024-blocks Used Available Capacity Mounted on",
+            paste("/dev/disk3s5 482797652 300000000 150000000 67%", mount)
+        )
+    }
+
+    local_mocked_bindings(
+        .abc_command_output = function(command, args) {
+            df_lines("/System/Volumes/Data")
+        }
+    )
+    expect_identical(.abc_mount_point(tempdir()), "/System/Volumes/Data")
+
+    local_mocked_bindings(
+        .abc_command_output = function(command, args) df_lines("/scratch/my lab")
+    )
+    expect_identical(.abc_mount_point(tempdir()), "/scratch/my lab")
+
+    local_mocked_bindings(
+        .abc_command_output = function(command, args) character()
+    )
+    expect_identical(.abc_mount_point(tempdir()), NA_character_)
+})
+
+test_that("only the system disk keeps a free-space margin", {
+    skip_on_os("windows")
+    mount <- "/"
+    local_mocked_bindings(
+        .abc_mount_point = function(path) mount,
+        .abc_available_space = function(path) 2e9
+    )
+
+    expect_true(.abc_system_volume(tempdir()))
+    expect_true(.abc_storage_check(tempdir(), 1.4e9)$sufficient)
+    expect_false(.abc_storage_check(tempdir(), 1.5e9)$sufficient)
+    expect_true(.abc_storage_check(tempdir(), 0)$sufficient)
+
+    mount <- "/System/Volumes/Data"
+    expect_true(.abc_system_volume(tempdir()))
+
+    mount <- NA_character_
+    expect_true(.abc_system_volume(tempdir()))
+
+    mount <- "/scratch"
+    expect_false(.abc_system_volume(tempdir()))
+    expect_identical(.abc_storage_check(tempdir(), 2e9)$headroom, 0)
+    expect_true(.abc_storage_check(tempdir(), 2e9)$sufficient)
+    expect_false(.abc_storage_check(tempdir(), 2e9 + 1)$sufficient)
+})
+
+test_that("a failed disk write stops the download without retrying", {
+    calls <- 0L
+    local_mocked_bindings(
+        multi_download = function(urls, destfiles, ...) {
+            calls <<- calls + 1L
+            data.frame(
+                success = FALSE,
+                error = "Failed writing received data to disk/application",
+                stringsAsFactors = FALSE
+            )
+        },
+        .package = "curl"
+    )
+
+    dest <- file.path(withr::local_tempdir(), "x.h5ad")
+    expect_error(
+        .abc_download("https://example.invalid/x.h5ad", dest),
+        "storage quota may be full"
+    )
+    expect_identical(calls, 1L)
+})

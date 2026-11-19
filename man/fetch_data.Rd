@@ -2,27 +2,47 @@
 % Please edit documentation in R/fetch_data.R
 \name{fetch_data}
 \alias{fetch_data}
-\title{Fetch the expression selected by a fetch plan}
+\title{Fetch ABC Atlas expression for selected cells and genes}
 \usage{
 fetch_data(
-  plan,
+  data,
+  cell_ids,
+  genes = NULL,
+  data_type = NULL,
   return_type = c("matrix", "sce", "spatial"),
-  coordinate_columns = NULL
+  offline = FALSE
 )
 }
 \arguments{
-\item{plan}{An approved \code{abc_fetch_plan} object returned by
-\code{\link[=plan_fetch]{plan_fetch()}}. The plan defines the cells, genes, release, cache
-directory and representation.}
+\item{data}{An \code{abc_data} object returned by \code{\link[=load_data]{load_data()}}. It
+provides the metadata, release and cache directory.}
 
-\item{return_type}{Output format: \code{"matrix"} for the primary sparse
+\item{cell_ids}{Character vector of cell labels (the
+\code{cell_label} column of \code{data$cell_metadata}) to fetch. The
+columns of the result follow this order. To fetch every cell, use
+\code{data$cell_metadata$cell_label}.}
+
+\item{genes}{Character vector of genes to include. Each entry is matched
+first against \code{gene_identifier}, then against the published source
+identifier, then against \code{gene_symbol}; a symbol shared by several
+genes is reported as ambiguous. If \code{NULL} (default), all genes of
+the expression file are returned.}
+
+\item{data_type}{Published expression representation, \code{"raw"} or
+\code{"log2"}. If \code{NULL} (default), the dataset's default is used:
+\code{"raw"} where it is published, otherwise \code{"log2"}. Raw
+expression keeps count semantics; published log2 expression is never
+presented as counts.}
+
+\item{return_type}{Output format: \code{"matrix"} (default) for the sparse
 expression bundle, \code{"sce"} for a SingleCellExperiment, or
-\code{"spatial"} for a SpatialExperiment. The default is
-\code{"matrix"}. For Seurat or Monocle 3 objects, see
-"Converting to other formats" below.}
+\code{"spatial"} for a SpatialExperiment with the dataset's spatial
+coordinates. \code{"spatial"} needs the SpatialExperiment package and a
+spatial dataset (see \code{\link[=list_datasets]{list_datasets()}}). For Seurat or Monocle 3
+objects, see "Converting to other formats" below.}
 
-\item{coordinate_columns}{Optional length-two character vector naming the
-spatial x/y columns. Used only for \code{return_type = "spatial"}.}
+\item{offline}{If \code{TRUE}, use only locally cached files and never
+contact S3; a file that is not cached is an error instead of a download.}
 }
 \value{
 The requested expression representation: a sparse matrix bundle
@@ -31,18 +51,24 @@ The requested expression representation: a sparse matrix bundle
 SingleCellExperiment, or a SpatialExperiment.
 }
 \description{
-Downloads the expression files listed in an approved plan from
-\code{\link[=plan_fetch]{plan_fetch()}}, if they are not already cached, and reads the planned
-cells and genes into the requested R representation.
+Downloads the expression files the selected cells need, if they are not
+already cached, and reads the selected cells and genes into the requested
+R representation. \code{\link[=plan_fetch]{plan_fetch()}} reports the same files and sizes
+beforehand, but is not needed to fetch.
+}
+\details{
+Before downloading, the free space of the disk holding the cache is
+checked. A download that does not fit is refused. On the disk the
+operating system runs from, at least 500 MB must also remain free after
+the download. No space is checked when every file is already cached.
 }
 \section{Converting to other formats}{
 
 Seurat and Monocle 3 objects are not built by this package. Fetch raw
 expression as a matrix bundle and convert it with the package you use.
-Both tools expect count data, so plan with \code{data_type = "raw"}.
+Both tools expect count data, so fetch with \code{data_type = "raw"}.
 
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{plan <- plan_fetch(abc, genes = genes, data_type = "raw")
-x <- fetch_data(plan)
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{x <- fetch_data(abc, cell_ids = cells, genes = genes, data_type = "raw")
 
 # Seurat (package SeuratObject). Seurat replaces "_" in feature names.
 counts <- x$expression
@@ -64,23 +90,17 @@ cds <- monocle3::new_cell_data_set(
 }
 
 \examples{
-example_dir <- system.file(
-    "extdata", "ex",
-    package = "ABCatlasR"
-)
-example_data <- readRDS(
-    file.path(example_dir, "example-data.rds")
-)
+# A small synthetic dataset shipped with the package.
+example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
+abc <- readRDS(file.path(example_dir, "example-data.rds"))
+abc$download_base <- example_dir
 
-plan <- plan_fetch(
-    download_base = example_dir,
-    metadata = example_data$cells,
-    gene_data = example_data$genes,
+cells <- c("c4", "c1")
+x <- fetch_data(
+    abc,
+    cell_ids = cells,
     genes = c("G1", "G4"),
-    offline = TRUE,
-    release = "20250101",
-    confirm = FALSE
+    offline = TRUE
 )
-x <- fetch_data(plan, return_type = "matrix")
 x$expression
 }

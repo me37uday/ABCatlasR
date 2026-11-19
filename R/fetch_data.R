@@ -1,76 +1,31 @@
-# Resolve either an abc_data object or the legacy metadata/gene_data pair.
-.abc_fetch_inputs <- function(
-        data = NULL, metadata = NULL, gene_data = NULL,
-        download_base = NULL, release = NULL) {
-    if (!is.null(data)) {
-        if (!inherits(data, "abc_data")) {
-            stop(
-                "data must be an abc_data object returned by load_data().",
-                call. = FALSE
-            )
-        }
-
-        if (!is.null(metadata) || !is.null(gene_data)) {
-            stop(
-                "Supply either data or metadata/gene_data, not both.",
-                call. = FALSE
-            )
-        }
-
-        metadata <- data$cell_metadata
-        gene_data <- data$gene_data
-
-        if (is.null(download_base)) {
-            download_base <- data$download_base
-        }
-
-        if (is.null(release)) {
-            release <- data$release
-        }
-    }
-
-    if (is.null(metadata) || is.null(gene_data)) {
-        stop(
-            "Supply an abc_data object via data, ",
-            "or both metadata and gene_data.",
-            call. = FALSE
-        )
-    }
-
-    if (!is.data.frame(metadata)) {
-        stop("metadata must be a data.frame.", call. = FALSE)
-    }
-
-    if (!is.data.frame(gene_data)) {
-        stop("gene_data must be a data.frame.", call. = FALSE)
-    }
-
-    list(
-        metadata = metadata,
-        gene_data = gene_data,
-        download_base = download_base,
-        release = release
-    )
-}
-
-
 .abc_require_output_package <- function(package, return_type) {
     if (!requireNamespace(package, quietly = TRUE)) {
         stop(
-            "return_type='", return_type,
-            "' requires package '", package,
-            "'. Install it to use this output format.",
+            "return_type = \"", return_type, "\" needs the ", package,
+            " package. Install it with BiocManager::install(\"", package,
+            "\") and run the request again.",
             call. = FALSE
         )
     }
 }
 
-.abc_spatial_coordinates <- function(metadata, coordinate_columns = NULL) {
-    chosen <- if (is.null(coordinate_columns)) {
-        .abc_default_spatial_columns(metadata)
-    } else {
-        .abc_check_spatial_columns(metadata, coordinate_columns)
+# Spatial output needs a dataset route declared spatial; coordinates of other
+# datasets (for example UMAP embeddings) are not anatomical locations.
+.abc_require_spatial <- function(cell_metadata) {
+    if (!isTRUE(attr(cell_metadata, "abc_spatial"))) {
+        dataset <- attr(cell_metadata, "abc_dataset") %||% "This dataset"
+        stop(
+            dataset, " has no spatial coordinates, so return_type = ",
+            "\"spatial\" is not available. Use \"matrix\" or \"sce\"; ",
+            "list_datasets() shows which datasets are spatial.",
+            call. = FALSE
+        )
     }
+    invisible(TRUE)
+}
+
+.abc_spatial_coordinates <- function(metadata) {
+    chosen <- .abc_default_spatial_columns(metadata)
 
     coordinates <- as.matrix(metadata[, chosen, drop = FALSE])
     storage.mode(coordinates) <- "double"
@@ -84,32 +39,6 @@
     rownames(coordinates) <- as.character(metadata$cell_label)
     colnames(coordinates) <- chosen
     coordinates
-}
-
-# Explicit coordinate columns must be two names present in the metadata.
-.abc_check_spatial_columns <- function(metadata, coordinate_columns) {
-    if (!is.character(coordinate_columns) ||
-        length(coordinate_columns) != 2L ||
-        anyNA(coordinate_columns) ||
-        any(!nzchar(coordinate_columns))) {
-        stop(
-            "coordinate_columns must contain exactly two non-missing ",
-            "column names.",
-            call. = FALSE
-        )
-    }
-
-    missing <- setdiff(coordinate_columns, names(metadata))
-    if (length(missing)) {
-        stop(
-            "Spatial coordinate column",
-            if (length(missing) == 1L) " " else "s ",
-            paste(missing, collapse = ", "), " not found in cell metadata.",
-            call. = FALSE
-        )
-    }
-
-    coordinate_columns
 }
 
 # First published coordinate pair present in the metadata, in order of
@@ -126,8 +55,8 @@
     )
     if (!any(present)) {
         stop(
-            "No supported spatial coordinate pair was found. ",
-            "Provide coordinate_columns explicitly.",
+            "No supported spatial coordinate pair was found in the cell ",
+            "metadata.",
             call. = FALSE
         )
     }
@@ -356,33 +285,15 @@
         cell_metadata,
         gene_data,
         data_type,
-        coordinate_columns,
-        provenance,
-        spatial
+        provenance
 ) {
     .abc_require_output_package(
         "SpatialExperiment",
         "spatial"
     )
-    .abc_require_output_package(
-        "S4Vectors",
-        "spatial"
-    )
+    .abc_require_spatial(cell_metadata)
 
-    if (is.null(coordinate_columns) && !isTRUE(spatial)) {
-        stop(
-            "No declared spatial modality. Supply verified coordinate_columns ",
-            "explicitly; dimensionality-reduction coordinates are not ",
-            "anatomical ",
-            "spatial locations.",
-            call. = FALSE
-        )
-    }
-
-    coordinates <- .abc_spatial_coordinates(
-        cell_metadata,
-        coordinate_columns = coordinate_columns
-    )
+    coordinates <- .abc_spatial_coordinates(cell_metadata)
 
     provenance$coordinate_columns <- colnames(
         coordinates
@@ -405,9 +316,7 @@
 .abc_dispatch_materialization <- function(
         prepared,
         data_type,
-        return_type,
-        coordinate_columns,
-        spatial
+        return_type
 ) {
     switch(return_type,
         matrix = .abc_materialize_matrix(
@@ -429,9 +338,7 @@
             prepared$cell_metadata,
             prepared$gene_data,
             data_type,
-            coordinate_columns,
-            prepared$provenance,
-            spatial
+            prepared$provenance
         )
     )
 }
@@ -442,9 +349,7 @@
         gene_data,
         data_type,
         return_type = "matrix",
-        coordinate_columns = NULL,
-        provenance = NULL,
-        spatial = FALSE
+        provenance = NULL
 ) {
     return_type <- match.arg(
         return_type,
@@ -462,112 +367,68 @@
     .abc_dispatch_materialization(
         prepared = prepared,
         data_type = data_type,
-        return_type = return_type,
-        coordinate_columns = coordinate_columns,
-        spatial = spatial
+        return_type = return_type
     )
 }
 
 
-.abc_fetch_context_from_plan <- function(plan) {
-    if (!inherits(plan, "abc_fetch_plan")) {
+# Resolve the cache, release, representation and cells of a request on `data`.
+# plan_fetch() and fetch_data() each call this; neither uses the other.
+.abc_request_context <- function(data, cell_ids, data_type, offline) {
+    if (!inherits(data, "abc_data")) {
         stop(
-            "plan must be an abc_fetch_plan object created by plan_fetch().",
+            "data must be an abc_data object returned by load_data().",
             call. = FALSE
         )
     }
 
-    if (!isTRUE(plan$approved)) {
-        stop(
-            "The fetch plan was not approved. Run plan_fetch() again and ",
-            "answer y, or use confirm = FALSE to approve it without asking.",
-            call. = FALSE
-        )
-    }
-
-    abc_cache <- abc_cache_connect(
-        plan$.download_base,
-        offline = plan$.offline,
-        release = plan$release
-    )
-
-    list(
-        filtered_meta = plan$.metadata,
-        gene_data = plan$.gene_data,
-        selected_gene_data = plan$.selected_gene_data,
-        download_base = plan$.download_base,
-        release = plan$release,
-        data_type = plan$data_type,
-        abc_cache = abc_cache
-    )
-}
-
-.abc_fetch_context_from_inputs <- function(
-        data, metadata, filters,
-        gene_data, genes, data_type,
-        offline, release, download_base,
-        cell_ids = NULL, n_cells = NULL, seed = 1L) {
-    # Backward compatibility for the historical positional download_base.
-    if (!is.null(data) && !inherits(data, "abc_data") &&
-        is.character(data) && length(data) == 1L && is.null(download_base)) {
-        download_base <- data
-        data <- NULL
-    }
-
-    inputs <- .abc_fetch_inputs(
-        data = data, metadata = metadata, gene_data = gene_data,
-        download_base = download_base, release = release
-    )
-    download_base <- abc_download_dir(inputs$download_base)
-    release <- inputs$release %||% .abc_default_release
+    download_base <- abc_download_dir(data$download_base)
+    release <- data$release %||% .abc_default_release
     abc_cache <- abc_cache_connect(
         download_base,
         offline = offline, release = release
     )
-    prepared <- .abc_prepare_fetch(
-        inputs$metadata, filters, inputs$gene_data, genes,
-        cell_ids = cell_ids, n_cells = n_cells, seed = seed
-    )
+    cells <- .abc_select_cells(data$cell_metadata, cell_ids)
 
     list(
-        filtered_meta = prepared$metadata,
-        gene_data = inputs$gene_data,
-        selected_gene_data = prepared$gene_data,
+        cells = cells,
         download_base = download_base,
         release = release,
-        data_type = .abc_resolve_data_type(data_type, prepared$metadata),
+        data_type = .abc_resolve_data_type(data_type, data$cell_metadata),
         abc_cache = abc_cache
     )
 }
 
-.abc_fetch_expression <- function(
-        abc_cache, filtered_meta, gene_data,
-        selected_gene_data, download_base,
-        data_type) {
-    files <- .abc_expression_files(abc_cache, filtered_meta,
-        data_type = data_type
+# Expression files needed for `cells`, with the bytes still to download.
+.abc_request_files <- function(context) {
+    files <- .abc_expression_files(
+        context$abc_cache, context$cells,
+        data_type = context$data_type
     )
-    additional_download <- ifelse(
+    files$additional_download <- ifelse(
         files$cached, 0, pmax(files$size - files$partial_bytes, 0)
     )
-    total_download <- sum(additional_download)
-    available_space <- .abc_available_space(download_base)
+    files
+}
 
-    if (total_download > 0 && !is.na(available_space) &&
-        available_space < total_download) {
-        stop(
-            "Insufficient disk space for this download. ",
-            "Required: ", .abc_format_size(total_download),
-            "; available: ", .abc_format_size(available_space),
-            "; shortfall: ", .abc_format_size(total_download - available_space),
-            ". No expression files were downloaded.",
-            call. = FALSE
+.abc_fetch_expression <- function(context, files, gene_data, gene_sel) {
+    total_download <- sum(files$additional_download)
+    storage <- .abc_storage_check(context$download_base, total_download)
+
+    if (!storage$sufficient) {
+        stop(.abc_storage_message(storage), call. = FALSE)
+    }
+    if (total_download > 0 && is.na(storage$available)) {
+        message(
+            "Free disk space could not be determined; downloading ",
+            .abc_format_size(total_download), "."
         )
     }
 
     .abc_expression_matrix(
-        abc_cache = abc_cache, cells = filtered_meta, gene_data = gene_data,
-        gene_sel = selected_gene_data$.abc_gene_index, data_type = data_type
+        abc_cache = context$abc_cache, cells = context$cells,
+        gene_data = gene_data, gene_sel = gene_sel,
+        data_type = context$data_type
     )
 }
 
@@ -587,53 +448,59 @@
     match.arg(return_type, c("matrix", "sce", "spatial"))
 }
 
-# Validate the requested output representation before any expression file is
-# resolved or downloaded, so incompatible requests fail without a transfer.
+# Validate the requested output before any expression file is resolved or
+# downloaded, so a request that cannot be returned fails without a transfer.
 # The materializers repeat these checks as a second line of defence.
-.abc_validate_output_request <- function(
-        return_type,
-        data_type,
-        cell_metadata,
-        coordinate_columns
-) {
-    if (identical(return_type, "spatial")) {
-        if (is.null(coordinate_columns) &&
-            !isTRUE(attr(cell_metadata, "abc_spatial"))) {
-            stop(
-                "No declared spatial modality. ",
-                "Supply verified coordinate_columns ",
-                "explicitly; dimensionality-reduction coordinates are not ",
-                "anatomical ",
-                "spatial locations.",
-                call. = FALSE
-            )
-        }
+.abc_validate_output_request <- function(return_type, cell_metadata) {
+    if (identical(return_type, "sce")) {
+        .abc_require_output_package("SingleCellExperiment", "sce")
+    }
 
-        .abc_spatial_coordinates(
-            cell_metadata,
-            coordinate_columns = coordinate_columns
-        )
+    if (identical(return_type, "spatial")) {
+        .abc_require_output_package("SpatialExperiment", "spatial")
+        .abc_require_spatial(cell_metadata)
+        .abc_spatial_coordinates(cell_metadata)
     }
 
     invisible(TRUE)
 }
 
-#' Fetch the expression selected by a fetch plan
+#' Fetch ABC Atlas expression for selected cells and genes
 #'
-#' Downloads the expression files listed in an approved plan from
-#' [plan_fetch()], if they are not already cached, and reads the planned
-#' cells and genes into the requested R representation.
+#' Downloads the expression files the selected cells need, if they are not
+#' already cached, and reads the selected cells and genes into the requested
+#' R representation. [plan_fetch()] reports the same files and sizes
+#' beforehand, but is not needed to fetch.
 #'
-#' @param plan An approved \code{abc_fetch_plan} object returned by
-#'   [plan_fetch()]. The plan defines the cells, genes, release, cache
-#'   directory and representation.
-#' @param return_type Output format: \code{"matrix"} for the primary sparse
+#' Before downloading, the free space of the disk holding the cache is
+#' checked. A download that does not fit is refused. On the disk the
+#' operating system runs from, at least 500 MB must also remain free after
+#' the download. No space is checked when every file is already cached.
+#'
+#' @param data An \code{abc_data} object returned by [load_data()]. It
+#'   provides the metadata, release and cache directory.
+#' @param cell_ids Character vector of cell labels (the
+#'   \code{cell_label} column of \code{data$cell_metadata}) to fetch. The
+#'   columns of the result follow this order. To fetch every cell, use
+#'   \code{data$cell_metadata$cell_label}.
+#' @param genes Character vector of genes to include. Each entry is matched
+#'   first against \code{gene_identifier}, then against the published source
+#'   identifier, then against \code{gene_symbol}; a symbol shared by several
+#'   genes is reported as ambiguous. If \code{NULL} (default), all genes of
+#'   the expression file are returned.
+#' @param data_type Published expression representation, \code{"raw"} or
+#'   \code{"log2"}. If \code{NULL} (default), the dataset's default is used:
+#'   \code{"raw"} where it is published, otherwise \code{"log2"}. Raw
+#'   expression keeps count semantics; published log2 expression is never
+#'   presented as counts.
+#' @param return_type Output format: \code{"matrix"} (default) for the sparse
 #'   expression bundle, \code{"sce"} for a SingleCellExperiment, or
-#'   \code{"spatial"} for a SpatialExperiment. The default is
-#'   \code{"matrix"}. For Seurat or Monocle 3 objects, see
-#'   "Converting to other formats" below.
-#' @param coordinate_columns Optional length-two character vector naming the
-#'   spatial x/y columns. Used only for \code{return_type = "spatial"}.
+#'   \code{"spatial"} for a SpatialExperiment with the dataset's spatial
+#'   coordinates. \code{"spatial"} needs the SpatialExperiment package and a
+#'   spatial dataset (see [list_datasets()]). For Seurat or Monocle 3
+#'   objects, see "Converting to other formats" below.
+#' @param offline If \code{TRUE}, use only locally cached files and never
+#'   contact S3; a file that is not cached is an error instead of a download.
 #' @return The requested expression representation: a sparse matrix bundle
 #'   (a list with \code{expression}, \code{cell_metadata},
 #'   \code{gene_data}, \code{data_type} and \code{provenance}), a
@@ -641,11 +508,10 @@
 #' @section Converting to other formats:
 #' Seurat and Monocle 3 objects are not built by this package. Fetch raw
 #' expression as a matrix bundle and convert it with the package you use.
-#' Both tools expect count data, so plan with \code{data_type = "raw"}.
+#' Both tools expect count data, so fetch with \code{data_type = "raw"}.
 #'
 #' ```r
-#' plan <- plan_fetch(abc, genes = genes, data_type = "raw")
-#' x <- fetch_data(plan)
+#' x <- fetch_data(abc, cell_ids = cells, genes = genes, data_type = "raw")
 #'
 #' # Seurat (package SeuratObject). Seurat replaces "_" in feature names.
 #' counts <- x$expression
@@ -665,183 +531,112 @@
 #' )
 #' ```
 #' @examples
-#' example_dir <- system.file(
-#'     "extdata", "ex",
-#'     package = "ABCatlasR"
-#' )
-#' example_data <- readRDS(
-#'     file.path(example_dir, "example-data.rds")
-#' )
+#' # A small synthetic dataset shipped with the package.
+#' example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
+#' abc <- readRDS(file.path(example_dir, "example-data.rds"))
+#' abc$download_base <- example_dir
 #'
-#' plan <- plan_fetch(
-#'     download_base = example_dir,
-#'     metadata = example_data$cells,
-#'     gene_data = example_data$genes,
+#' cells <- c("c4", "c1")
+#' x <- fetch_data(
+#'     abc,
+#'     cell_ids = cells,
 #'     genes = c("G1", "G4"),
-#'     offline = TRUE,
-#'     release = "20250101",
-#'     confirm = FALSE
+#'     offline = TRUE
 #' )
-#' x <- fetch_data(plan, return_type = "matrix")
 #' x$expression
 #' @export
 fetch_data <- function(
-        plan,
+        data,
+        cell_ids,
+        genes = NULL,
+        data_type = NULL,
         return_type = c("matrix", "sce", "spatial"),
-        coordinate_columns = NULL) {
+        offline = FALSE) {
+    if (missing(cell_ids)) {
+        stop(
+            "cell_ids is required. To fetch every cell, use ",
+            "cell_ids = data$cell_metadata$cell_label.",
+            call. = FALSE
+        )
+    }
+    if (is.null(cell_ids)) {
+        stop("cell_ids must contain at least one cell label.", call. = FALSE)
+    }
     return_type <- .abc_match_return_type(return_type)
-    context <- .abc_fetch_context_from_plan(plan)
-    .abc_validate_output_request(
-        return_type = return_type, data_type = context$data_type,
-        cell_metadata = context$filtered_meta,
-        coordinate_columns = coordinate_columns
-    )
+
+    context <- .abc_request_context(data, cell_ids, data_type, offline)
+    selected_genes <- .abc_resolve_genes(data$gene_data, genes)
+    .abc_validate_output_request(return_type, context$cells)
 
     expression <- .abc_fetch_expression(
-        abc_cache = context$abc_cache, filtered_meta = context$filtered_meta,
-        gene_data = context$gene_data,
-        selected_gene_data = context$selected_gene_data,
-        download_base = context$download_base, data_type = context$data_type
+        context,
+        files = .abc_request_files(context),
+        gene_data = data$gene_data,
+        gene_sel = selected_genes$.abc_gene_index
     )
-    context$selected_gene_data$.abc_gene_index <- NULL
+    selected_genes$.abc_gene_index <- NULL
     provenance <- .abc_output_provenance(
-        context$filtered_meta, context$selected_gene_data,
+        context$cells, selected_genes,
         data_type = context$data_type, release = context$release
     )
 
     .abc_materialize(
-        expression = expression, cell_metadata = context$filtered_meta,
-        gene_data = context$selected_gene_data, data_type = context$data_type,
-        return_type = return_type, coordinate_columns = coordinate_columns,
-        provenance = provenance,
-        spatial = isTRUE(attr(context$filtered_meta, "abc_spatial"))
+        expression = expression, cell_metadata = context$cells,
+        gene_data = selected_genes, data_type = context$data_type,
+        return_type = return_type, provenance = provenance
     )
 }
 
-#' Plan an ABC Atlas expression fetch
+#' Report the expression files a request needs
 #'
-#' Defines an expression request (which cells, which genes and which
-#' representation) and lists the expression files it needs, with their sizes
-#' and cache status, without downloading them. Pass the approved plan to
-#' [fetch_data()] to download and read the expression.
+#' Lists the expression files that [fetch_data()] would need for the selected
+#' cells, with their sizes, whether they are already cached, and how much
+#' would still be downloaded, and checks that against the free disk space.
+#' Nothing is downloaded. Calling \code{plan_fetch()} is optional:
+#' [fetch_data()] does not use its result.
 #'
-#' @param data Optional \code{abc_data} object returned by \code{load_data()}.
-#'   This is the preferred interface. When supplied, its metadata, gene data,
-#'   cache directory, and release are reused automatically.
-#' @param download_base Directory where ABC Atlas data is downloaded and cached.
-#'   If `NULL` (default), it is resolved by [abc_download_dir()].
-#' @param metadata Cell metadata, typically from [load_data()].
-#' @param filters Named list of column = value filters. Cells must match every
-#'   filter, and any of the values within one filter.
-#' @param cell_ids Optional character vector of exact cell labels, applied
-#'   after \code{filters}.
-#' @param n_cells Optional number of cells to sample after \code{filters} and
-#'   \code{cell_ids}.
-#' @param seed Random seed used when \code{n_cells} samples the selected cells.
-#' @param gene_data Gene metadata, typically from [load_data()].
-#' @param genes Character vector of genes to include. Each entry is matched
-#'   first against \code{gene_identifier}, then against the published source
-#'   identifier, then against \code{gene_symbol}; a symbol shared by several
-#'   genes is reported as ambiguous. If \code{NULL}, all genes are used.
-#' @param data_type Published expression representation (`"raw"` or `"log2"`).
-#'   If `NULL`, the dataset route's declared default is used. Raw expression
-#'   retains count semantics; upstream log2 expression is never presented as
-#'   counts.
-#' @param offline If `TRUE`, use only locally cached files and never contact
-#'   S3 (see [abc_cache_connect()]).
-#' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to the
-#'   release validated against this package.
-#' @param confirm If `TRUE` (the default in interactive sessions) and a
-#'   download is required, the plan is printed and the user is asked to
-#'   approve it; answering no leaves the plan unapproved. If `FALSE` (the
-#'   default in non-interactive sessions such as scripts and batch jobs), the
-#'   plan is approved without asking. A plan that needs no download is always
-#'   approved.
-#' @return An `abc_fetch_plan` object describing the requested output and
-#'   expression files required to produce it.
+#' Expression files are downloaded whole, so the sizes do not depend on the
+#' genes that will be fetched. They depend on the cells, because the cells of
+#' some datasets are spread over several files, and on the representation.
+#'
+#' @param data An \code{abc_data} object returned by [load_data()].
+#' @param cell_ids Optional character vector of cell labels. If \code{NULL}
+#'   (default), every cell of the dataset is included.
+#' @param data_type Published expression representation, \code{"raw"} or
+#'   \code{"log2"}. If \code{NULL} (default), the dataset's default is used:
+#'   \code{"raw"} where it is published, otherwise \code{"log2"}.
+#' @param offline If \code{TRUE}, use only locally cached files and never
+#'   contact S3.
+#' @return An \code{abc_fetch_plan} object, printed as a report of the
+#'   expression files, their sizes and cache status, and the storage check.
 #' @examples
-#' example_dir <- system.file(
-#'     "extdata", "ex",
-#'     package = "ABCatlasR"
-#' )
-#' example_data <- readRDS(
-#'     file.path(example_dir, "example-data.rds")
-#' )
+#' # A small synthetic dataset shipped with the package.
+#' example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
+#' abc <- readRDS(file.path(example_dir, "example-data.rds"))
+#' abc$download_base <- example_dir
 #'
-#' plan <- plan_fetch(
-#'     download_base = example_dir,
-#'     metadata = example_data$cells,
-#'     gene_data = example_data$genes,
-#'     filters = list(donor_sex = c("M", "F")),
-#'     n_cells = 3,
-#'     seed = 1,
-#'     genes = c("G1", "G4"),
-#'     offline = TRUE,
-#'     release = "20250101"
-#' )
-#' plan
+#' plan_fetch(abc, offline = TRUE)
+#'
+#' # Exact cells: only the files holding them are listed.
+#' plan_fetch(abc, cell_ids = c("c1", "c2"), offline = TRUE)
 #' @export
 plan_fetch <- function(
-        data = NULL, metadata = NULL, filters = list(),
-        cell_ids = NULL, n_cells = NULL, seed = 1L,
-        gene_data = NULL, genes = NULL, data_type = NULL,
-        offline = FALSE, release = NULL,
-        download_base = NULL,
-        confirm = interactive()) {
-    context <- .abc_fetch_context_from_inputs(
-        data = data, metadata = metadata, filters = filters,
-        cell_ids = cell_ids, n_cells = n_cells, seed = seed,
-        gene_data = gene_data, genes = genes, data_type = data_type,
-        offline = offline, release = release, download_base = download_base
-    )
-    files <- .abc_expression_files(
-        context$abc_cache, context$filtered_meta,
-        data_type = context$data_type
-    )
-    files$additional_download <- ifelse(
-        files$cached, 0, pmax(files$size - files$partial_bytes, 0)
-    )
-    plan <- .abc_new_fetch_plan(context, files, offline)
-
-    if (plan$total_download > 0) {
-        if (!isTRUE(confirm)) {
-            plan$approved <- TRUE
-        } else if (!isTRUE(offline) && isTRUE(plan$storage_sufficient)) {
-            print(plan)
-            plan$approved <- .abc_confirm_download()
-        }
-    }
-
-    plan
-}
-
-# Assemble the abc_fetch_plan object: download totals, the disk-space check,
-# and the resolved request that fetch_data(plan = ) reuses. A plan that needs
-# no download is approved automatically.
-.abc_new_fetch_plan <- function(context, files, offline) {
+        data, cell_ids = NULL, data_type = NULL, offline = FALSE) {
+    context <- .abc_request_context(data, cell_ids, data_type, offline)
+    files <- .abc_request_files(context)
     total_download <- sum(files$additional_download)
-    available_space <- .abc_available_space(context$download_base)
 
     structure(
         list(
+            dataset = attr(context$cells, "abc_dataset"),
+            release = context$abc_cache$version,
             data_type = context$data_type,
-            n_cells = nrow(context$filtered_meta),
-            n_genes = nrow(context$selected_gene_data),
+            n_cells = nrow(context$cells),
             files = files,
             total_size = sum(files$size),
             total_partial = sum(files$partial_bytes),
             total_download = total_download,
-            available_space = available_space,
-            storage_required = total_download,
-            storage_sufficient = is.na(available_space) ||
-                available_space >= total_download,
-            release = context$abc_cache$version,
-            approved = if (total_download == 0) TRUE else NA,
-            .metadata = context$filtered_meta,
-            .gene_data = context$gene_data,
-            .selected_gene_data = context$selected_gene_data,
-            .download_base = context$download_base,
-            .offline = offline
+            storage = .abc_storage_check(context$download_base, total_download)
         ),
         class = "abc_fetch_plan"
     )
@@ -851,9 +646,10 @@ plan_fetch <- function(
 print.abc_fetch_plan <- function(x, ...) {
     cat(
         "<abc_fetch_plan>\n",
+        "  dataset:        ", x$dataset %||% "", "\n",
         "  release:        ", x$release, "\n",
         "  representation: ", x$data_type, "\n",
-        "  requested:      ", x$n_genes, " genes x ", x$n_cells, " cells\n",
+        "  cells:          ", format(x$n_cells, big.mark = ","), "\n",
         "\nExpression files:\n",
         sep = ""
     )
@@ -861,12 +657,20 @@ print.abc_fetch_plan <- function(x, ...) {
         .abc_print_plan_file(x$files[i, ])
     }
 
-    if (is.na(x$available_space)) {
-        space <- "unable to determine"
-        check <- "unable to determine"
+    storage <- x$storage
+    space <- if (is.na(storage$available)) {
+        "unable to determine"
     } else {
-        space <- .abc_format_size(x$available_space)
-        check <- if (x$storage_sufficient) "PASS" else "INSUFFICIENT"
+        .abc_format_size(storage$available)
+    }
+    check <- if (x$total_download == 0) {
+        "PASS (nothing to download)"
+    } else if (is.na(storage$available)) {
+        "unable to determine"
+    } else if (storage$sufficient) {
+        "PASS"
+    } else {
+        "INSUFFICIENT"
     }
 
     cat(
@@ -875,6 +679,7 @@ print.abc_fetch_plan <- function(x, ...) {
         "  resumable partial:    ", .abc_format_size(x$total_partial), "\n",
         "  additional download:  ", .abc_format_size(x$total_download), "\n",
         "  available disk space: ", space, "\n",
+        "  required free space:  ", .abc_format_size(storage$required), "\n",
         "  storage check:        ", check, "\n",
         "\nNo expression files were downloaded.\n",
         sep = ""
@@ -1195,7 +1000,7 @@ print.abc_fetch_plan <- function(x, ...) {
             length(missing),
             " requested cell",
             if (length(missing) == 1L) "" else "s",
-            " absent after filtering: ",
+            " not found in this dataset: ",
             paste(
                 utils::head(missing, 3L),
                 collapse = ", "
@@ -1211,184 +1016,21 @@ print.abc_fetch_plan <- function(x, ...) {
     ]
 }
 
-.abc_select_cell_ids <- function(
-        metadata,
-        cell_ids
-) {
-    if (is.null(cell_ids)) {
-        return(metadata)
-    }
-
-    labels <- .abc_validate_cell_id_selection(
-        metadata = metadata,
-        cell_ids = cell_ids
-    )
-
-    .abc_match_cell_ids(
-        metadata = metadata,
-        cell_ids = cell_ids,
-        labels = labels
-    )
-}
-
-.abc_apply_cell_filters <- function(
-        metadata,
-        filters
-) {
-    if (
-        !is.list(filters) ||
-            is.null(names(filters)) ||
-            any(!nzchar(names(filters)))
-    ) {
-        if (length(filters)) {
-            stop(
-                "filters must be a named list of ",
-                "metadata column = allowed values.",
-                call. = FALSE
-            )
-        }
-    }
-
-    for (filter_col in names(filters)) {
-        filter_val <- filters[[filter_col]]
-
-        if (!filter_col %in% names(metadata)) {
-            stop(
-                "Column '",
-                filter_col,
-                "' not found in metadata.",
-                call. = FALSE
-            )
-        }
-
-        metadata <- metadata[
-            metadata[[filter_col]] %in% filter_val, ,
-            drop = FALSE
-        ]
-    }
-
-    metadata
-}
-
-.abc_validate_cell_sample <- function(
-        metadata,
-        n_cells,
-        seed
-) {
-    if (is.null(n_cells)) {
-        return(NULL)
-    }
-
-    if (
-        length(n_cells) != 1L ||
-            is.na(n_cells) ||
-            n_cells < 0 ||
-            n_cells != as.integer(n_cells)
-    ) {
-        stop(
-            "n_cells must be a single non-negative integer.",
-            call. = FALSE
+# Select the cells named in `cell_ids`, in that order; NULL selects every
+# cell of the dataset.
+.abc_select_cells <- function(metadata, cell_ids = NULL) {
+    out <- if (is.null(cell_ids)) {
+        metadata
+    } else {
+        .abc_match_cell_ids(
+            metadata = metadata,
+            cell_ids = cell_ids,
+            labels = .abc_validate_cell_id_selection(metadata, cell_ids)
         )
     }
-
-    n_cells <- as.integer(n_cells)
-
-    if (n_cells > nrow(metadata)) {
-        stop(
-            "n_cells=",
-            n_cells,
-            " exceeds the ",
-            nrow(metadata),
-            " cells available after filtering.",
-            call. = FALSE
-        )
-    }
-
-    if (
-        n_cells < nrow(metadata) &&
-            (length(seed) != 1L || is.na(seed))
-    ) {
-        stop(
-            "seed must be a single non-missing value.",
-            call. = FALSE
-        )
-    }
-
-    n_cells
-}
-
-.abc_sample_cell_rows <- function(
-        metadata,
-        n_cells,
-        seed
-) {
-    keep <- withr::with_seed(
-        seed,
-        sample.int(
-            nrow(metadata),
-            size = n_cells,
-            replace = FALSE
-        )
-    )
-
-    metadata[
-        keep, ,
-        drop = FALSE
-    ]
-}
-
-.abc_sample_cells <- function(
-        metadata,
-        n_cells,
-        seed
-) {
-    n_cells <- .abc_validate_cell_sample(
-        metadata = metadata,
-        n_cells = n_cells,
-        seed = seed
-    )
-
-    if (
-        is.null(n_cells) ||
-            n_cells == nrow(metadata)
-    ) {
-        return(metadata)
-    }
-
-    .abc_sample_cell_rows(
-        metadata = metadata,
-        n_cells = n_cells,
-        seed = seed
-    )
-}
-
-.abc_select_cells <- function(
-        metadata, filters = list(), cell_ids = NULL,
-        n_cells = NULL, seed = 1L) {
-    out <- metadata
-
-    out <- .abc_apply_cell_filters(
-        metadata = out,
-        filters = filters
-    )
-
-    out <- .abc_select_cell_ids(
-        metadata = out,
-        cell_ids = cell_ids
-    )
-
-    out <- .abc_sample_cells(
-        metadata = out,
-        n_cells = n_cells,
-        seed = seed
-    )
 
     if (!nrow(out)) {
-        stop(
-            "No cells left after selection. ",
-            "Check filters, cell_ids or n_cells.",
-            call. = FALSE
-        )
+        stop("The dataset has no cells.", call. = FALSE)
     }
 
     rownames(out) <- as.character(out$cell_label)
@@ -1401,27 +1043,6 @@ print.abc_fetch_plan <- function(x, ...) {
     )
 
     out
-}
-
-# Select the planned cells and resolve the requested genes for a fetch.
-.abc_prepare_fetch <- function(
-        metadata, filters, gene_data, genes = NULL,
-        cell_ids = NULL, n_cells = NULL, seed = 1L) {
-    filtered_meta <- .abc_select_cells(
-        metadata,
-        filters = filters, cell_ids = cell_ids,
-        n_cells = n_cells, seed = seed
-    )
-
-    resolved_genes <- .abc_resolve_genes(
-        gene_data,
-        genes
-    )
-
-    list(
-        metadata = filtered_meta,
-        gene_data = resolved_genes
-    )
 }
 
 # Resolve the expression files needed for `cells` without downloading them.
