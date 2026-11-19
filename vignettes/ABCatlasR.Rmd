@@ -34,12 +34,12 @@ distributed through a public Amazon S3 bucket that requires no account.
 their metadata, check the size of a request before downloading, and read
 the selected expression into R.
 
-The package separates metadata discovery and cell selection from
+The package separates metadata discovery, cell and gene selection, and
 expression transfer:
 
 1.  `list_datasets()` discovers curated dataset routes.
-2.  `load_data()` assembles metadata and selects cells.
-3.  `plan_fetch()` previews the expression request and required files.
+2.  `load_data()` loads the cell and gene metadata of a dataset.
+3.  `plan_fetch()` selects cells and genes and previews the required files.
 4.  `fetch_data()` reads selected expression into the requested R
     representation.
 
@@ -129,11 +129,9 @@ lapply(abc$unique_values, head, n = 3)
 
 ## Selecting cells and genes
 
-Cell selection can be performed during `load_data()` so that the cells
-included in the analysis are defined before expression data are
-requested. Genes are selected when the expression is planned and
-fetched. The cells and genes below are taken from the outputs shown in
-the previous section.
+`load_data()` returns the full metadata. Cells and genes are selected
+with `plan_fetch()`, which defines the expression request. The cells and
+genes below are taken from the outputs shown in the previous section.
 
 ### Cell selection
 
@@ -147,9 +145,8 @@ filters <- list(
     brain_section_label = "Zhuang-ABCA-4.002",
     neurotransmitter = c("GABA", "Glut")
 )
-abc_filtered <- load_data("Zhuang4", filters = filters)
-nrow(abc_filtered$cell_metadata)
-table(abc_filtered$cell_metadata$neurotransmitter)
+plan_filtered <- plan_fetch(abc, filters = filters)
+plan_filtered$n_cells
 ```
 
 When the desired cells are already known, `cell_ids` selects those exact
@@ -157,21 +154,21 @@ cell labels. Here, the first three cells of `head(abc$cell_metadata)`:
 
 ```{r cell-id-selection}
 my_cell_labels <- head(abc$cell_metadata$cell_label, 3)
-abc_exact <- load_data("Zhuang4", cell_ids = my_cell_labels)
-abc_exact$cell_metadata[, c("brain_section_label", "subclass")]
+plan_exact <- plan_fetch(abc, cell_ids = my_cell_labels)
+plan_exact$n_cells
 ```
 
 When the filtered population is still large, `n_cells` limits the number
-of cells returned. Use `seed` when the subset should be reproducible:
+of cells selected. Use `seed` when the subset should be reproducible:
 
 ```{r cell-sampling}
-abc_sampled <- load_data(
-    "Zhuang4",
+plan_sampled <- plan_fetch(
+    abc,
     filters = filters,
     n_cells = 1000,
     seed = 42
 )
-nrow(abc_sampled$cell_metadata)
+plan_sampled$n_cells
 ```
 
 ### Gene selection
@@ -197,7 +194,7 @@ Expression files can be several gigabytes. Before downloading them,
 inspect the request with `plan_fetch()`:
 
 ```{r plan-fetch}
-plan <- plan_fetch(abc_filtered, genes = genes)
+plan <- plan_fetch(abc, filters = filters, genes = genes)
 plan
 ```
 
@@ -216,23 +213,20 @@ A fetch plan reports:
 
 In an interactive R session, `plan_fetch()` asks
 `Proceed with download? [y/n]:`. Answering `y` approves the plan, and
-`fetch_data(plan = plan)` then downloads and reads what was planned.
-Answering `n` discards the plan, and the request must be planned again
-before fetching. In this vignette the question is answered with `y`.
-
-The legacy `metadata =` and `gene_data =` arguments remain available,
-but the `abc_data` interface is preferred because it carries routing and
-release provenance automatically.
+`fetch_data(plan)` then downloads and reads what was planned. Answering
+`n` leaves the plan unapproved, and the request must be planned again
+before fetching. `confirm = FALSE` approves the plan without asking; it
+is the default outside interactive sessions, such as batch jobs and this
+vignette.
 
 ## Fetching expression
 
-`fetch_data()` downloads the expression files the selection needs, then
-reads only the selected cells and genes:
+`fetch_data()` downloads the expression files the plan needs, then
+reads only the planned cells and genes:
 
 ```{r fetch-matrix}
 x <- fetch_data(
-    abc_filtered,
-    genes = genes,
+    plan,
     return_type = "matrix" # could pick "sce" or "spatial"
 )
 dim(x$expression)
@@ -248,8 +242,8 @@ selected metadata and provenance. Rows are genes, keyed by
 each gene is detected. The provenance records the dataset, release,
 representation, modality, spatial status and selected dimensions.
 
-Depending on the downstream analysis, choose `data_type = "raw"` for
-raw counts or `data_type = "log2"` for the log2-transformed values
+Depending on the downstream analysis, set `data_type` in `plan_fetch()`
+to `"raw"` for raw counts or `"log2"` for the log2-transformed values
 published by the ABC Atlas. `list_datasets()` shows the default and
 available representations of each route. Each representation is a
 separate file, so only one is downloaded: this request used the
@@ -305,7 +299,7 @@ request again shows that nothing needs to be downloaded, so the plan is
 approved automatically:
 
 ```{r reuse-plan}
-plan_again <- plan_fetch(abc_filtered, genes = genes)
+plan_again <- plan_fetch(abc, filters = filters, genes = genes)
 plan_again$total_download
 plan_again$approved
 ```
@@ -315,22 +309,24 @@ expression file is read from the cache, and the message reports that no
 download was needed:
 
 ```{r reuse-fetch}
-x_again <- fetch_data(plan = plan_again)
+x_again <- fetch_data(plan_again)
 identical(x$expression, x_again$expression)
 ```
 
 Other datasets use the same cache. `Zhuang2` is another MERFISH dataset
 from Zhang et al. (2023), measured with the same gene panel, so the genes
-selected above can be fetched from it too. Here `n_cells` and `seed`
-select a reproducible sample of 5,000 cells:
+selected above can be fetched from it too:
 
 ```{r second-dataset}
-abc2 <- load_data("Zhuang2", n_cells = 5000, seed = 1)
+abc2 <- load_data("Zhuang2")
 abc2
 ```
 
+Here `n_cells` and `seed` select a reproducible sample of 5,000 cells:
+
 ```{r second-fetch}
-y <- fetch_data(abc2, genes = genes)
+plan2 <- plan_fetch(abc2, n_cells = 5000, seed = 1, genes = genes)
+y <- fetch_data(plan2)
 dim(y$expression)
 Matrix::rowSums(y$expression > 0)
 ```

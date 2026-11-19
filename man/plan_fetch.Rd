@@ -2,12 +2,15 @@
 % Please edit documentation in R/fetch_data.R
 \name{plan_fetch}
 \alias{plan_fetch}
-\title{Plan an ABC Atlas expression fetch without downloading expression files}
+\title{Plan an ABC Atlas expression fetch}
 \usage{
 plan_fetch(
   data = NULL,
   metadata = NULL,
   filters = list(),
+  cell_ids = NULL,
+  n_cells = NULL,
+  seed = 1L,
   gene_data = NULL,
   genes = NULL,
   data_type = NULL,
@@ -24,7 +27,16 @@ cache directory, and release are reused automatically.}
 
 \item{metadata}{Cell metadata, typically from \code{\link[=load_data]{load_data()}}.}
 
-\item{filters}{Named list of column = value filters.}
+\item{filters}{Named list of column = value filters. Cells must match every
+filter, and any of the values within one filter.}
+
+\item{cell_ids}{Optional character vector of exact cell labels, applied
+after \code{filters}.}
+
+\item{n_cells}{Optional number of cells to sample after \code{filters} and
+\code{cell_ids}.}
+
+\item{seed}{Random seed used when \code{n_cells} samples the selected cells.}
 
 \item{gene_data}{Gene metadata, typically from \code{\link[=load_data]{load_data()}}.}
 
@@ -34,26 +46,35 @@ identifier, then against \code{gene_symbol}; a symbol shared by several
 genes is reported as ambiguous. If \code{NULL}, all genes are used.}
 
 \item{data_type}{Published expression representation (\code{"raw"} or \code{"log2"}).
-If \code{NULL}, the dataset route's declared default is used.}
+If \code{NULL}, the dataset route's declared default is used. Raw expression
+retains count semantics; upstream log2 expression is never presented as
+counts.}
 
-\item{offline}{If \code{TRUE}, use only the locally cached manifest.}
+\item{offline}{If \code{TRUE}, use only locally cached files and never contact
+S3 (see \code{\link[=abc_cache_connect]{abc_cache_connect()}}).}
 
-\item{release}{ABC Atlas release. Defaults to the package-validated release.}
+\item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to the
+release validated against this package.}
 
-\item{download_base}{Directory where ABC Atlas data is downloaded and cached.}
+\item{download_base}{Directory where ABC Atlas data is downloaded and cached.
+If \code{NULL} (default), it is resolved by \code{\link[=abc_download_dir]{abc_download_dir()}}.}
 
 \item{confirm}{If \code{TRUE} (the default in interactive sessions) and a
 download is required, the plan is printed and the user is asked to
-approve it. In non-interactive sessions a plan that requires a download
-is returned unapproved.}
+approve it; answering no leaves the plan unapproved. If \code{FALSE} (the
+default in non-interactive sessions such as scripts and batch jobs), the
+plan is approved without asking. A plan that needs no download is always
+approved.}
 }
 \value{
 An \code{abc_fetch_plan} object describing the requested output and
 expression files required to produce it.
 }
 \description{
-Applies the same cell filtering, gene selection and expression-file routing
-as \code{\link[=fetch_data]{fetch_data()}}, but does not download or read expression matrices.
+Defines an expression request (which cells, which genes and which
+representation) and lists the expression files it needs, with their sizes
+and cache status, without downloading them. Pass the approved plan to
+\code{\link[=fetch_data]{fetch_data()}} to download and read the expression.
 }
 \examples{
 example_dir <- system.file(
@@ -68,6 +89,9 @@ plan <- plan_fetch(
     download_base = example_dir,
     metadata = example_data$cells,
     gene_data = example_data$genes,
+    filters = list(donor_sex = c("M", "F")),
+    n_cells = 3,
+    seed = 1,
     genes = c("G1", "G4"),
     offline = TRUE,
     release = "20250101"

@@ -641,6 +641,10 @@
 #' interest) is described declaratively in an internal registry rather than in
 #' per-dataset functions.
 #'
+#' The full cell and gene metadata of the dataset are loaded. Cells and
+#' genes are selected afterwards, when the expression request is defined
+#' with [plan_fetch()].
+#'
 #' @param dataset Dataset route name. Run [list_datasets()] to see every
 #'   supported route (for example \code{"WHB"}, \code{"AgingMouse"} or
 #'   \code{"MERFISH"}). Unambiguous partial names are accepted.
@@ -650,13 +654,6 @@
 #'   S3 (see \code{\link{abc_cache_connect}}).
 #' @param release Optional ABC Atlas release version in \code{YYYYMMDD} form.
 #'   When supplied, metadata are loaded from exactly that release.
-#' @param filters Named list of metadata column = allowed values. Filters are
-#'   applied before exact cell selection and sampling.
-#' @param cell_ids Optional character vector of exact cell labels. Requested
-#'   order is preserved and missing cells are an error.
-#' @param n_cells Optional number of cells to sample after filters and
-#'   \code{cell_ids} selection.
-#' @param seed Random seed used when \code{n_cells} samples the selected cells.
 #' @return An \code{abc_data} object containing \code{cell_metadata},
 #'   \code{gene_data}, \code{unique_values}, and dataset/cache provenance.
 #' @examples
@@ -670,8 +667,7 @@
 #' @export
 load_data <- function(
         dataset, download_base = NULL, offline = FALSE,
-        release = .abc_default_release, filters = list(),
-        cell_ids = NULL, n_cells = NULL, seed = 1L) {
+        release = .abc_default_release) {
     datasets <- names(.abc_datasets)
     if (missing(dataset)) {
         stop("Specify a dataset, one of: ", paste(datasets, collapse = ", "))
@@ -686,14 +682,9 @@ load_data <- function(
     )
 
     out <- .build_dataset(spec, abc_cache, dataset)
-    out$cell_metadata <- .abc_select_cells(
-        out$cell_metadata,
-        filters = filters, cell_ids = cell_ids,
-        n_cells = n_cells, seed = seed
-    )
+    rownames(out$cell_metadata) <- as.character(out$cell_metadata$cell_label)
 
-    # Recompute filter choices from the selected population while retaining
-    # the route's curated columns of interest.
+    # Filter choices: the values of the route's curated columns of interest.
     cols <- intersect(
         spec$cols_of_interest %||% character(), names(out$cell_metadata)
     )

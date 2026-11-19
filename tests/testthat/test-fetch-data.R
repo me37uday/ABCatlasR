@@ -190,7 +190,7 @@ test_that("fetch_data filters cells and returns the default matrix bundle", {
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        fetch_data(
+        plan_and_fetch(
             download_base = fx$dir,
             metadata = fx$cells,
             filters = list(donor_sex = "M"),
@@ -230,7 +230,7 @@ test_that("fetch_data filters cells and returns the default matrix bundle", {
 test_that("fetch_data validates filters", {
     fx <- make_fixture_cache()
     expect_error(
-        fetch_data(
+        plan_and_fetch(
             download_base = fx$dir, metadata = fx$cells,
             filters = list(nope = 1), gene_data = fx$genes,
             offline = TRUE, release = fx$version
@@ -238,7 +238,7 @@ test_that("fetch_data validates filters", {
         "not found in metadata"
     )
     expect_error(
-        fetch_data(
+        plan_and_fetch(
             download_base = fx$dir, metadata = fx$cells,
             filters = list(donor_sex = "X"), gene_data = fx$genes,
             offline = TRUE, release = fx$version
@@ -270,7 +270,7 @@ test_that("fetch_data stops before download when disk space is insufficient", {
     )
 
     expect_error(
-        fetch_data(
+        plan_and_fetch(
             download_base = fx$dir,
             metadata = fx$cells,
             filters = list(donor_sex = "M"),
@@ -523,7 +523,7 @@ test_that("fetch_data returns raw expression in the default matrix bundle", {
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        fetch_data(
+        plan_and_fetch(
             download_base = fx$dir,
             metadata = fx$cells,
             gene_data = fx$genes,
@@ -559,7 +559,7 @@ test_that("fetch_data returns published log2 expression without transforming it"
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        fetch_data(
+        plan_and_fetch(
             download_base = fx$dir,
             metadata = fx$cells,
             gene_data = fx$genes,
@@ -596,7 +596,7 @@ test_that("fetch_data uses the route default representation", {
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        fetch_data(
+        plan_and_fetch(
             download_base = fx$dir,
             metadata = fx$cells,
             gene_data = fx$genes,
@@ -945,7 +945,7 @@ test_that("fetch_data accepts gene identifiers without extra user options", {
     fx <- make_fixture_cache()
 
     obj <- suppressMessages(
-        fetch_data(
+        plan_and_fetch(
             download_base = fx$dir,
             metadata = fx$cells[1:3, , drop = FALSE],
             gene_data = fx$genes,
@@ -1336,22 +1336,23 @@ test_that("load_data output passes directly to plan_fetch", {
             "TEST",
             download_base = fx$dir,
             offline = TRUE,
-            release = fx$version,
-            cell_ids = c("c6", "c1", "c3")
+            release = fx$version
         )
     )
 
     expect_s3_class(data, "abc_data")
     expect_identical(
         data$cell_metadata$cell_label,
-        c("c6", "c1", "c3")
+        paste0("c", 1:6)
     )
 
     plan <- plan_fetch(
         data,
+        cell_ids = c("c6", "c1", "c3"),
         genes = "G1",
         offline = TRUE
     )
+    expect_identical(rownames(plan$.metadata), c("c6", "c1", "c3"))
 
     expect_s3_class(plan, "abc_fetch_plan")
     expect_identical(plan$n_cells, 3L)
@@ -2531,23 +2532,23 @@ test_that("invalid output requests fail before expression is read", {
     )
 
     expect_error(
-        do.call(fetch_data, c(base_args, list(return_type = "banana"))),
+        do.call(plan_and_fetch, c(base_args, list(return_type = "banana"))),
         "should be one of"
     )
 
     expect_error(
-        do.call(fetch_data, c(base_args, list(return_type = "monocle"))),
+        do.call(plan_and_fetch, c(base_args, list(return_type = "monocle"))),
         "is not built in"
     )
 
     expect_error(
-        do.call(fetch_data, c(base_args, list(return_type = "seurat"))),
+        do.call(plan_and_fetch, c(base_args, list(return_type = "seurat"))),
         "Converting to other formats"
     )
 
     expect_error(
         suppressMessages(do.call(
-            fetch_data,
+            plan_and_fetch,
             c(base_args, list(return_type = "spatial"))
         )),
         "No declared spatial modality"
@@ -2555,7 +2556,7 @@ test_that("invalid output requests fail before expression is read", {
 
     expect_error(
         suppressMessages(do.call(
-            fetch_data,
+            plan_and_fetch,
             c(base_args, list(
                 return_type = "spatial",
                 coordinate_columns = c("x_missing", "y_missing")
@@ -2580,7 +2581,7 @@ test_that("a plan cannot be combined with arguments it would ignore", {
 
     expect_error(
         fetch_data(plan = plan, genes = "G4"),
-        "Remove: genes"
+        "unused argument"
     )
 
     expect_error(
@@ -2589,7 +2590,7 @@ test_that("a plan cannot be combined with arguments it would ignore", {
             data_type = "log2",
             filters = list(donor_sex = "M")
         ),
-        "Remove: filters, data_type"
+        "unused argument"
     )
 })
 

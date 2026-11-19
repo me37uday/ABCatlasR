@@ -8,11 +8,7 @@ load_data(
   dataset,
   download_base = NULL,
   offline = FALSE,
-  release = .abc_default_release,
-  filters = list(),
-  cell_ids = NULL,
-  n_cells = NULL,
-  seed = 1L
+  release = .abc_default_release
 )
 }
 \arguments{
@@ -28,17 +24,6 @@ S3 (see \code{\link{abc_cache_connect}}).}
 
 \item{release}{Optional ABC Atlas release version in \code{YYYYMMDD} form.
 When supplied, metadata are loaded from exactly that release.}
-
-\item{filters}{Named list of metadata column = allowed values. Filters are
-applied before exact cell selection and sampling.}
-
-\item{cell_ids}{Optional character vector of exact cell labels. Requested
-order is preserved and missing cells are an error.}
-
-\item{n_cells}{Optional number of cells to sample after filters and
-\code{cell_ids} selection.}
-
-\item{seed}{Random seed used when \code{n_cells} samples the selected cells.}
 }
 \value{
 An \code{abc_data} object containing \code{cell_metadata},
@@ -49,6 +34,11 @@ Single entry point for every supported dataset. The dataset is selected by
 name; what differs between datasets (directories, joins, taxonomy, columns of
 interest) is described declaratively in an internal registry rather than in
 per-dataset functions.
+}
+\details{
+The full cell and gene metadata of the dataset are loaded. Cells and
+genes are selected afterwards, when the expression request is defined
+with \code{\link[=plan_fetch]{plan_fetch()}}.
 }
 \examples{
 # Cache the downloaded metadata in a temporary folder.

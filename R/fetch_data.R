@@ -472,15 +472,15 @@
 .abc_fetch_context_from_plan <- function(plan) {
     if (!inherits(plan, "abc_fetch_plan")) {
         stop(
-            "plan must be an abc_fetch_plan object.",
+            "plan must be an abc_fetch_plan object created by plan_fetch().",
             call. = FALSE
         )
     }
 
     if (!isTRUE(plan$approved)) {
         stop(
-            "The fetch plan was not approved. ",
-            "Run plan_fetch() and approve the download first.",
+            "The fetch plan was not approved. Run plan_fetch() again and ",
+            "answer y, or use confirm = FALSE to approve it without asking.",
             call. = FALSE
         )
     }
@@ -505,7 +505,8 @@
 .abc_fetch_context_from_inputs <- function(
         data, metadata, filters,
         gene_data, genes, data_type,
-        offline, release, download_base) {
+        offline, release, download_base,
+        cell_ids = NULL, n_cells = NULL, seed = 1L) {
     # Backward compatibility for the historical positional download_base.
     if (!is.null(data) && !inherits(data, "abc_data") &&
         is.character(data) && length(data) == 1L && is.null(download_base)) {
@@ -524,7 +525,8 @@
         offline = offline, release = release
     )
     prepared <- .abc_prepare_fetch(
-        inputs$metadata, filters, inputs$gene_data, genes
+        inputs$metadata, filters, inputs$gene_data, genes,
+        cell_ids = cell_ids, n_cells = n_cells, seed = seed
     )
 
     list(
@@ -616,62 +618,15 @@
     invisible(TRUE)
 }
 
-# A fetch plan already fixes the cells, genes, release, cache directory and
-# representation. Arguments that would otherwise be silently ignored are
-# rejected so the user knows the plan, not those arguments, defines the request.
-.abc_reject_plan_overrides <- function(
-        data,
-        metadata,
-        filters,
-        gene_data,
-        genes,
-        data_type,
-        offline,
-        release,
-        download_base
-) {
-    supplied <- c(
-        data = !is.null(data),
-        metadata = !is.null(metadata),
-        filters = length(filters) > 0L,
-        gene_data = !is.null(gene_data),
-        genes = !is.null(genes),
-        data_type = !is.null(data_type),
-        offline = !identical(offline, FALSE),
-        release = !is.null(release),
-        download_base = !is.null(download_base)
-    )
-
-    if (any(supplied)) {
-        stop(
-            "When plan is supplied, the plan defines the request. Remove: ",
-            paste(names(supplied)[supplied], collapse = ", "),
-            ".",
-            call. = FALSE
-        )
-    }
-
-    invisible(TRUE)
-}
-
-#' Fetch selected ABC Atlas expression into an R analysis representation
+#' Fetch the expression selected by a fetch plan
 #'
-#' @param data Optional \code{abc_data} object returned by \code{load_data()}.
-#'   This is the preferred interface. When supplied, its metadata, gene data,
-#'   cache directory, and release are reused automatically.
-#' @param download_base Directory where ABC Atlas data is downloaded and cached.
-#'   If `NULL` (default), it is resolved by [abc_download_dir()] (option,
-#'   `ABC_ATLAS_CACHE` env var, or a per-user cache directory).
-#' @param metadata A data.frame containing ABC atlas cell metadata (e.g., the
-#'   `cell_metadata` element returned by [load_data()]).
-#' @param filters A named list of column = value pairs used to filter the
-#'   metadata.
-#' @param gene_data A data.frame with 'gene_identifier' and 'gene_symbol'
-#'   columns, typically the `gene_data` element returned by [load_data()].
-#' @param genes Character vector of genes to include. Each entry is matched
-#'   first against \code{gene_identifier}, then against the published source
-#'   identifier, then against \code{gene_symbol}; a symbol shared by several
-#'   genes is reported as ambiguous. If \code{NULL}, all genes are used.
+#' Downloads the expression files listed in an approved plan from
+#' [plan_fetch()], if they are not already cached, and reads the planned
+#' cells and genes into the requested R representation.
+#'
+#' @param plan An approved \code{abc_fetch_plan} object returned by
+#'   [plan_fetch()]. The plan defines the cells, genes, release, cache
+#'   directory and representation.
 #' @param return_type Output format: \code{"matrix"} for the primary sparse
 #'   expression bundle, \code{"sce"} for a SingleCellExperiment, or
 #'   \code{"spatial"} for a SpatialExperiment. The default is
@@ -679,31 +634,18 @@
 #'   "Converting to other formats" below.
 #' @param coordinate_columns Optional length-two character vector naming the
 #'   spatial x/y columns. Used only for \code{return_type = "spatial"}.
-#' @param data_type Published expression representation (`"raw"` or `"log2"`).
-#'   If `NULL`, the dataset route's declared default is used. Raw expression
-#'   retains count semantics. Upstream log2 expression remains transformed
-#'   data and is never presented as counts.
-#' @param offline If `TRUE`, use only locally cached expression data and never
-#'   contact S3 (see [abc_cache_connect()]).
-#' @param release Optional ABC Atlas release version in \code{YYYYMMDD} form.
-#'   Defaults to the release validated against this package. Advanced users may
-#'   supply another release explicitly.
-#' @param plan Optional \code{abc_fetch_plan} object returned by
-#'   [plan_fetch()] and approved interactively. When supplied, the cells,
-#'   genes, release, cache directory and representation stored in the plan
-#'   are used, and the download is not confirmed again.
 #' @return The requested expression representation: a sparse matrix bundle
 #'   (a list with \code{expression}, \code{cell_metadata},
 #'   \code{gene_data}, \code{data_type} and \code{provenance}), a
 #'   SingleCellExperiment, or a SpatialExperiment.
 #' @section Converting to other formats:
-#' Seurat and Monocle 3 objects are not built by this package, which keeps
-#' its dependencies small. Fetch raw expression as a matrix bundle and
-#' convert it with the package you use. Both tools expect count data, so use
-#' \code{data_type = "raw"}.
+#' Seurat and Monocle 3 objects are not built by this package. Fetch raw
+#' expression as a matrix bundle and convert it with the package you use.
+#' Both tools expect count data, so plan with \code{data_type = "raw"}.
 #'
 #' ```r
-#' x <- fetch_data(abc, genes = genes, data_type = "raw")
+#' plan <- plan_fetch(abc, genes = genes, data_type = "raw")
+#' x <- fetch_data(plan)
 #'
 #' # Seurat (package SeuratObject). Seurat replaces "_" in feature names.
 #' counts <- x$expression
@@ -731,30 +673,24 @@
 #'     file.path(example_dir, "example-data.rds")
 #' )
 #'
-#' x <- fetch_data(
+#' plan <- plan_fetch(
 #'     download_base = example_dir,
 #'     metadata = example_data$cells,
 #'     gene_data = example_data$genes,
 #'     genes = c("G1", "G4"),
-#'     return_type = "matrix",
 #'     offline = TRUE,
-#'     release = "20250101"
+#'     release = "20250101",
+#'     confirm = FALSE
 #' )
+#' x <- fetch_data(plan, return_type = "matrix")
 #' x$expression
 #' @export
 fetch_data <- function(
-        data = NULL, metadata = NULL, filters = list(),
-        gene_data = NULL, genes = NULL,
+        plan,
         return_type = c("matrix", "sce", "spatial"),
-        coordinate_columns = NULL, data_type = NULL,
-        offline = FALSE, release = NULL, download_base = NULL,
-        plan = NULL) {
+        coordinate_columns = NULL) {
     return_type <- .abc_match_return_type(return_type)
-    context <- .abc_fetch_context(
-        plan = plan, data = data, metadata = metadata, filters = filters,
-        gene_data = gene_data, genes = genes, data_type = data_type,
-        offline = offline, release = release, download_base = download_base
-    )
+    context <- .abc_fetch_context_from_plan(plan)
     .abc_validate_output_request(
         return_type = return_type, data_type = context$data_type,
         cell_metadata = context$filtered_meta,
@@ -782,52 +718,45 @@ fetch_data <- function(
     )
 }
 
-# Resolve the request from an approved plan, rejecting arguments the plan
-# would otherwise silently override, or else from the individual arguments.
-.abc_fetch_context <- function(
-        plan, data, metadata, filters,
-        gene_data, genes, data_type, offline,
-        release, download_base) {
-    if (is.null(plan)) {
-        return(.abc_fetch_context_from_inputs(
-            data = data, metadata = metadata, filters = filters,
-            gene_data = gene_data, genes = genes, data_type = data_type,
-            offline = offline, release = release, download_base = download_base
-        ))
-    }
-
-    .abc_reject_plan_overrides(
-        data = data, metadata = metadata, filters = filters,
-        gene_data = gene_data, genes = genes, data_type = data_type,
-        offline = offline, release = release, download_base = download_base
-    )
-    .abc_fetch_context_from_plan(plan)
-}
-
-#' Plan an ABC Atlas expression fetch without downloading expression files
+#' Plan an ABC Atlas expression fetch
 #'
-#' Applies the same cell filtering, gene selection and expression-file routing
-#' as [fetch_data()], but does not download or read expression matrices.
+#' Defines an expression request (which cells, which genes and which
+#' representation) and lists the expression files it needs, with their sizes
+#' and cache status, without downloading them. Pass the approved plan to
+#' [fetch_data()] to download and read the expression.
 #'
 #' @param data Optional \code{abc_data} object returned by \code{load_data()}.
 #'   This is the preferred interface. When supplied, its metadata, gene data,
 #'   cache directory, and release are reused automatically.
 #' @param download_base Directory where ABC Atlas data is downloaded and cached.
+#'   If `NULL` (default), it is resolved by [abc_download_dir()].
 #' @param metadata Cell metadata, typically from [load_data()].
-#' @param filters Named list of column = value filters.
+#' @param filters Named list of column = value filters. Cells must match every
+#'   filter, and any of the values within one filter.
+#' @param cell_ids Optional character vector of exact cell labels, applied
+#'   after \code{filters}.
+#' @param n_cells Optional number of cells to sample after \code{filters} and
+#'   \code{cell_ids}.
+#' @param seed Random seed used when \code{n_cells} samples the selected cells.
 #' @param gene_data Gene metadata, typically from [load_data()].
 #' @param genes Character vector of genes to include. Each entry is matched
 #'   first against \code{gene_identifier}, then against the published source
 #'   identifier, then against \code{gene_symbol}; a symbol shared by several
 #'   genes is reported as ambiguous. If \code{NULL}, all genes are used.
 #' @param data_type Published expression representation (`"raw"` or `"log2"`).
-#'   If `NULL`, the dataset route's declared default is used.
-#' @param offline If `TRUE`, use only the locally cached manifest.
-#' @param release ABC Atlas release. Defaults to the package-validated release.
+#'   If `NULL`, the dataset route's declared default is used. Raw expression
+#'   retains count semantics; upstream log2 expression is never presented as
+#'   counts.
+#' @param offline If `TRUE`, use only locally cached files and never contact
+#'   S3 (see [abc_cache_connect()]).
+#' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to the
+#'   release validated against this package.
 #' @param confirm If `TRUE` (the default in interactive sessions) and a
 #'   download is required, the plan is printed and the user is asked to
-#'   approve it. In non-interactive sessions a plan that requires a download
-#'   is returned unapproved.
+#'   approve it; answering no leaves the plan unapproved. If `FALSE` (the
+#'   default in non-interactive sessions such as scripts and batch jobs), the
+#'   plan is approved without asking. A plan that needs no download is always
+#'   approved.
 #' @return An `abc_fetch_plan` object describing the requested output and
 #'   expression files required to produce it.
 #' @examples
@@ -843,6 +772,9 @@ fetch_data <- function(
 #'     download_base = example_dir,
 #'     metadata = example_data$cells,
 #'     gene_data = example_data$genes,
+#'     filters = list(donor_sex = c("M", "F")),
+#'     n_cells = 3,
+#'     seed = 1,
 #'     genes = c("G1", "G4"),
 #'     offline = TRUE,
 #'     release = "20250101"
@@ -851,12 +783,14 @@ fetch_data <- function(
 #' @export
 plan_fetch <- function(
         data = NULL, metadata = NULL, filters = list(),
+        cell_ids = NULL, n_cells = NULL, seed = 1L,
         gene_data = NULL, genes = NULL, data_type = NULL,
         offline = FALSE, release = NULL,
         download_base = NULL,
         confirm = interactive()) {
     context <- .abc_fetch_context_from_inputs(
         data = data, metadata = metadata, filters = filters,
+        cell_ids = cell_ids, n_cells = n_cells, seed = seed,
         gene_data = gene_data, genes = genes, data_type = data_type,
         offline = offline, release = release, download_base = download_base
     )
@@ -869,10 +803,13 @@ plan_fetch <- function(
     )
     plan <- .abc_new_fetch_plan(context, files, offline)
 
-    if (isTRUE(confirm) && plan$total_download > 0 && !isTRUE(offline) &&
-        isTRUE(plan$storage_sufficient)) {
-        print(plan)
-        plan$approved <- .abc_confirm_download()
+    if (plan$total_download > 0) {
+        if (!isTRUE(confirm)) {
+            plan$approved <- TRUE
+        } else if (!isTRUE(offline) && isTRUE(plan$storage_sufficient)) {
+            print(plan)
+            plan$approved <- .abc_confirm_download()
+        }
     }
 
     plan
@@ -1466,11 +1403,14 @@ print.abc_fetch_plan <- function(x, ...) {
     out
 }
 
-# Apply cell filters and resolve the requested genes for a fetch.
-.abc_prepare_fetch <- function(metadata, filters, gene_data, genes = NULL) {
+# Select the planned cells and resolve the requested genes for a fetch.
+.abc_prepare_fetch <- function(
+        metadata, filters, gene_data, genes = NULL,
+        cell_ids = NULL, n_cells = NULL, seed = 1L) {
     filtered_meta <- .abc_select_cells(
         metadata,
-        filters = filters
+        filters = filters, cell_ids = cell_ids,
+        n_cells = n_cells, seed = seed
     )
 
     resolved_genes <- .abc_resolve_genes(

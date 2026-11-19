@@ -2,41 +2,18 @@
 % Please edit documentation in R/fetch_data.R
 \name{fetch_data}
 \alias{fetch_data}
-\title{Fetch selected ABC Atlas expression into an R analysis representation}
+\title{Fetch the expression selected by a fetch plan}
 \usage{
 fetch_data(
-  data = NULL,
-  metadata = NULL,
-  filters = list(),
-  gene_data = NULL,
-  genes = NULL,
+  plan,
   return_type = c("matrix", "sce", "spatial"),
-  coordinate_columns = NULL,
-  data_type = NULL,
-  offline = FALSE,
-  release = NULL,
-  download_base = NULL,
-  plan = NULL
+  coordinate_columns = NULL
 )
 }
 \arguments{
-\item{data}{Optional \code{abc_data} object returned by \code{load_data()}.
-This is the preferred interface. When supplied, its metadata, gene data,
-cache directory, and release are reused automatically.}
-
-\item{metadata}{A data.frame containing ABC atlas cell metadata (e.g., the
-\code{cell_metadata} element returned by \code{\link[=load_data]{load_data()}}).}
-
-\item{filters}{A named list of column = value pairs used to filter the
-metadata.}
-
-\item{gene_data}{A data.frame with 'gene_identifier' and 'gene_symbol'
-columns, typically the \code{gene_data} element returned by \code{\link[=load_data]{load_data()}}.}
-
-\item{genes}{Character vector of genes to include. Each entry is matched
-first against \code{gene_identifier}, then against the published source
-identifier, then against \code{gene_symbol}; a symbol shared by several
-genes is reported as ambiguous. If \code{NULL}, all genes are used.}
+\item{plan}{An approved \code{abc_fetch_plan} object returned by
+\code{\link[=plan_fetch]{plan_fetch()}}. The plan defines the cells, genes, release, cache
+directory and representation.}
 
 \item{return_type}{Output format: \code{"matrix"} for the primary sparse
 expression bundle, \code{"sce"} for a SingleCellExperiment, or
@@ -46,27 +23,6 @@ expression bundle, \code{"sce"} for a SingleCellExperiment, or
 
 \item{coordinate_columns}{Optional length-two character vector naming the
 spatial x/y columns. Used only for \code{return_type = "spatial"}.}
-
-\item{data_type}{Published expression representation (\code{"raw"} or \code{"log2"}).
-If \code{NULL}, the dataset route's declared default is used. Raw expression
-retains count semantics. Upstream log2 expression remains transformed
-data and is never presented as counts.}
-
-\item{offline}{If \code{TRUE}, use only locally cached expression data and never
-contact S3 (see \code{\link[=abc_cache_connect]{abc_cache_connect()}}).}
-
-\item{release}{Optional ABC Atlas release version in \code{YYYYMMDD} form.
-Defaults to the release validated against this package. Advanced users may
-supply another release explicitly.}
-
-\item{download_base}{Directory where ABC Atlas data is downloaded and cached.
-If \code{NULL} (default), it is resolved by \code{\link[=abc_download_dir]{abc_download_dir()}} (option,
-\code{ABC_ATLAS_CACHE} env var, or a per-user cache directory).}
-
-\item{plan}{Optional \code{abc_fetch_plan} object returned by
-\code{\link[=plan_fetch]{plan_fetch()}} and approved interactively. When supplied, the cells,
-genes, release, cache directory and representation stored in the plan
-are used, and the download is not confirmed again.}
 }
 \value{
 The requested expression representation: a sparse matrix bundle
@@ -75,16 +31,18 @@ The requested expression representation: a sparse matrix bundle
 SingleCellExperiment, or a SpatialExperiment.
 }
 \description{
-Fetch selected ABC Atlas expression into an R analysis representation
+Downloads the expression files listed in an approved plan from
+\code{\link[=plan_fetch]{plan_fetch()}}, if they are not already cached, and reads the planned
+cells and genes into the requested R representation.
 }
 \section{Converting to other formats}{
 
-Seurat and Monocle 3 objects are not built by this package, which keeps
-its dependencies small. Fetch raw expression as a matrix bundle and
-convert it with the package you use. Both tools expect count data, so use
-\code{data_type = "raw"}.
+Seurat and Monocle 3 objects are not built by this package. Fetch raw
+expression as a matrix bundle and convert it with the package you use.
+Both tools expect count data, so plan with \code{data_type = "raw"}.
 
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{x <- fetch_data(abc, genes = genes, data_type = "raw")
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{plan <- plan_fetch(abc, genes = genes, data_type = "raw")
+x <- fetch_data(plan)
 
 # Seurat (package SeuratObject). Seurat replaces "_" in feature names.
 counts <- x$expression
@@ -114,14 +72,15 @@ example_data <- readRDS(
     file.path(example_dir, "example-data.rds")
 )
 
-x <- fetch_data(
+plan <- plan_fetch(
     download_base = example_dir,
     metadata = example_data$cells,
     gene_data = example_data$genes,
     genes = c("G1", "G4"),
-    return_type = "matrix",
     offline = TRUE,
-    release = "20250101"
+    release = "20250101",
+    confirm = FALSE
 )
+x <- fetch_data(plan, return_type = "matrix")
 x$expression
 }

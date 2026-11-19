@@ -1,7 +1,7 @@
 test_that("abc_matrix prints a short summary", {
     example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
     example_data <- readRDS(file.path(example_dir, "example-data.rds"))
-    x <- suppressMessages(fetch_data(
+    x <- suppressMessages(plan_and_fetch(
         download_base = example_dir, metadata = example_data$cells,
         gene_data = example_data$genes, genes = c("G1", "G4"),
         offline = TRUE, release = "20250101"
