@@ -64,9 +64,9 @@ abc <- load_data(
   release = "20260711"
 )
 
-# 3. Choose cells by their cell_label, for example from the metadata.
+# 3. Choose cells by their cell_label. Here, every cell of the dataset.
 head(abc$cell_metadata)
-cells <- head(abc$cell_metadata$cell_label, 5)
+cells <- abc$cell_metadata$cell_label
 
 # 4. Optional: see the files these cells need, their size, cache status
 #    and the disk space required. Nothing is downloaded.
@@ -76,25 +76,41 @@ plan_fetch(
   data_type = "raw"
 )
 
-# 5. Download what is needed and read the expression into R.
-genes <- c("Htr7", "Sema3c", "Itga8", "Rxrg")
+# 5. Download what is needed and read the whole matrix into R:
+#    every selected cell and, with genes = NULL, every gene.
 x <- fetch_data(
   data = abc,
   cell_ids = cells,
-  genes = genes,
+  genes = NULL,
   data_type = "raw",
   return_type = "matrix"
 )
 
-x$expression
-x$cell_metadata
-x$gene_data
+dim(x$expression)       # genes x cells, sparse
+head(x$cell_metadata)   # one row per cell
+head(x$gene_data)       # one row per gene
+```
+
+The result is ready for your own downstream analysis. To fetch fewer cells or genes, pass a subset instead:
+
+```r
+# GABAergic cells only
+cells <- abc$cell_metadata$cell_label[
+  abc$cell_metadata$neurotransmitter %in% "GABA"
+]
+
+# A few genes, by symbol or gene identifier
+x <- fetch_data(
+  data = abc,
+  cell_ids = cells,
+  genes = c("Htr7", "Sema3c", "Itga8", "Rxrg")
+)
 ```
 
 - `load_data()` loads the full cell and gene metadata of a dataset. The returned object records the release and the cache folder, which `plan_fetch()` and `fetch_data()` reuse.
-- `cell_ids` is any vector of `cell_label` values. A subset of the metadata gives one, for example `abc$cell_metadata$cell_label[abc$cell_metadata$neurotransmitter %in% "GABA"]`. `abc$unique_values` lists the values of the main metadata columns.
+- `cell_ids` is any vector of `cell_label` values, either all of them or a subset of the metadata. `abc$unique_values` lists the values of the main metadata columns.
 - `plan_fetch()` is optional; `fetch_data()` does not need it. Without `cell_ids`, it reports the files of every cell in the dataset. Expression files are downloaded whole, so the report does not depend on the genes.
-- `fetch_data()` requires `cell_ids`; to fetch every cell, use `cell_ids = abc$cell_metadata$cell_label`. With `genes = NULL`, the default, every gene of the expression file is returned.
+- `fetch_data()` requires `cell_ids`; to fetch every cell, use `cell_ids = abc$cell_metadata$cell_label`. With `genes = NULL`, the default, every gene of the expression file is returned. The whole matrix of Zhuang4 is small, but for large single-cell datasets every cell and every gene can need tens of GB of memory.
 - Before downloading, `fetch_data()` checks the free space of the disk holding the cache. A download that does not fit is refused, and on the disk the operating system runs from at least 500 MB must remain free afterwards. Files already cached need no space.
 
 ## Choosing an output format
@@ -104,7 +120,7 @@ x$gene_data
 ### Sparse matrix
 
 ```r
-x <- fetch_data(abc, cell_ids = cells, genes = genes, return_type = "matrix")
+x <- fetch_data(abc, cell_ids = cells, return_type = "matrix")
 ```
 
 The default. A list with the sparse `expression` matrix (genes x cells), `cell_metadata`, `gene_data`, `data_type` and `provenance`.
@@ -112,7 +128,7 @@ The default. A list with the sparse `expression` matrix (genes x cells), `cell_m
 ### SingleCellExperiment
 
 ```r
-x <- fetch_data(abc, cell_ids = cells, genes = genes, return_type = "sce")
+x <- fetch_data(abc, cell_ids = cells, return_type = "sce")
 ```
 
 Raw expression is stored in a `counts` assay and log2 expression in a `log2` assay.
@@ -120,7 +136,7 @@ Raw expression is stored in a `counts` assay and log2 expression in a `log2` ass
 ### SpatialExperiment
 
 ```r
-x <- fetch_data(abc, cell_ids = cells, genes = genes, return_type = "spatial")
+x <- fetch_data(abc, cell_ids = cells, return_type = "spatial")
 ```
 
 Available for spatial datasets such as `Zhuang4`; the spatial coordinates are included in the returned object. `SpatialExperiment` is suggested rather than required, so install it first:
@@ -135,7 +151,7 @@ BiocManager::install("SpatialExperiment")
 a matrix bundle and convert it with the package you use:
 
 ```r
-x <- fetch_data(abc, cell_ids = cells, genes = genes, data_type = "raw")
+x <- fetch_data(abc, cell_ids = cells, data_type = "raw")
 
 # Seurat (requires SeuratObject). Seurat replaces "_" in feature names.
 counts <- x$expression
@@ -197,7 +213,7 @@ Cached files are reused automatically. To also forbid network access, for exampl
 ```r
 abc <- load_data("Zhuang4", offline = TRUE)
 
-x <- fetch_data(abc, cell_ids = cells, genes = genes, offline = TRUE)
+x <- fetch_data(abc, cell_ids = cells, offline = TRUE)
 ```
 
 ## Getting help
