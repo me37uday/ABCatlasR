@@ -107,6 +107,41 @@ x <- fetch_data(
 )
 ```
 
+### Example: a forest plot of one gene by cell group
+
+The log2-transformed expression published by the ABC Atlas can go straight into an analysis. Here, the mean log2 expression of Htr7 in each neurotransmitter group of Zhuang4, with 95% confidence intervals, in base R:
+
+```r
+x <- fetch_data(
+  data = abc,
+  cell_ids = abc$cell_metadata$cell_label,
+  genes = "Htr7",
+  data_type = "log2"
+)
+
+expr  <- as.numeric(x$expression[1, ])  # the one requested gene
+group <- x$cell_metadata$neurotransmitter
+keep  <- !is.na(group) & nzchar(group)
+
+stats <- do.call(rbind, lapply(split(expr[keep], group[keep]), function(v) {
+  n <- length(v)
+  half <- qt(0.975, n - 1) * sd(v) / sqrt(n)
+  data.frame(n = n, mean = mean(v), lower = mean(v) - half, upper = mean(v) + half)
+}))
+stats <- stats[stats$n > 1, ]
+stats <- stats[order(stats$mean), ]
+
+y <- seq_len(nrow(stats))
+op <- par(mar = c(4, 9, 1, 1))
+plot(stats$mean, y, xlim = range(stats$lower, stats$upper), ylim = c(0.5, max(y) + 0.5),
+  pch = 15, yaxt = "n", ylab = "", xlab = "Htr7, log2 expression (mean and 95% CI)")
+segments(stats$lower, y, stats$upper, y)
+axis(2, at = y, labels = paste0(rownames(stats), " (n = ", stats$n, ")"), las = 1)
+par(op)
+```
+
+The intervals describe the spread of cells within one dataset. Cells from the same animal are not independent replicates, so compare groups across animals or datasets before drawing biological conclusions.
+
 - `load_data()` loads the full cell and gene metadata of a dataset. The returned object records the release and the cache folder, which `plan_fetch()` and `fetch_data()` reuse.
 - `cell_ids` is any vector of `cell_label` values, either all of them or a subset of the metadata. `abc$unique_values` lists the values of the main metadata columns.
 - `plan_fetch()` is optional; `fetch_data()` does not need it. Without `cell_ids`, it reports the files of every cell in the dataset. Expression files are downloaded whole, so the report does not depend on the genes.
