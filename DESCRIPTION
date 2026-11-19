@@ -1,24 +1,48 @@
 Package: ABCatlas
-Title: Release-Aware Access to Allen Brain Cell Atlas Data in R
+Title: Release-Aware Access to Allen Brain Cell Atlas Data
 Version: 0.99.0
 Authors@R: c(
     person("Uday", "Rangaswamy",
         role = "aut",
-        email = "uday.rangaswamy@ieo.it"),
+        email = "uday.rangaswamy@ieo.it",
+        comment = c(ORCID = "0009-0007-2758-9213")),
     person("Mahdi", "Komeili",
         role = c("aut", "cre"),
         email = "mahdi.komeili1999@gmail.com",
-        comment = c(ORCID = "0009-0000-3760-5327"))
+        comment = c(ORCID = "0009-0000-3760-5327")),
+    person("Federico", "Caretti",
+        role = "aut",
+        email = "fcaretti@sissa.it",
+        comment = c(ORCID = "0000-0002-6963-5245")),
+    person("Idris", "Kouadri Boudjelthia",
+        role = "aut",
+        email = "idris.kouadri@ie.edu",
+        comment = c(ORCID = "0000-0002-3139-4861")),
+    person("Maria", "Rizzo",
+        role = "aut",
+        email = "",
+        comment = c(ORCID = "")),
+    person("Andres", "Hernandez",
+        role = "aut",
+        email = "",
+        comment = c(ORCID = "")),
+    person("Remo", "Sanges",
+        role = "aut",
+        email = "rsanges@sissa.it",
+        comment = c(ORCID = "0000-0002-5047-9713"))
     )
 Description: Provides an R-native, release-aware interface to the Allen Brain
-    Cell (ABC) Atlas. Discovers supported dataset routes, assembles validated
-    cell and gene metadata, selects exact or sampled cell populations, plans
-    expression requests before transfer, and reads selected H5AD expression
-    directly in R. Expression can be returned as a sparse matrix bundle, a
-    SingleCellExperiment, or a SpatialExperiment object. The package preserves
-    source representation and provenance, distinguishes raw counts from
-    upstream transformed or imputed expression, and requires no Python
-    installation.
+    Cell (ABC) Atlas <https://brain-map.org/bkp/explore/abc-atlas>.
+    Discovers supported dataset routes, assembles validated cell and gene
+    metadata, selects exact or sampled cell populations, plans expression
+    requests before transfer, and reads selected H5AD expression directly in
+    R. Expression can be returned as a sparse matrix bundle, a
+    SingleCellExperiment, or a SpatialExperiment object. The package
+    preserves source representation and provenance, distinguishes raw counts
+    from upstream transformed or imputed expression, and requires no Python
+    installation. Atlas files are downloaded on first use and cached
+    locally, so an internet connection is needed the first time each file
+    is accessed.
 License: MIT + file LICENSE
 URL: https://github.com/me37uday/ABCatlas
 BugReports: https://github.com/me37uday/ABCatlas/issues
@@ -28,7 +52,6 @@ Depends:
     R (>= 4.4.0)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-SystemRequirements: An internet connection the first time each file is used.
 Imports:
     curl (>= 5.0.0),
     data.table,
@@ -41,7 +64,6 @@ Imports:
     rhdf5,
     S4Vectors,
     SingleCellExperiment,
-    SpatialExperiment,
     stats,
     tools,
     withr,
@@ -50,6 +72,7 @@ Suggests:
     BiocStyle,
     knitr,
     rmarkdown,
+    SpatialExperiment,
     SummarizedExperiment,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr

@@ -1593,6 +1593,7 @@ test_that("SingleCellExperiment log2 materialization does not invent counts", {
 })
 
 test_that("SpatialExperiment raw materialization preserves coordinates and counts", {
+    skip_if_not_installed("SpatialExperiment")
     expression <- Matrix::Matrix(
         matrix(
             c(1, 0, 2, 3),
@@ -1662,6 +1663,7 @@ test_that("SpatialExperiment raw materialization preserves coordinates and count
 })
 
 test_that("SpatialExperiment log2 materialization preserves transformed semantics", {
+    skip_if_not_installed("SpatialExperiment")
     expression <- Matrix::Matrix(
         matrix(
             c(0.5, 0, 1.5, 2),
@@ -1724,6 +1726,7 @@ test_that("SpatialExperiment log2 materialization preserves transformed semantic
 })
 
 test_that("spatial output requires declared modality or explicit coordinates", {
+    skip_if_not_installed("SpatialExperiment")
     expression <- Matrix::Matrix(
         matrix(
             c(1, 2),
@@ -1784,6 +1787,7 @@ test_that("spatial output requires declared modality or explicit coordinates", {
 })
 
 test_that("all return formats preserve ABC provenance", {
+    skip_if_not_installed("SpatialExperiment")
     expression <- Matrix::Matrix(
         matrix(
             c(1, 0, 2, 3),
