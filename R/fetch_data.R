@@ -346,7 +346,7 @@
         rowData = S4Vectors::DataFrame(gene_data),
         colData = S4Vectors::DataFrame(cell_metadata),
         metadata = list(
-            ABCatlas = provenance
+            ABCatlasR = provenance
         )
     )
 }
@@ -397,7 +397,7 @@
         colData = S4Vectors::DataFrame(cell_metadata),
         spatialCoords = coordinates,
         metadata = list(
-            ABCatlas = provenance
+            ABCatlasR = provenance
         )
     )
 }
@@ -725,7 +725,7 @@
 #' @examples
 #' example_dir <- system.file(
 #'     "extdata", "ex",
-#'     package = "ABCatlas"
+#'     package = "ABCatlasR"
 #' )
 #' example_data <- readRDS(
 #'     file.path(example_dir, "example-data.rds")
@@ -833,7 +833,7 @@ fetch_data <- function(
 #' @examples
 #' example_dir <- system.file(
 #'     "extdata", "ex",
-#'     package = "ABCatlas"
+#'     package = "ABCatlasR"
 #' )
 #' example_data <- readRDS(
 #'     file.path(example_dir, "example-data.rds")

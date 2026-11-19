@@ -1,7 +1,7 @@
 # Collaborator testing guide
 
 This guide is for collaborators reviewing the native-R implementation of
-importABCatlas. The native-R package reads supported ABC Atlas data
+ABCatlasR. The native-R package reads supported ABC Atlas data
 directly from R and does not require Python, reticulate, Conda, or a
 separately configured Python environment.
 
@@ -21,13 +21,13 @@ BiocManager::install(
 install.packages("remotes")
 
 remotes::install_github(
-  "me37uday/importABCatlas",
+  "me37uday/ABCatlasR",
   ref = "r-native",
   upgrade = "never"
 )
 
-library(importABCatlas)
-packageVersion("importABCatlas")
+library(ABCatlasR)
+packageVersion("ABCatlasR")
 sessionInfo()
 ```
 
@@ -108,7 +108,7 @@ For successful tests report:
 
 -   operating system;
 -   R version;
--   importABCatlas version / commit;
+-   ABCatlasR version / commit;
 -   dataset;
 -   data type;
 -   return type;

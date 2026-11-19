@@ -15,13 +15,13 @@ knitr::opts_chunk$set(
     collapse = TRUE,
     comment = "#>"
 )
-options(ABCatlas.download_progress = FALSE)
+options(ABCatlasR.download_progress = FALSE)
 # Cache the vignette's downloads in the session's temporary directory
 # rather than the user's cache folder.
-options(ABCatlas.download_base = file.path(tempdir(), "ABCatlas-cache"))
+options(ABCatlasR.download_base = file.path(tempdir(), "ABCatlasR-cache"))
 ```
 
-`ABCatlas` provides an R-native, release-aware interface to the
+`ABCatlasR` provides an R-native, release-aware interface to the
 [Allen Brain Cell (ABC)
 Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
 
@@ -30,7 +30,7 @@ single-cell, single-nucleus and spatial transcriptomics datasets from the
 mouse, human, macaque and marmoset brain, together with their cell type
 taxonomies. Its H5AD expression matrices and CSV metadata files are
 distributed through a public Amazon S3 bucket that requires no account.
-`ABCatlas` lets R users find these datasets, select cells and genes from
+`ABCatlasR` lets R users find these datasets, select cells and genes from
 their metadata, check the size of a request before downloading, and read
 the selected expression into R.
 
@@ -51,13 +51,13 @@ Install the package with `BiocManager`:
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
     install.packages("BiocManager")
 }
-BiocManager::install("ABCatlas")
+BiocManager::install("ABCatlasR")
 ```
 
 Then load it:
 
 ```{r library}
-library(ABCatlas)
+library(ABCatlasR)
 ```
 
 Core metadata and matrix functionality is R-native. The primary output is a
@@ -273,7 +273,7 @@ SingleCellExperiment and SpatialExperiment objects store the provenance
 in object metadata, and SpatialExperiment provenance additionally
 records the coordinate columns used.
 
-Seurat and Monocle 3 objects are not built by `ABCatlas`. Users of
+Seurat and Monocle 3 objects are not built by `ABCatlasR`. Users of
 either tool can convert the matrix output with the code below, which
 needs the `SeuratObject` package (CRAN) or the `monocle3` package
 (GitHub). Both tools expect count data, so use raw expression; `x` above
@@ -343,11 +343,11 @@ downloaded once and reused from a local cache.
 The cache directory is resolved in this order:
 
 1.  explicit `download_base`;
-2.  `options(ABCatlas.download_base = ...)`;
+2.  `options(ABCatlasR.download_base = ...)`;
 3.  the `ABC_ATLAS_CACHE` environment variable;
 4.  a per-user package cache directory.
 
-For example, `options(ABCatlas.download_base = "~/ABCatlas-cache")` keeps
+For example, `options(ABCatlasR.download_base = "~/ABCatlasR-cache")` keeps
 the cache in a folder of your home directory.
 
 The package is release-aware. A release can be pinned explicitly for

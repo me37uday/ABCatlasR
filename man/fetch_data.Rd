@@ -108,7 +108,7 @@ cds <- monocle3::new_cell_data_set(
 \examples{
 example_dir <- system.file(
     "extdata", "ex",
-    package = "ABCatlas"
+    package = "ABCatlasR"
 )
 example_data <- readRDS(
     file.path(example_dir, "example-data.rds")

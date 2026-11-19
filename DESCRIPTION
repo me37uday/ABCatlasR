@@ -1,4 +1,4 @@
-Package: ABCatlas
+Package: ABCatlasR
 Title: Release-Aware Access to Allen Brain Cell Atlas Data
 Version: 0.99.0
 Authors@R: c(
@@ -44,8 +44,8 @@ Description: Provides an R-native, release-aware interface to the Allen Brain
     locally, so an internet connection is needed the first time each file
     is accessed.
 License: MIT + file LICENSE
-URL: https://github.com/me37uday/ABCatlas
-BugReports: https://github.com/me37uday/ABCatlas/issues
+URL: https://github.com/me37uday/ABCatlasR
+BugReports: https://github.com/me37uday/ABCatlasR/issues
 biocViews: DataImport, DataRepresentation, GeneExpression, SingleCell,
     Spatial, Transcriptomics
 Depends:

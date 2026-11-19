@@ -59,7 +59,7 @@
 #' @examples
 #' example_dir <- system.file(
 #'     "extdata", "ex",
-#'     package = "ABCatlas"
+#'     package = "ABCatlasR"
 #' )
 #'
 #' cache <- abc_cache_connect(
@@ -565,7 +565,7 @@ print.abc_cache <- function(x, ...) {
 # Download `url` to `dest` through a ".part" file that is resumed across retries
 # and only moved into place once complete (and matching `md5`, if given).
 .abc_download_progress <- function() {
-    isTRUE(getOption("ABCatlas.download_progress", TRUE))
+    isTRUE(getOption("ABCatlasR.download_progress", TRUE))
 }
 .abc_stop_if_download_interrupted <- function(
         result,

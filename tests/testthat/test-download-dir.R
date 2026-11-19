@@ -3,18 +3,18 @@ test_that("abc_download_dir resolves argument > option > env var > user cache", 
     opt <- withr::local_tempdir()
     env <- withr::local_tempdir()
 
-    withr::local_options(ABCatlas.download_base = opt)
+    withr::local_options(ABCatlasR.download_base = opt)
     withr::local_envvar(ABC_ATLAS_CACHE = env)
     expect_equal(abc_download_dir(arg), normalizePath(arg))
     expect_equal(abc_download_dir(), normalizePath(opt))
 
-    withr::local_options(ABCatlas.download_base = NULL)
+    withr::local_options(ABCatlasR.download_base = NULL)
     expect_equal(abc_download_dir(), normalizePath(env))
 
     withr::local_envvar(ABC_ATLAS_CACHE = "")
     expect_equal(
         abc_download_dir(),
-        normalizePath(tools::R_user_dir("ABCatlas", "cache"), mustWork = FALSE)
+        normalizePath(tools::R_user_dir("ABCatlasR", "cache"), mustWork = FALSE)
     )
 })
 

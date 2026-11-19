@@ -1,4 +1,4 @@
-name: ABCatlas bug report
+name: ABCatlasR bug report
 description: Report a reproducible native-R package, data-routing, download, or object-construction problem.
 title: "[Bug] "
 labels:
@@ -7,8 +7,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: ABCatlas version or Git commit
-      description: Run packageVersion("ABCatlas") or provide the Git commit hash.
+      label: ABCatlasR version or Git commit
+      description: Run packageVersion("ABCatlasR") or provide the Git commit hash.
     validations:
       required: true
   - type: input

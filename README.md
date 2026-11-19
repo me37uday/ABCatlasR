@@ -1,6 +1,6 @@
-# ABCatlas
+# ABCatlasR
 
-`ABCatlas` provides an R interface to the [Allen Brain Cell (ABC) Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
+`ABCatlasR` provides an R interface to the [Allen Brain Cell (ABC) Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
 
 It lets you explore available datasets, select cells and genes, check how much data needs to be downloaded, and load expression data directly into R.
 
@@ -20,7 +20,7 @@ BiocManager::install(
 install.packages("remotes")
 
 remotes::install_github(
-  "me37uday/ABCatlas",
+  "me37uday/ABCatlasR",
   ref = "r-native",
   upgrade = "never"
 )
@@ -31,7 +31,7 @@ remotes::install_github(
 Then load it:
 
 ```r
-library(ABCatlas)
+library(ABCatlasR)
 ```
 
 ### Requirements
@@ -127,7 +127,7 @@ For spatial datasets such as `Zhuang4`, the spatial coordinates are included in 
 
 ### Seurat and Monocle 3
 
-`ABCatlas` does not build Seurat or Monocle objects. Fetch raw expression as
+`ABCatlasR` does not build Seurat or Monocle objects. Fetch raw expression as
 a matrix bundle and convert it with the package you use:
 
 ```r
@@ -181,14 +181,14 @@ Downloaded files are cached so they do not need to be downloaded again. Only the
 The cache directory is chosen in this order:
 
 1. the `download_base` argument of `load_data()`, `plan_fetch()`, `fetch_data()` or `abc_cache_connect()`;
-2. `options(ABCatlas.download_base = "/path/to/abc_atlas")`;
+2. `options(ABCatlasR.download_base = "/path/to/abc_atlas")`;
 3. the `ABC_ATLAS_CACHE` environment variable;
-4. a per-user cache directory, `tools::R_user_dir("ABCatlas", which = "cache")`.
+4. a per-user cache directory, `tools::R_user_dir("ABCatlasR", which = "cache")`.
 
 Point the cache at a disk with enough free space before fetching expression data, for example:
 
 ```r
-options(ABCatlas.download_base = "/path/to/abc_atlas")
+options(ABCatlasR.download_base = "/path/to/abc_atlas")
 ```
 
 Check the active location:
@@ -212,7 +212,7 @@ x <- fetch_data(
 ## Complete example
 
 ```r
-library(ABCatlas)
+library(ABCatlasR)
 
 list_datasets()
 
@@ -248,5 +248,5 @@ x$provenance
 For a more detailed walkthrough:
 
 ```r
-vignette("ABCatlas", package = "ABCatlas")
+vignette("ABCatlasR", package = "ABCatlasR")
 ```

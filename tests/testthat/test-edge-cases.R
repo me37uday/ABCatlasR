@@ -3,7 +3,7 @@
 # after the functions involved are split into helpers.
 
 example_inputs <- function() {
-    example_dir <- system.file("extdata", "ex", package = "ABCatlas")
+    example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
     example_data <- readRDS(file.path(example_dir, "example-data.rds"))
     list(dir = example_dir, data = example_data)
 }

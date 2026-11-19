@@ -267,12 +267,12 @@ test_that("explicit offline release overrides the last-used manifest without rew
 })
 
 test_that("download progress is enabled by default", {
-    withr::local_options(ABCatlas.download_progress = NULL)
+    withr::local_options(ABCatlasR.download_progress = NULL)
     expect_true(.abc_download_progress())
 })
 
 test_that("download progress can be disabled by option", {
-    withr::local_options(ABCatlas.download_progress = FALSE)
+    withr::local_options(ABCatlasR.download_progress = FALSE)
     expect_false(.abc_download_progress())
 })
 
@@ -297,7 +297,7 @@ test_that("download progress option is passed to curl", {
         multi_download = fake_multi_download,
         .package = "curl"
     )
-    withr::local_options(ABCatlas.download_progress = FALSE)
+    withr::local_options(ABCatlasR.download_progress = FALSE)
     .abc_download(
         "https://example.invalid/test.bin",
         dest,

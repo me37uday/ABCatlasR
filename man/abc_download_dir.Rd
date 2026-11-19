@@ -18,10 +18,10 @@ Determines where ABC Atlas data is downloaded and cached. The location is
 resolved with the following precedence (first non-empty wins):
 \enumerate{
 \item the explicit \code{path} argument;
-\item \code{getOption("ABCatlas.download_base")};
+\item \code{getOption("ABCatlasR.download_base")};
 \item the \code{ABC_ATLAS_CACHE} environment variable;
 \item a per-user cache directory,
-\code{tools::R_user_dir("ABCatlas", "cache")}.
+\code{tools::R_user_dir("ABCatlasR", "cache")}.
 }
 The resolved directory is created if it does not yet exist and returned as an
 absolute path. This lets users point downloads at a custom folder without
@@ -29,6 +29,6 @@ depending on the working directory.
 }
 \examples{
 # Use a temporary cache directory.
-cache_dir <- file.path(tempdir(), "ABCatlas-example")
+cache_dir <- file.path(tempdir(), "ABCatlasR-example")
 abc_download_dir(cache_dir)
 }

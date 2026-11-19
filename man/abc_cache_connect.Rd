@@ -50,7 +50,7 @@ download directory can be shared between them.
 \examples{
 example_dir <- system.file(
     "extdata", "ex",
-    package = "ABCatlas"
+    package = "ABCatlasR"
 )
 
 cache <- abc_cache_connect(

@@ -1,4 +1,4 @@
-# ABCatlas 0.99.0
+# ABCatlasR 0.99.0
 
 ## New package
 

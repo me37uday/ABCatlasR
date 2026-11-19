@@ -663,7 +663,7 @@
 #' # Cache the downloaded metadata in a temporary folder.
 #' abc <- load_data(
 #'     "HMBA_PatchSeq",
-#'     download_base = file.path(tempdir(), "ABCatlas")
+#'     download_base = file.path(tempdir(), "ABCatlasR")
 #' )
 #' abc
 #' dim(abc$cell_metadata)

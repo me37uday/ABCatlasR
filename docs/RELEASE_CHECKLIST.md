@@ -1,7 +1,7 @@
 # Native R release and validation checklist
 
 This checklist defines the minimum validation expected before the
-native-R implementation of importABCatlas is treated as release-ready or
+native-R implementation of ABCatlasR is treated as release-ready or
 merged into a release branch.
 
 The package has two complementary validation layers: portable package

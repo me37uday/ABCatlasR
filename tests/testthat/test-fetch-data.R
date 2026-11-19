@@ -1850,7 +1850,7 @@ test_that("all return formats preserve ABC provenance", {
     )
 
     expect_identical(
-        S4Vectors::metadata(sce_out)$ABCatlas,
+        S4Vectors::metadata(sce_out)$ABCatlasR,
         provenance
     )
 
@@ -1865,7 +1865,7 @@ test_that("all return formats preserve ABC provenance", {
     )
 
     spatial_provenance <-
-        S4Vectors::metadata(spatial_out)$ABCatlas
+        S4Vectors::metadata(spatial_out)$ABCatlasR
 
     expect_identical(
         spatial_provenance$dataset,
@@ -2594,7 +2594,7 @@ test_that("a plan cannot be combined with arguments it would ignore", {
 })
 
 test_that("plan printing aligns the storage lines in both branches", {
-    example_dir <- system.file("extdata", "ex", package = "ABCatlas")
+    example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
     example_data <- readRDS(file.path(example_dir, "example-data.rds"))
     plan <- suppressMessages(plan_fetch(
         download_base = example_dir,

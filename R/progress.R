@@ -3,7 +3,7 @@
 .abc_progress_enabled <- function() {
     isTRUE(
         getOption(
-            "ABCatlas.progress",
+            "ABCatlasR.progress",
             interactive()
         )
     )

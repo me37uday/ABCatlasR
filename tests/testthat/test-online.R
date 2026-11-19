@@ -13,7 +13,7 @@ test_that("releases can be listed from S3", {
 test_that("a small file is downloaded, verified, recorded and reused", {
     skip_on_cran()
     skip_if_offline("allen-brain-cell-atlas.s3.us-west-2.amazonaws.com")
-    withr::local_options(ABCatlas.download_progress = FALSE)
+    withr::local_options(ABCatlasR.download_progress = FALSE)
     dir <- withr::local_tempdir()
     cache <- abc_cache_connect(dir)
     expect_false(cache$offline)

@@ -58,7 +58,7 @@ as \code{\link[=fetch_data]{fetch_data()}}, but does not download or read expres
 \examples{
 example_dir <- system.file(
     "extdata", "ex",
-    package = "ABCatlas"
+    package = "ABCatlasR"
 )
 example_data <- readRDS(
     file.path(example_dir, "example-data.rds")
