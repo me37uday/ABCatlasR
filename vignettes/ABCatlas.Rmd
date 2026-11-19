@@ -16,6 +16,9 @@ knitr::opts_chunk$set(
     comment = "#>"
 )
 options(ABCatlas.download_progress = FALSE)
+# Cache the vignette's downloads in the session's temporary directory
+# rather than the user's cache folder.
+options(ABCatlas.download_base = file.path(tempdir(), "ABCatlas-cache"))
 ```
 
 `ABCatlas` provides an R-native, release-aware interface to the
