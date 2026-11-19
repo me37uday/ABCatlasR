@@ -209,7 +209,8 @@ the genes. `plan_fetch()` does not download expression matrices.
 Before downloading, `fetch_data()` checks the free space of the disk
 that holds the cache, whether or not `plan_fetch()` was called. A
 download that does not fit is refused, and on the disk the operating
-system runs from at least 500 MB must remain free after the download.
+system runs from at least 2 GB must remain free after the download, so
+the system keeps room for virtual memory.
 
 ## Fetching expression
 

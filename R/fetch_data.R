@@ -474,8 +474,8 @@
 #'
 #' Before downloading, the free space of the disk holding the cache is
 #' checked. A download that does not fit is refused. On the disk the
-#' operating system runs from, at least 500 MB must also remain free after
-#' the download. No space is checked when every file is already cached.
+#' operating system runs from, at least 2 GB must also remain free after
+#' the download, so the system keeps room for virtual memory. No space is checked when every file is already cached.
 #'
 #' @param data An \code{abc_data} object returned by [load_data()]. It
 #'   provides the metadata, release and cache directory.

@@ -288,7 +288,7 @@ test_that("fetch_data stops before download when disk space is insufficient", {
     )
 })
 
-test_that("the system disk keeps 500 MB free after a download", {
+test_that("the system disk keeps 2 GB free after a download", {
     fx <- make_fixture_cache()
     cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
     attrs <- .abc_file_attributes(cache, "TEST-10X", "TEST-A/raw")
@@ -309,16 +309,25 @@ test_that("the system disk keeps 500 MB free after a download", {
         ))
     }
 
-    # System disk: 400 MB would remain, so the download is refused.
+    # System disk: 1.5 GB would remain, so the download is refused with a
+    # warning about system stability.
     local_mocked_bindings(
-        .abc_available_space = function(path) download + 400e6,
+        .abc_available_space = function(path) download + 1.5e9,
         .abc_system_volume = function(path) TRUE
     )
-    expect_error(fetch(), "500 MB that must stay free on the system disk")
+    expect_error(fetch(), "would leave only 1.5 GB free on the system disk")
+    expect_error(fetch(), "may become unstable")
+    expect_error(fetch(), "home folder")
 
-    # Exactly 500 MB would remain: still refused.
+    # Exactly 2 GB would remain: still refused.
     local_mocked_bindings(
-        .abc_available_space = function(path) download + 500e6
+        .abc_available_space = function(path) download + 2e9
+    )
+    expect_error(fetch(), "Download refused")
+
+    # A download that does not fit at all is reported as such.
+    local_mocked_bindings(
+        .abc_available_space = function(path) download - 1
     )
     expect_error(fetch(), "Not enough disk space")
 

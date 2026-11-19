@@ -865,8 +865,9 @@ print.abc_cache <- function(x, ...) {
 # ---- Storage check before an expression download ---------------------------
 
 # Space that must stay free on the disk the operating system runs from, after
-# a download, so the system keeps room for swap and temporary files.
-.abc_min_free_space <- 500e6
+# a download. Reading the expression into memory right after the download is
+# when macOS swap and the Windows page file may need to grow on that disk.
+.abc_min_free_space <- 2e9
 
 # Check whether `total_download` bytes fit in the cache directory. On the
 # system disk .abc_min_free_space must also remain free; on other disks (HPC
@@ -890,18 +891,26 @@ print.abc_cache <- function(x, ...) {
 }
 
 .abc_storage_message <- function(storage) {
+    advice <- paste0(
+        "Free up space",
+        if (storage$system_disk) " (for example in your home folder)",
+        " or use another cache folder (see ?abc_download_dir)."
+    )
+
+    if (storage$available < storage$download) {
+        return(paste0(
+            "Not enough disk space: ", .abc_format_size(storage$download),
+            " needed, ", .abc_format_size(storage$available), " available. ",
+            advice
+        ))
+    }
+
     paste0(
-        "Not enough disk space for this download. Download: ",
-        .abc_format_size(storage$download),
-        if (storage$system_disk) {
-            paste0(
-                " plus ", .abc_format_size(storage$headroom),
-                " that must stay free on the system disk"
-            )
-        },
-        "; available: ", .abc_format_size(storage$available),
-        ". Free up space or point the cache at a larger disk ",
-        "(see ?abc_download_dir). No expression files were downloaded."
+        "Download refused: it would leave only ",
+        .abc_format_size(storage$available - storage$download),
+        " free on the system disk, and below ",
+        .abc_format_size(storage$headroom),
+        " the computer may become unstable. ", advice
     )
 }
 

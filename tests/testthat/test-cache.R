@@ -421,12 +421,12 @@ test_that("only the system disk keeps a free-space margin", {
     mount <- "/"
     local_mocked_bindings(
         .abc_mount_point = function(path) mount,
-        .abc_available_space = function(path) 2e9
+        .abc_available_space = function(path) 5e9
     )
 
     expect_true(.abc_system_volume(tempdir()))
-    expect_true(.abc_storage_check(tempdir(), 1.4e9)$sufficient)
-    expect_false(.abc_storage_check(tempdir(), 1.5e9)$sufficient)
+    expect_true(.abc_storage_check(tempdir(), 2.9e9)$sufficient)
+    expect_false(.abc_storage_check(tempdir(), 3e9)$sufficient)
     expect_true(.abc_storage_check(tempdir(), 0)$sufficient)
 
     mount <- "/System/Volumes/Data"
@@ -437,9 +437,9 @@ test_that("only the system disk keeps a free-space margin", {
 
     mount <- "/scratch"
     expect_false(.abc_system_volume(tempdir()))
-    expect_identical(.abc_storage_check(tempdir(), 2e9)$headroom, 0)
-    expect_true(.abc_storage_check(tempdir(), 2e9)$sufficient)
-    expect_false(.abc_storage_check(tempdir(), 2e9 + 1)$sufficient)
+    expect_identical(.abc_storage_check(tempdir(), 5e9)$headroom, 0)
+    expect_true(.abc_storage_check(tempdir(), 5e9)$sufficient)
+    expect_false(.abc_storage_check(tempdir(), 5e9 + 1)$sufficient)
 })
 
 test_that("a failed disk write stops the download without retrying", {

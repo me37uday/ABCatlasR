@@ -146,7 +146,7 @@ The intervals describe the spread of cells within one dataset. Cells from the sa
 - `cell_ids` is any vector of `cell_label` values, either all of them or a subset of the metadata. `abc$unique_values` lists the values of the main metadata columns.
 - `plan_fetch()` is optional; `fetch_data()` does not need it. Without `cell_ids`, it reports the files of every cell in the dataset. Expression files are downloaded whole, so the report does not depend on the genes.
 - `fetch_data()` requires `cell_ids`; to fetch every cell, use `cell_ids = abc$cell_metadata$cell_label`. With `genes = NULL`, the default, every gene of the expression file is returned. The whole matrix of Zhuang4 is small, but for large single-cell datasets every cell and every gene can need tens of GB of memory.
-- Before downloading, `fetch_data()` checks the free space of the disk holding the cache. A download that does not fit is refused, and on the disk the operating system runs from at least 500 MB must remain free afterwards. Files already cached need no space.
+- Before downloading, `fetch_data()` checks the free space of the disk holding the cache. A download that does not fit is refused, and on the disk the operating system runs from at least 2 GB must remain free afterwards, so the system keeps room for virtual memory. Files already cached need no space.
 
 ## Choosing an output format
 
