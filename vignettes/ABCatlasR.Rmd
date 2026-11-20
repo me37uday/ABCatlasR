@@ -18,7 +18,7 @@ output:
     toc: true
     toc_depth: 2
 vignette: >
-  %\VignetteIndexEntry{ABCatlasR: choosing and retrieving ABC Atlas data}
+  %\VignetteIndexEntry{ABCatlasR: accessing ABC Atlas data in R}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
 ---
