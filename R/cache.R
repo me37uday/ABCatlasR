@@ -1033,10 +1033,13 @@ print.abc_cache <- function(x, ...) {
 # Read a metadata CSV into a data.frame. `col_classes` is a named vector of
 # column classes (e.g. c(cell_label = "character")); other types are inferred.
 # Integers too large for R's integer type are read as doubles; surrounding
-# whitespace is kept, as pandas does.
-.abc_read_csv <- function(path, col_classes = NULL, ...) {
+# whitespace is kept, as pandas does. Every ABC Atlas CSV has a header row;
+# it is not guessed, because fread would take a header that starts with an
+# unnamed pandas index column for data.
+.abc_read_csv <- function(path, col_classes = NULL, header = TRUE, ...) {
     data.table::fread(
         path,
+        header = header,
         colClasses = col_classes, na.strings = .abc_na_strings,
         integer64 = "double", strip.white = FALSE, data.table = FALSE,
         showProgress = FALSE, ...

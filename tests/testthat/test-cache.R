@@ -542,3 +542,17 @@ test_that("plan_fetch does not count a damaged file as cached", {
     expect_false(row$cached)
     expect_gt(plan$total_download, 0)
 })
+
+test_that("a CSV with an unnamed index column keeps its header", {
+    path <- withr::local_tempfile(fileext = ".csv")
+    writeLines(c(
+        ",cluster_alias,cluster_annotation_term_name",
+        "0,Human-7,Nonneuron",
+        "1,Human-14,Nonneuron"
+    ), path)
+    x <- .abc_read_csv(path)
+    expect_identical(
+        names(x)[-1L], c("cluster_alias", "cluster_annotation_term_name")
+    )
+    expect_identical(x$cluster_alias, c("Human-7", "Human-14"))
+})
