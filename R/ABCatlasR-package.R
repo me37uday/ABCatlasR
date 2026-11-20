@@ -19,5 +19,19 @@
 #' to the files of a release. The vignette walks through a complete example:
 #' \code{vignette("ABCatlasR", package = "ABCatlasR")}.
 #'
+#' @author
+#' In the order of the package \code{DESCRIPTION}, which also lists their
+#' e-mail addresses and ORCID identifiers:
+#' \itemize{
+#'   \item Uday Rangaswamy
+#'   \item Mahdi Komeili (maintainer, \email{mahdi.komeili1999@gmail.com})
+#'   \item Federico Caretti
+#'   \item Idris Kouadri Boudjelthia
+#'   \item Maria Musarra Pizzo
+#'   \item Amir Fardin
+#'   \item Andres Hernandez-Clavijo
+#'   \item Remo Sanges
+#' }
+#'
 #' @keywords internal
 "_PACKAGE"

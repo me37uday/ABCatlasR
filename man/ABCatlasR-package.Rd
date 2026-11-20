@@ -35,19 +35,17 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Mahdi Komeili \email{mahdi.komeili1999@gmail.com} (\href{https://orcid.org/0009-0000-3760-5327}{ORCID})
-
-Authors:
+In the order of the package \code{DESCRIPTION}, which also lists their
+e-mail addresses and ORCID identifiers:
 \itemize{
-  \item Mahdi Komeili \email{mahdi.komeili1999@gmail.com} (\href{https://orcid.org/0009-0000-3760-5327}{ORCID})
-  \item Uday Rangaswamy \email{me37uday@gmail.com} (\href{https://orcid.org/0009-0007-2758-9213}{ORCID})
-  \item Federico Caretti \email{fcaretti@sissa.it} (\href{https://orcid.org/0000-0002-6963-5245}{ORCID})
-  \item Idris Kouadri Boudjelthia \email{idris.kouadri@ie.edu} (\href{https://orcid.org/0000-0002-3139-4861}{ORCID})
-  \item Maria Musarra Pizzo \email{Maria.MusarraPizzo@ieo.it}
-  \item Amir Fardin \email{amirfardin22@yahoo.com} (\href{https://orcid.org/0000-0002-9472-408X}{ORCID})
-  \item Andres Hernandez-Clavijo \email{andreshc3@gmail.com}
-  \item Remo Sanges \email{remo.sanges@gmail.com} (\href{https://orcid.org/0000-0002-5047-9713}{ORCID})
+\item Uday Rangaswamy
+\item Mahdi Komeili (maintainer, \email{mahdi.komeili1999@gmail.com})
+\item Federico Caretti
+\item Idris Kouadri Boudjelthia
+\item Maria Musarra Pizzo
+\item Amir Fardin
+\item Andres Hernandez-Clavijo
+\item Remo Sanges
 }
-
 }
 \keyword{internal}
