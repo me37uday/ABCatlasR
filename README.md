@@ -19,14 +19,11 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
 BiocManager::install("ABCatlasR")
 ```
 
-Until `ABCatlasR` is available from Bioconductor, install it from GitHub
+Until `ABCatlasR` is available on Bioconductor, install it from GitHub
 instead. This also builds the vignette and skips updating your other
 packages:
 
 ```r
-if (!requireNamespace("BiocManager", quietly = TRUE)) {
-    install.packages("BiocManager")
-}
 if (!requireNamespace("remotes", quietly = TRUE)) {
     install.packages("remotes")
 }
