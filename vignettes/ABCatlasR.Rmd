@@ -100,7 +100,7 @@ threshold. Its metadata take about 40 MB and its raw expression about
 64 MB.
 
 ```{r load-data}
-abc <- load_data(dataset = "Zhuang4", release = "20260711")
+abc <- load_data(dataset = "Zhuang4", release = "20261130")
 abc
 ```
 
@@ -194,7 +194,7 @@ plan_fetch(abc, cell_ids = cells)
 The report lists:
 
 -   the resolved ABC Atlas release;
--   the published representation (`raw` or `log2`);
+-   the published representation, for example `raw` or `log2`;
 -   the number of selected cells;
 -   expression files involved;
 -   selected-file sizes;
@@ -243,7 +243,10 @@ counts or `data_type = "log2"` for the log2-transformed values published
 by the ABC Atlas. Without `data_type`, the dataset's default is used:
 `raw` where it is published, otherwise `log2`. `list_datasets()` shows
 the default and available representations of each route. Each
-representation is a separate file, so only one is downloaded.
+representation is a separate file, so only one is downloaded. The
+spatial HMBA routes publish `batch_normalized` values, which are counts
+normalized for differences between batches, and their natural log,
+`ln`, instead of `log2`.
 
 With `genes = NULL`, the default, every gene of the expression file is
 returned.
@@ -255,7 +258,8 @@ returned.
 -   `"matrix"`, the primary output, is the sparse matrix bundle shown
     above.
 -   `"sce"` returns a SingleCellExperiment. Raw expression uses a
-    `counts` assay. Upstream transformed expression uses a `log2` assay.
+    `counts` assay. Other representations use an assay of the same
+    name, such as `log2`.
 -   `"spatial"` returns a SpatialExperiment with the dataset's spatial
     coordinates attached. It is available for routes declared spatial,
     such as `Zhuang4`, and needs the SpatialExperiment package.
@@ -312,7 +316,7 @@ from Zhang et al. (2023), measured with the same gene panel, so the genes
 selected above can be fetched from it too:
 
 ```{r second-dataset}
-abc2 <- load_data(dataset = "Zhuang2", release = "20260711")
+abc2 <- load_data(dataset = "Zhuang2", release = "20261130")
 abc2
 ```
 
@@ -343,9 +347,13 @@ the cache in a folder of your home directory. The object returned by
 `load_data()` records its cache directory, which `plan_fetch()` and
 `fetch_data()` reuse.
 
-The package is release-aware. A release can be pinned explicitly for
-reproducible analyses, for example with
-`load_data("AgingMouse", release = "20260711")`.
+The package is release-aware. Without `release`, `load_data()` uses
+20261130, the ABC Atlas release this version of the package is
+validated against. A release can be pinned explicitly for reproducible
+analyses, as above, and earlier releases can be requested too, for
+example with `load_data("AgingMouse", release = "20260711")`. Release
+20261031 renamed the folders of the HMBA routes; `load_data()` reads
+earlier releases with the earlier folder names.
 
 After required files are cached, `offline = TRUE` prevents network
 access.

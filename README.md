@@ -61,7 +61,7 @@ list_datasets()
 abc <- load_data(
   dataset = "Zhuang4",
   download_base = "~/abc_atlas_cache",
-  release = "20260711"
+  release = "20261130"
 )
 
 # 3. Choose cells by their cell_label. Here, every cell of the dataset.
@@ -143,6 +143,7 @@ par(op)
 The intervals describe the spread of cells within one dataset. Cells from the same animal are not independent replicates, so compare groups across animals or datasets before drawing biological conclusions.
 
 - `load_data()` loads the full cell and gene metadata of a dataset. The returned object records the release and the cache folder, which `plan_fetch()` and `fetch_data()` reuse.
+- Without `release`, `load_data()` uses 20261130, the ABC Atlas release this version of the package is validated against. Naming the release, as above, keeps an analysis reproducible. Older releases can be requested too; release 20261031 renamed the folders of the HMBA datasets, and `load_data()` reads earlier releases with the earlier folder names.
 - `cell_ids` is any vector of `cell_label` values, either all of them or a subset of the metadata. `abc$unique_values` lists the values of the main metadata columns.
 - `plan_fetch()` is optional; `fetch_data()` does not need it. Without `cell_ids`, it reports the files of every cell in the dataset. Expression files are downloaded whole, so the report does not depend on the genes.
 - `fetch_data()` requires `cell_ids`; to fetch every cell, use `cell_ids = abc$cell_metadata$cell_label`. With `genes = NULL`, the default, every gene of the expression file is returned. The whole matrix of Zhuang4 is small, but for large single-cell datasets every cell and every gene can need tens of GB of memory.
@@ -166,7 +167,7 @@ The default. A list with the sparse `expression` matrix (genes x cells), `cell_m
 x <- fetch_data(abc, cell_ids = cells, return_type = "sce")
 ```
 
-Raw expression is stored in a `counts` assay and log2 expression in a `log2` assay.
+Raw expression is stored in a `counts` assay; other data types are stored in an assay of the same name, such as `log2`.
 
 ### SpatialExperiment
 
@@ -206,8 +207,8 @@ cds <- monocle3::new_cell_data_set(
 )
 ```
 
-Use raw expression for these count-based tools; published `log2` expression is
-already transformed upstream.
+Use raw expression for these count-based tools; published `log2` and `ln`
+values are already transformed upstream.
 
 ## Raw and transformed expression
 
@@ -215,6 +216,10 @@ Use `list_datasets()` to see which representations are available.
 
 - `"raw"` — raw counts.
 - `"log2"` — log2-transformed expression published by the ABC Atlas.
+- `"batch_normalized"` — counts normalized for differences between batches. Spatial HMBA datasets only.
+- `"ln"` — natural log of the batch-normalized values. Spatial HMBA datasets only.
+
+From release 20261031 on, the spatial HMBA datasets publish `"raw"`, `"batch_normalized"` and `"ln"` instead of `"log2"`.
 
 If `data_type` is not specified, the dataset's default is used: `"raw"` where it is published, otherwise `"log2"`.
 
