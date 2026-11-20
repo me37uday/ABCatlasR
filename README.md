@@ -247,7 +247,7 @@ Pinning the ABC Atlas release makes the source layout and provenance explicit.
 
 ## Learn more in the vignette
 
-The vignette provides a more detailed, application-focused guide to choosing a
+The vignette provides a more detailed guide to choosing a
 dataset, selecting cells from metadata, retrieving matrices, spatial use
 cases, downstream analysis, and reproducible release-aware workflows.
 
