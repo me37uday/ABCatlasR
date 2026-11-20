@@ -23,9 +23,6 @@ Until `ABCatlasR` is available from Bioconductor, install it from GitHub
 instead:
 
 ```r
-if (!requireNamespace("BiocManager", quietly = TRUE)) {
-    install.packages("BiocManager")
-}
 if (!requireNamespace("remotes", quietly = TRUE)) {
     install.packages("remotes")
 }
