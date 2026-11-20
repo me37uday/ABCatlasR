@@ -591,11 +591,6 @@ unit from the metadata of the dataset being analyzed.
 
 # References
 
-The synthetic data used for evaluated package examples are generated locally
-and do not require a scientific citation. Analyses using public ABC Atlas data
-should cite the Atlas and the primary publication(s) describing the dataset
-used.
-
 -   Allen Institute for Brain Science. *Allen Brain Cell Atlas*
     (RRID:SCR_024440).
     <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
