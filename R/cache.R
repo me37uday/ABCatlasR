@@ -225,63 +225,35 @@ print.abc_cache <- function(x, ...) {
 }
 
 .abc_fetch_memory_retry <- function(
-        url,
-        max_tries = 5L,
-        connect_timeout = 10,
-        timeout = 30
-) {
+        url, max_tries = 5L, connect_timeout = 10, timeout = 30) {
     max_tries <- as.integer(max_tries)
-
     if (is.na(max_tries) || max_tries < 1L) {
-        stop(
-            "`max_tries` must be a positive integer.",
-            call. = FALSE
-        )
+        stop("`max_tries` must be a positive integer.", call. = FALSE)
     }
-
-    last_error <- NULL
 
     for (attempt in seq_len(max_tries)) {
         handle <- curl::new_handle()
-
         curl::handle_setopt(
-            handle,
-            connecttimeout = connect_timeout,
-            timeout = timeout
+            handle, connecttimeout = connect_timeout, timeout = timeout
         )
-
         result <- tryCatch(
-            curl::curl_fetch_memory(
-                url,
-                handle = handle
-            ),
-            error = function(e) {
-                e
-            }
+            curl::curl_fetch_memory(url, handle = handle),
+            error = identity
         )
-
         if (!inherits(result, "error")) {
             return(result)
         }
-
-        last_error <- result
-
         if (attempt < max_tries) {
             message(
-                "Request attempt ",
-                attempt,
-                " failed: ",
-                conditionMessage(result),
-                ". Retrying."
+                "Request attempt ", attempt, " failed: ",
+                conditionMessage(result), ". Retrying."
             )
         }
     }
 
     stop(
-        "Request failed after ",
-        max_tries,
-        " attempts: ",
-        conditionMessage(last_error),
+        "Request failed after ", max_tries, " attempts: ",
+        conditionMessage(result),
         call. = FALSE
     )
 }
@@ -518,51 +490,25 @@ print.abc_cache <- function(x, ...) {
         )
     }
 
+    # Expression matrices normally have representation subentries such as raw
+    # and log2. Only representations with a manifest file record are listed.
     expression <- dir_data[["expression_matrices"]]
-    if (is.null(expression) || !length(expression)) {
-        return(data.frame(
-            directory = character(),
-            feature_matrix_label = character(),
-            data_type = character(),
-            stringsAsFactors = FALSE
-        ))
-    }
-
-    out <- list()
-    n <- 0L
-
+    rows <- list()
     for (matrix_name in names(expression)) {
         entry <- expression[[matrix_name]]
-
-        # Expression matrices normally have representation subentries such as
-        # raw and log2. Only advertise representations that actually contain a
-        # manifest file record.
-        for (data_type in names(entry)) {
-            if (identical(data_type, "files")) next
-
-            representation <- entry[[data_type]]
-            if (is.null(representation[["files"]])) next
-
-            n <- n + 1L
-            out[[n]] <- data.frame(
-                directory = directory,
-                feature_matrix_label = matrix_name,
-                data_type = data_type,
-                stringsAsFactors = FALSE
-            )
+        for (data_type in setdiff(names(entry), "files")) {
+            if (!is.null(entry[[data_type]][["files"]])) {
+                rows[[length(rows) + 1L]] <- c(matrix_name, data_type)
+            }
         }
     }
 
-    if (!length(out)) {
-        return(data.frame(
-            directory = character(),
-            feature_matrix_label = character(),
-            data_type = character(),
-            stringsAsFactors = FALSE
-        ))
-    }
-
-    do.call(rbind, out)
+    data.frame(
+        directory = rep(directory, length(rows)),
+        feature_matrix_label = vapply(rows, `[[`, character(1L), 1L),
+        data_type = vapply(rows, `[[`, character(1L), 2L),
+        stringsAsFactors = FALSE
+    )
 }
 
 # Local path of a manifest file, downloading it first if needed (online only).

@@ -805,59 +805,29 @@ print.abc_fetch_plan <- function(x, ...) {
     matches[[1L]]
 }
 
-.abc_validate_gene_resolution_inputs <- function(
-        gene_data,
-        genes
-) {
+.abc_validate_gene_resolution_inputs <- function(gene_data, genes) {
     if (!"gene_identifier" %in% names(gene_data)) {
-        stop(
-            "'gene_identifier' column not found in gene_data.",
-            call. = FALSE
-        )
+        stop("'gene_identifier' column not found in gene_data.", call. = FALSE)
     }
 
-    ids <- as.character(
-        gene_data$gene_identifier
-    )
-
-    if (
-        anyNA(ids) ||
-            any(!nzchar(ids)) ||
-            anyDuplicated(ids)
-    ) {
+    ids <- as.character(gene_data$gene_identifier)
+    if (anyNA(ids) || any(!nzchar(ids)) || anyDuplicated(ids)) {
         stop(
             "'gene_identifier' must be a non-missing unique key in gene_data.",
             call. = FALSE
         )
     }
 
-    if (is.null(genes)) {
-        return(
-            list(
-                ids = ids,
-                query = NULL
-            )
-        )
-    }
-
-    query <- as.character(genes)
-
-    if (
-        !length(query) ||
-            anyNA(query) ||
-            any(!nzchar(query)) ||
-            anyDuplicated(query)
-    ) {
+    query <- if (is.null(genes)) NULL else as.character(genes)
+    if (!is.null(query) && (!length(query) || anyNA(query) ||
+        any(!nzchar(query)) || anyDuplicated(query))) {
         stop(
             "genes must be a nonempty vector without duplicate requests.",
             call. = FALSE
         )
     }
 
-    list(
-        ids = ids,
-        query = query
-    )
+    list(ids = ids, query = query)
 }
 
 .abc_finalize_gene_resolution <- function(
@@ -885,14 +855,8 @@ print.abc_fetch_plan <- function(x, ...) {
     out
 }
 
-.abc_resolve_genes <- function(
-        gene_data,
-        genes = NULL
-) {
-    inputs <- .abc_validate_gene_resolution_inputs(
-        gene_data = gene_data,
-        genes = genes
-    )
+.abc_resolve_genes <- function(gene_data, genes = NULL) {
+    inputs <- .abc_validate_gene_resolution_inputs(gene_data, genes)
 
     if (is.null(inputs$query)) {
         out <- gene_data
@@ -901,40 +865,20 @@ print.abc_fetch_plan <- function(x, ...) {
         return(out)
     }
 
-    source_ids <- if (
-        "source_gene_identifier" %in% names(gene_data)
-    ) {
-        as.character(
-            gene_data$source_gene_identifier
-        )
-    } else {
-        NULL
-    }
-
-    symbols <- if (
-        "gene_symbol" %in% names(gene_data)
-    ) {
-        as.character(
-            gene_data$gene_symbol
-        )
-    } else {
-        NULL
-    }
-
     selected <- vapply(
-        inputs$query,
-        .abc_resolve_gene_request,
-        integer(1L),
+        inputs$query, .abc_resolve_gene_request, integer(1L),
         ids = inputs$ids,
-        source_ids = source_ids,
-        symbols = symbols,
+        source_ids = .abc_column_or_null(gene_data, "source_gene_identifier"),
+        symbols = .abc_column_or_null(gene_data, "gene_symbol"),
         USE.NAMES = FALSE
     )
 
-    .abc_finalize_gene_resolution(
-        gene_data = gene_data,
-        selected = selected
-    )
+    .abc_finalize_gene_resolution(gene_data = gene_data, selected = selected)
+}
+
+# A column of `data` as character, or NULL when the column is absent.
+.abc_column_or_null <- function(data, column) {
+    if (column %in% names(data)) as.character(data[[column]]) else NULL
 }
 
 # Select cells consistently for metadata loading, planning and fetching.
