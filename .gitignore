@@ -1,56 +1,84 @@
-# History files
+# --- R session and IDE files ---
 .Rhistory
-.Rapp.history
-
-# Session Data files
 .RData
-.RDataTmp
-
-# User-specific files
-.Ruserdata
-
-# Example code in package build process
-*-Ex.R
-
-# Output files from R CMD build
-/*.tar.gz
-
-# Output files from R CMD check
-/*.Rcheck/
-
-# RStudio files
+.Renviron
+.Rprofile
+.Rapp.history
 .Rproj.user/
 
-# produced vignettes
+# Uncomment if you do NOT want the RStudio project file in the repo.
+# BiocCheck flags a tracked *.Rproj file, but many R teams commit it
+# deliberately so collaborators share project settings.
+#*.Rproj
+
+# --- R build and check artifacts ---
+*.Rcheck/
+*.tar.gz
+inst/doc/
+
+# --- Compiled objects (src/) ---
+*.o
+*.so
+*.sl
+*.dylib
+*.a
+*.dll
+*.def
+
+# --- Vignette / LaTeX leftovers ---
+*.log
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+*.backups
+unsrturl.bst
+
+# --- Other editors and tools ---
+.cproject
+.project
+.settings/
+.directory
+.dropbox
+.exrc
+.gdb.history
+.seed
+.tm_properties
+
+# --- Git metadata flagged by BiocCheck ---
+# Uncomment these after confirming the repo does not rely on git LFS
+# or submodules. Neither is supported by the Bioconductor git mirror, so
+# if either is in use it must be removed properly, not just ignored.
+#.gitattributes
+#.gitmodules
+#.hgtags
+
+# --- Large data files (keep the small demo fixture) ---
+*.h5ad
+*.mtx
+!inst/extdata/**/*.h5ad
+
+# --- Project caches and results ---
+abc_atlas_cache/
+abc_download_root/
+benchmark_cache/
+benchmark_results/
+
+# --- Python tooling ---
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# --- OS and editor cruft ---
+.DS_Store
+*.swp
+
+# --- Kept from the previous .gitignore ---
 vignettes/*.html
 vignettes/*.pdf
-
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
+*-Ex.R
 .httr-oauth
-
-# knitr and R markdown default cache directories
-*_cache/
-/cache/
-
-# Temporary files created by R markdown
-*.utf8.md
-*.knit.md
-
-# R Environment Variables
-.Renviron
-
-# pkgdown site
-docs/
-!docs/
-docs/*
-!docs/RELEASE_CHECKLIST.md
-!docs/COLLABORATOR_TESTING.md
-
-# translation temp files
-po/*~
-
-# RStudio Connect folder
-rsconnect/
-# macOS metadata
-.DS_Store
-vignettes/*.R
+.RDataTmp
+.Ruserdata
