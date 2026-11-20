@@ -10,4 +10,5 @@
 * `fetch_data()` checks free disk space before downloading and keeps 2 GB free on the system disk. The same check runs before every other file download, including metadata.
 * A cached file whose size differs from the manifest is treated as damaged: it is downloaded again, or reported when offline.
 * File paths in the manifest that point outside the cache folder are refused.
+* Routes are validated against ABC Atlas release 20260711. When a requested release lacks a directory a route reads, for example because a later release renamed it, `load_data()` says so and names the validated release.
 * Preserves dataset, release, representation, and source provenance in returned objects.

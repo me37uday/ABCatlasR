@@ -7,9 +7,22 @@
 list_datasets()
 }
 \value{
-A data frame with one row per supported dataset route and columns
-describing modality, spatial status, published expression
-representations, and native metadata/expression routing.
+A data frame of class
+\code{c("abc_dataset_catalog", "data.frame")} with one row per
+supported dataset route and these columns:
+\describe{
+\item{\code{dataset}}{Route name, used as \code{dataset} in
+\code{\link[=load_data]{load_data()}}.}
+\item{\code{modality}}{For example \code{"spatial_transcriptomics"}.}
+\item{\code{spatial}}{Whether the route has spatial coordinates, so
+that \code{return_type = "spatial"} is available.}
+\item{\code{imputed}}{Whether the expression is imputed.}
+\item{\code{default_data_type}, \code{available_data_types}}{The
+representation used by default and those published.}
+\item{\code{cell_directory}, \code{gene_directory},
+\code{taxonomy}, \code{expression_directories}}{The ABC Atlas
+directories the route reads.}
+}
 }
 \description{
 Returns the curated dataset routes supported by the native R backend.

@@ -20,8 +20,26 @@ plan_fetch(data, cell_ids = NULL, data_type = NULL, offline = FALSE)
 contact S3.}
 }
 \value{
-An \code{abc_fetch_plan} object, printed as a report of the
-expression files, their sizes and cache status, and the storage check.
+An \code{abc_fetch_plan} object, printed as a report: a list of
+class \code{"abc_fetch_plan"} with these elements:
+\describe{
+\item{\code{dataset}, \code{release}, \code{data_type}}{The route,
+ABC Atlas release and representation of the request.}
+\item{\code{n_cells}}{Number of selected cells.}
+\item{\code{files}}{Data frame with one row per expression file:
+\code{dataset_label}, \code{feature_matrix_label},
+\code{data_type}, \code{n_cells} (selected cells in the file),
+\code{size} (bytes), \code{relative_path}, \code{local_path},
+\code{cached}, \code{partial_bytes} (resumable partial download)
+and \code{additional_download} (bytes still to download).}
+\item{\code{total_size}, \code{total_partial},
+\code{total_download}}{Sums of \code{size}, \code{partial_bytes}
+and \code{additional_download}, in bytes.}
+\item{\code{storage}}{List with \code{available} (free bytes, or
+\code{NA} if unknown), \code{download}, \code{system_disk},
+\code{headroom}, \code{required} and \code{sufficient}: the same
+storage check \code{\link[=fetch_data]{fetch_data()}} applies before downloading.}
+}
 }
 \description{
 Lists the expression files that \code{\link[=fetch_data]{fetch_data()}} would need for the selected

@@ -67,6 +67,7 @@ Imports:
     SingleCellExperiment,
     stats,
     tools,
+    utils,
     xml2
 Suggests:
     BiocStyle,

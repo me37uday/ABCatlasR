@@ -45,10 +45,32 @@ objects, see "Converting to other formats" below.}
 contact S3; a file that is not cached is an error instead of a download.}
 }
 \value{
-The requested expression representation: a sparse matrix bundle
-(a list with \code{expression}, \code{cell_metadata},
-\code{gene_data}, \code{data_type} and \code{provenance}), a
-SingleCellExperiment, or a SpatialExperiment.
+The requested expression representation.
+
+For \code{return_type = "matrix"}, an \code{abc_matrix} object: a list
+of class \code{c("abc_matrix", "list")} with these elements:
+\describe{
+\item{\code{expression}}{Sparse \code{dgCMatrix} (genes x cells).
+Rows are named by \code{gene_identifier}, columns by
+\code{cell_label}, in the order requested.}
+\item{\code{cell_metadata}}{Data frame with the metadata of the
+selected cells, in column order.}
+\item{\code{gene_data}}{Data frame with the metadata of the selected
+genes, in row order.}
+\item{\code{data_type}}{\code{"raw"} or \code{"log2"}.}
+\item{\code{provenance}}{List with \code{dataset}, \code{release},
+\code{data_type}, \code{modality}, \code{spatial},
+\code{expression_directories}, \code{n_cells} and
+\code{n_genes}.}
+}
+
+For \code{"sce"}, a SingleCellExperiment, and for \code{"spatial"}, a
+SpatialExperiment. The expression is in the \code{counts} assay for raw
+data and in the \code{log2} assay for log2 data, the cell and gene
+metadata are in \code{colData} and \code{rowData}, and the provenance
+list is in \code{metadata(x)$ABCatlasR}. A SpatialExperiment also holds
+the spatial coordinates in \code{spatialCoords}, and its provenance
+records their columns in \code{coordinate_columns}.
 }
 \description{
 Downloads the expression files the selected cells need, if they are not

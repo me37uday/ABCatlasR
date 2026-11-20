@@ -504,10 +504,32 @@
 #'   objects, see "Converting to other formats" below.
 #' @param offline If \code{TRUE}, use only locally cached files and never
 #'   contact S3; a file that is not cached is an error instead of a download.
-#' @return The requested expression representation: a sparse matrix bundle
-#'   (a list with \code{expression}, \code{cell_metadata},
-#'   \code{gene_data}, \code{data_type} and \code{provenance}), a
-#'   SingleCellExperiment, or a SpatialExperiment.
+#' @return The requested expression representation.
+#'
+#'   For \code{return_type = "matrix"}, an \code{abc_matrix} object: a list
+#'   of class \code{c("abc_matrix", "list")} with these elements:
+#'   \describe{
+#'     \item{\code{expression}}{Sparse \code{dgCMatrix} (genes x cells).
+#'       Rows are named by \code{gene_identifier}, columns by
+#'       \code{cell_label}, in the order requested.}
+#'     \item{\code{cell_metadata}}{Data frame with the metadata of the
+#'       selected cells, in column order.}
+#'     \item{\code{gene_data}}{Data frame with the metadata of the selected
+#'       genes, in row order.}
+#'     \item{\code{data_type}}{\code{"raw"} or \code{"log2"}.}
+#'     \item{\code{provenance}}{List with \code{dataset}, \code{release},
+#'       \code{data_type}, \code{modality}, \code{spatial},
+#'       \code{expression_directories}, \code{n_cells} and
+#'       \code{n_genes}.}
+#'   }
+#'
+#'   For \code{"sce"}, a SingleCellExperiment, and for \code{"spatial"}, a
+#'   SpatialExperiment. The expression is in the \code{counts} assay for raw
+#'   data and in the \code{log2} assay for log2 data, the cell and gene
+#'   metadata are in \code{colData} and \code{rowData}, and the provenance
+#'   list is in \code{metadata(x)$ABCatlasR}. A SpatialExperiment also holds
+#'   the spatial coordinates in \code{spatialCoords}, and its provenance
+#'   records their columns in \code{coordinate_columns}.
 #' @section Converting to other formats:
 #' Seurat and Monocle 3 objects are not built by this package. Fetch raw
 #' expression as a matrix bundle and convert it with the package you use.
@@ -610,8 +632,26 @@ fetch_data <- function(
 #'   \code{"raw"} where it is published, otherwise \code{"log2"}.
 #' @param offline If \code{TRUE}, use only locally cached files and never
 #'   contact S3.
-#' @return An \code{abc_fetch_plan} object, printed as a report of the
-#'   expression files, their sizes and cache status, and the storage check.
+#' @return An \code{abc_fetch_plan} object, printed as a report: a list of
+#'   class \code{"abc_fetch_plan"} with these elements:
+#'   \describe{
+#'     \item{\code{dataset}, \code{release}, \code{data_type}}{The route,
+#'       ABC Atlas release and representation of the request.}
+#'     \item{\code{n_cells}}{Number of selected cells.}
+#'     \item{\code{files}}{Data frame with one row per expression file:
+#'       \code{dataset_label}, \code{feature_matrix_label},
+#'       \code{data_type}, \code{n_cells} (selected cells in the file),
+#'       \code{size} (bytes), \code{relative_path}, \code{local_path},
+#'       \code{cached}, \code{partial_bytes} (resumable partial download)
+#'       and \code{additional_download} (bytes still to download).}
+#'     \item{\code{total_size}, \code{total_partial},
+#'       \code{total_download}}{Sums of \code{size}, \code{partial_bytes}
+#'       and \code{additional_download}, in bytes.}
+#'     \item{\code{storage}}{List with \code{available} (free bytes, or
+#'       \code{NA} if unknown), \code{download}, \code{system_disk},
+#'       \code{headroom}, \code{required} and \code{sufficient}: the same
+#'       storage check [fetch_data()] applies before downloading.}
+#'   }
 #' @examples
 #' # A small synthetic dataset shipped with the package.
 #' example_dir <- system.file("extdata", "ex", package = "ABCatlasR")

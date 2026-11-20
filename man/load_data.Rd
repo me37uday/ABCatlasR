@@ -27,8 +27,27 @@ S3 (see \code{\link{abc_cache_connect}}).}
 Metadata are loaded from exactly that release.}
 }
 \value{
-An \code{abc_data} object containing \code{cell_metadata},
-\code{gene_data}, \code{unique_values}, and dataset/cache provenance.
+An \code{abc_data} object: a list of class
+\code{c("abc_data", "list")} with these elements:
+\describe{
+\item{\code{cell_metadata}}{Data frame with one row per cell, named by
+\code{cell_label}. It holds the published cell metadata joined with
+the route's annotation tables (taxonomy terms and colours, donor,
+library and spatial tables where they exist). Its attributes record
+the route: \code{abc_dataset}, \code{abc_modality},
+\code{abc_spatial}, \code{abc_default_data_type},
+\code{abc_available_data_types} and
+\code{abc_expression_directories}. \code{\link[=plan_fetch]{plan_fetch()}} and
+\code{\link[=fetch_data]{fetch_data()}} read them, so keep the data frame as returned.}
+\item{\code{gene_data}}{Data frame with one row per gene; the
+\code{gene_identifier} column is the unique gene key, and
+\code{gene_symbol} is included where published.}
+\item{\code{unique_values}}{Named list with the distinct values of the
+route's main metadata columns, to help choose cells.}
+\item{\code{dataset}}{Route name, as listed by \code{\link[=list_datasets]{list_datasets()}}.}
+\item{\code{download_base}}{Cache directory used.}
+\item{\code{release}}{ABC Atlas release of the metadata.}
+}
 }
 \description{
 Single entry point for every supported dataset. The dataset is selected by

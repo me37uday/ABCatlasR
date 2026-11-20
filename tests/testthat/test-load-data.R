@@ -1510,3 +1510,30 @@ test_that("gene normalization rejects unusable identifiers", {
         fixed = TRUE
     )
 })
+
+test_that("route directories cover the cell, gene, taxonomy and expression", {
+    dirs <- .abc_route_directories(fixture_spec)
+    expect_true(all(c("TEST-10X", "TEST-taxonomy") %in% dirs))
+    expect_false(anyDuplicated(dirs) > 0)
+})
+
+test_that("load_data explains a release that lacks a route directory", {
+    fx <- make_fixture_cache()
+    renamed <- fixture_spec
+    renamed$gene$dir <- "TEST-renamed"
+    local_mocked_bindings(.abc_datasets = list(TEST = renamed))
+
+    expect_error(
+        load_data(
+            "TEST",
+            download_base = fx$dir,
+            offline = TRUE,
+            release = fx$version
+        ),
+        paste0(
+            "not available in ABC Atlas release ", fx$version,
+            ": the release has no 'TEST-renamed' directory"
+        ),
+        fixed = TRUE
+    )
+})

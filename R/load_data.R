@@ -656,8 +656,27 @@
 #' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 #'   `r .abc_default_release`, the release validated against this package.
 #'   Metadata are loaded from exactly that release.
-#' @return An \code{abc_data} object containing \code{cell_metadata},
-#'   \code{gene_data}, \code{unique_values}, and dataset/cache provenance.
+#' @return An \code{abc_data} object: a list of class
+#'   \code{c("abc_data", "list")} with these elements:
+#'   \describe{
+#'     \item{\code{cell_metadata}}{Data frame with one row per cell, named by
+#'       \code{cell_label}. It holds the published cell metadata joined with
+#'       the route's annotation tables (taxonomy terms and colours, donor,
+#'       library and spatial tables where they exist). Its attributes record
+#'       the route: \code{abc_dataset}, \code{abc_modality},
+#'       \code{abc_spatial}, \code{abc_default_data_type},
+#'       \code{abc_available_data_types} and
+#'       \code{abc_expression_directories}. [plan_fetch()] and
+#'       [fetch_data()] read them, so keep the data frame as returned.}
+#'     \item{\code{gene_data}}{Data frame with one row per gene; the
+#'       \code{gene_identifier} column is the unique gene key, and
+#'       \code{gene_symbol} is included where published.}
+#'     \item{\code{unique_values}}{Named list with the distinct values of the
+#'       route's main metadata columns, to help choose cells.}
+#'     \item{\code{dataset}}{Route name, as listed by [list_datasets()].}
+#'     \item{\code{download_base}}{Cache directory used.}
+#'     \item{\code{release}}{ABC Atlas release of the metadata.}
+#'   }
 #' @examples
 #' # Cache the downloaded metadata in a temporary folder.
 #' abc <- load_data(
@@ -682,6 +701,7 @@ load_data <- function(
         download_base,
         offline = offline, release = release
     )
+    .abc_check_route_release(spec, dataset, abc_cache)
 
     out <- .build_dataset(spec, abc_cache, dataset)
     rownames(out$cell_metadata) <- as.character(out$cell_metadata$cell_label)
@@ -741,6 +761,41 @@ print.abc_data <- function(x, ...) {
 }
 
 # ---- Generic builder --------------------------------------------------------
+
+# Manifest directories a dataset route reads: its taxonomy, its expression
+# directories and every `dir` entry of its specification.
+.abc_route_directories <- function(spec) {
+    dir_entries <- function(x) {
+        if (!is.list(x)) {
+            return(character())
+        }
+        c(
+            if (is.character(x[["dir"]])) x[["dir"]],
+            unlist(lapply(x, dir_entries), use.names = FALSE)
+        )
+    }
+    unique(c(spec$taxonomy, spec$expression_directories, dir_entries(spec)))
+}
+
+# Stop when the requested release lacks a directory the route reads, for
+# example because a later ABC Atlas release renamed it.
+.abc_check_route_release <- function(spec, dataset, abc_cache) {
+    missing <- setdiff(
+        .abc_route_directories(spec), names(abc_cache$manifest$file_listing)
+    )
+    if (!length(missing)) {
+        return(invisible(TRUE))
+    }
+    stop(
+        "Dataset '", dataset, "' is not available in ABC Atlas release ",
+        abc_cache$version, ": the release has no ",
+        paste0("'", missing, "'", collapse = ", "),
+        " directory (later releases renamed some directories). This route ",
+        "is validated against release ", .abc_default_release,
+        "; use release = \"", .abc_default_release, "\".",
+        call. = FALSE
+    )
+}
 
 # Left many-to-one metadata join that preserves cell count and row order.
 # Annotation tables must have a non-missing unique join key; otherwise joining

@@ -34,3 +34,19 @@ test_that("a small file is downloaded, verified, recorded and reused", {
     expect_s3_class(df, "data.frame")
     expect_gt(nrow(df), 0)
 })
+
+test_that("every route's directories exist in the default release", {
+    skip_on_cran()
+    skip_if_offline("allen-brain-cell-atlas.s3.us-west-2.amazonaws.com")
+    cache <- abc_cache_connect(
+        withr::local_tempdir(),
+        release = .abc_default_release
+    )
+    listed <- names(cache$manifest$file_listing)
+    for (dataset in names(.abc_datasets)) {
+        missing <- setdiff(
+            .abc_route_directories(.abc_datasets[[dataset]]), listed
+        )
+        expect_identical(missing, character(), info = dataset)
+    }
+})
