@@ -10,8 +10,7 @@
 #'     \code{tools::R_user_dir("ABCatlasR", "cache")}.
 #' }
 #' The resolved directory is created if it does not yet exist and returned as an
-#' absolute path. This lets users point downloads at a custom folder without
-#' depending on the working directory.
+#' absolute path.
 #'
 #' @param path Optional explicit directory. If \code{NULL} or empty, the other
 #'   sources above are consulted in order.

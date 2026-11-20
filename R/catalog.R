@@ -1,8 +1,8 @@
 #' List supported ABC Atlas dataset routes
 #'
-#' Returns the curated dataset routes supported by the native R backend.
-#' This function reads the package registry only and performs no network
-#' access or downloads.
+#' Returns the dataset routes the package supports, as names to pass to
+#' [load_data()]. It reads the package's own registry, so it needs no
+#' network access and downloads nothing.
 #'
 #' @return A data frame of class
 #'   \code{c("abc_dataset_catalog", "data.frame")} with one row per

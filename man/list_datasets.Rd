@@ -25,9 +25,9 @@ directories the route reads.}
 }
 }
 \description{
-Returns the curated dataset routes supported by the native R backend.
-This function reads the package registry only and performs no network
-access or downloads.
+Returns the dataset routes the package supports, as names to pass to
+\code{\link[=load_data]{load_data()}}. It reads the package's own registry, so it needs no
+network access and downloads nothing.
 }
 \examples{
 datasets <- list_datasets()

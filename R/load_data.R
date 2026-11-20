@@ -634,12 +634,11 @@
     )
 )
 
-#' Load assembled cell metadata for an ABC Atlas dataset
+#' Load the cell and gene metadata of an ABC Atlas dataset
 #'
-#' Single entry point for every supported dataset. The dataset is selected by
-#' name; what differs between datasets (directories, joins, taxonomy, columns of
-#' interest) is described declaratively in an internal registry rather than in
-#' per-dataset functions.
+#' Downloads, on first use, and reads the cell and gene metadata of one
+#' supported dataset route, joined with the route's annotation tables.
+#' Expression is not downloaded; see [fetch_data()].
 #'
 #' The full cell and gene metadata of the dataset are loaded. Cells and
 #' genes are selected afterwards, by passing their labels and names to
@@ -655,7 +654,9 @@
 #'   S3 (see \code{\link{abc_cache_connect}}).
 #' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 #'   `r .abc_default_release`, the release validated against this package.
-#'   Metadata are loaded from exactly that release.
+#'   Metadata are loaded from exactly that release. A release that lacks a
+#'   directory the route reads, for example because it was renamed, is
+#'   refused with a message.
 #' @return An \code{abc_data} object: a list of class
 #'   \code{c("abc_data", "list")} with these elements:
 #'   \describe{

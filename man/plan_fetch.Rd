@@ -9,7 +9,8 @@ plan_fetch(data, cell_ids = NULL, data_type = NULL, offline = FALSE)
 \arguments{
 \item{data}{An \code{abc_data} object returned by \code{\link[=load_data]{load_data()}}.}
 
-\item{cell_ids}{Optional character vector of cell labels. If \code{NULL}
+\item{cell_ids}{Optional character vector of cell labels (the
+\code{cell_label} column of \code{data$cell_metadata}). If \code{NULL}
 (default), every cell of the dataset is included.}
 
 \item{data_type}{Published expression representation, \code{"raw"} or

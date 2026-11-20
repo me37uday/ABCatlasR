@@ -2,7 +2,7 @@
 % Please edit documentation in R/cache.R
 \name{abc_cache_connect}
 \alias{abc_cache_connect}
-\title{Connect to the ABC Atlas project cache}
+\title{Connect to a local ABC Atlas cache}
 \usage{
 abc_cache_connect(
   download_base = NULL,
@@ -17,13 +17,13 @@ abc_cache_connect(
 \item{offline}{If \code{TRUE}, use only locally cached data and never contact
 S3. Requires a manifest to have been downloaded previously.}
 
-\item{release}{Optional ABC Atlas release version in \code{YYYYMMDD} form,
-for example \code{"20260711"}. When supplied, exactly that release is used.
-When \code{NULL}, the previously used/latest manifest selection behavior is
-preserved.}
+\item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to
+20260711, the release validated against this package.
+\code{NULL} selects the release as described in Details.}
 }
 \value{
-An \code{abc_cache} object: a list with the \code{download_base},
+An \code{abc_cache} object: a list of class \code{"abc_cache"}
+with the \code{download_base},
 \code{manifest_name}, \code{version} and \code{offline} fields, plus the
 functions \code{get_file_path(directory, file_name)} (returns the local
 path of a file, downloading it if needed) and

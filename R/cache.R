@@ -25,7 +25,7 @@
     "None", "n/a", "nan", "null"
 )
 
-#' Connect to the ABC Atlas project cache
+#' Connect to a local ABC Atlas cache
 #'
 #' Selects a release manifest and returns a handle used to locate, download and
 #' read ABC Atlas files under \code{download_base}. With \code{offline = FALSE}
@@ -45,11 +45,11 @@
 #'   \code{\link{abc_download_dir}}.
 #' @param offline If \code{TRUE}, use only locally cached data and never contact
 #'   S3. Requires a manifest to have been downloaded previously.
-#' @param release Optional ABC Atlas release version in \code{YYYYMMDD} form,
-#'   for example \code{"20260711"}. When supplied, exactly that release is used.
-#'   When \code{NULL}, the previously used/latest manifest selection behavior is
-#'   preserved.
-#' @return An \code{abc_cache} object: a list with the \code{download_base},
+#' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to
+#'   `r .abc_default_release`, the release validated against this package.
+#'   \code{NULL} selects the release as described in Details.
+#' @return An \code{abc_cache} object: a list of class \code{"abc_cache"}
+#'   with the \code{download_base},
 #'   \code{manifest_name}, \code{version} and \code{offline} fields, plus the
 #'   functions \code{get_file_path(directory, file_name)} (returns the local
 #'   path of a file, downloading it if needed) and

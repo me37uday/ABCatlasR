@@ -2,7 +2,7 @@
 % Please edit documentation in R/load_data.R
 \name{load_data}
 \alias{load_data}
-\title{Load assembled cell metadata for an ABC Atlas dataset}
+\title{Load the cell and gene metadata of an ABC Atlas dataset}
 \usage{
 load_data(
   dataset,
@@ -24,7 +24,9 @@ S3 (see \code{\link{abc_cache_connect}}).}
 
 \item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 20260711, the release validated against this package.
-Metadata are loaded from exactly that release.}
+Metadata are loaded from exactly that release. A release that lacks a
+directory the route reads, for example because it was renamed, is
+refused with a message.}
 }
 \value{
 An \code{abc_data} object: a list of class
@@ -50,10 +52,9 @@ route's main metadata columns, to help choose cells.}
 }
 }
 \description{
-Single entry point for every supported dataset. The dataset is selected by
-name; what differs between datasets (directories, joins, taxonomy, columns of
-interest) is described declaratively in an internal registry rather than in
-per-dataset functions.
+Downloads, on first use, and reads the cell and gene metadata of one
+supported dataset route, joined with the route's annotation tables.
+Expression is not downloaded; see \code{\link[=fetch_data]{fetch_data()}}.
 }
 \details{
 The full cell and gene metadata of the dataset are loaded. Cells and

@@ -487,15 +487,15 @@
 #'   columns of the result follow this order. To fetch every cell, use
 #'   \code{data$cell_metadata$cell_label}.
 #' @param genes Character vector of genes to include. Each entry is matched
-#'   first against \code{gene_identifier}, then against the published source
-#'   identifier, then against \code{gene_symbol}; a symbol shared by several
-#'   genes is reported as ambiguous. If \code{NULL} (default), all genes of
-#'   the expression file are returned.
+#'   first against \code{gene_identifier}, then against
+#'   \code{source_gene_identifier} where the dataset has it, then against
+#'   \code{gene_symbol}; a symbol shared by several
+#'   genes is reported as ambiguous. If \code{NULL} (default), every gene of
+#'   \code{data$gene_data} is returned.
 #' @param data_type Published expression representation, \code{"raw"} or
 #'   \code{"log2"}. If \code{NULL} (default), the dataset's default is used:
-#'   \code{"raw"} where it is published, otherwise \code{"log2"}. Raw
-#'   expression keeps count semantics; published log2 expression is never
-#'   presented as counts.
+#'   \code{"raw"} where it is published, otherwise \code{"log2"}. Values
+#'   are returned as published; log2 values are not converted to counts.
 #' @param return_type Output format: \code{"matrix"} (default) for the sparse
 #'   expression bundle, \code{"sce"} for a SingleCellExperiment, or
 #'   \code{"spatial"} for a SpatialExperiment with the dataset's spatial
@@ -512,10 +512,10 @@
 #'     \item{\code{expression}}{Sparse \code{dgCMatrix} (genes x cells).
 #'       Rows are named by \code{gene_identifier}, columns by
 #'       \code{cell_label}, in the order requested.}
-#'     \item{\code{cell_metadata}}{Data frame with the metadata of the
-#'       selected cells, in column order.}
-#'     \item{\code{gene_data}}{Data frame with the metadata of the selected
-#'       genes, in row order.}
+#'     \item{\code{cell_metadata}}{Data frame with one row per selected
+#'       cell, in the order of the matrix columns.}
+#'     \item{\code{gene_data}}{Data frame with one row per selected gene,
+#'       in the order of the matrix rows.}
 #'     \item{\code{data_type}}{\code{"raw"} or \code{"log2"}.}
 #'     \item{\code{provenance}}{List with \code{dataset}, \code{release},
 #'       \code{data_type}, \code{modality}, \code{spatial},
@@ -625,7 +625,8 @@ fetch_data <- function(
 #' some datasets are spread over several files, and on the representation.
 #'
 #' @param data An \code{abc_data} object returned by [load_data()].
-#' @param cell_ids Optional character vector of cell labels. If \code{NULL}
+#' @param cell_ids Optional character vector of cell labels (the
+#'   \code{cell_label} column of \code{data$cell_metadata}). If \code{NULL}
 #'   (default), every cell of the dataset is included.
 #' @param data_type Published expression representation, \code{"raw"} or
 #'   \code{"log2"}. If \code{NULL} (default), the dataset's default is used:
