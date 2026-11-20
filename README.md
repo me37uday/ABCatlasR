@@ -20,7 +20,8 @@ BiocManager::install("ABCatlasR")
 ```
 
 Until `ABCatlasR` is available from Bioconductor, install it from GitHub
-instead:
+instead. This also builds the vignette and skips updating your other
+packages:
 
 ```r
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
@@ -29,7 +30,13 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
 if (!requireNamespace("remotes", quietly = TRUE)) {
     install.packages("remotes")
 }
-BiocManager::install("me37uday/ABCatlasR")
+BiocManager::install(
+    "me37uday/ABCatlasR",
+    build_vignettes = TRUE,
+    dependencies = TRUE,
+    update = FALSE,
+    ask = FALSE
+)
 ```
 
 Load the package:
