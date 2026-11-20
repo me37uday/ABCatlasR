@@ -6,7 +6,7 @@ It lets you explore available datasets, select cells and genes, check how much d
 
 ## Installation
 
-Install the package from the `r-native` branch:
+Install the package from GitHub:
 
 ```r
 install.packages("BiocManager")
@@ -21,7 +21,6 @@ install.packages("remotes")
 
 remotes::install_github(
   "me37uday/ABCatlasR",
-  ref = "r-native",
   upgrade = "never"
 )
 ```

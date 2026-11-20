@@ -1,5 +1,17 @@
 ---
 title: "Accessing Allen Brain Cell Atlas data from R"
+author:
+- name: Uday Rangaswamy
+- name: Mahdi Komeili
+  email: mahdi.komeili1999@gmail.com
+- name: Federico Caretti
+- name: Idris Kouadri Boudjelthia
+- name: Maria Musarra Pizzo
+- name: Amir Fardin
+- name: Andres Hernandez-Clavijo
+- name: Remo Sanges
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+package: ABCatlasR
 output: BiocStyle::html_document
 vignette: >
   %\VignetteIndexEntry{Accessing Allen Brain Cell Atlas data from R}
@@ -20,6 +32,8 @@ options(ABCatlasR.download_progress = FALSE)
 # rather than the user's cache folder.
 options(ABCatlasR.download_base = file.path(tempdir(), "ABCatlasR-cache"))
 ```
+
+## Introduction
 
 `ABCatlasR` provides an R-native, release-aware interface to the
 [Allen Brain Cell (ABC)
@@ -42,6 +56,13 @@ The package separates metadata discovery from expression transfer:
     needs, their sizes and the disk space required. It is optional.
 4.  `fetch_data()` downloads and reads the expression of the selected
     cells and genes into the requested R representation.
+
+The Allen Institute provides the Python package `abc_atlas_access` to
+download ABC Atlas files. `ABCatlasR` reads the same releases and keeps
+downloaded files in the same folder layout, so the two can share a
+download folder. Where `abc_atlas_access` returns file paths and pandas
+data frames, `ABCatlasR` joins the cell metadata with its annotations and
+returns expression as R and Bioconductor objects, without Python.
 
 ## Installation
 
@@ -360,6 +381,9 @@ access.
 
 ## References
 
+-   Allen Institute for Brain Science. abc_atlas_access: data access for
+    the Allen Brain Cell Atlas.
+    <https://github.com/AllenInstitute/abc_atlas_access>
 -   Allen Institute for Brain Science. Allen Brain Cell Atlas
     (RRID:SCR_024440).
     <https://brain-map.org/bkp/explore/abc-atlas>
