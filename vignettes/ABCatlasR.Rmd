@@ -1,5 +1,7 @@
 ---
-title: "ABCatlasR: choosing and retrieving ABC Atlas data for biological questions"
+title: >-
+  ABCatlasR: choosing and retrieving ABC Atlas data for biological
+  questions
 author:
 - name: Uday Rangaswamy
 - name: Mahdi Komeili
@@ -17,7 +19,7 @@ output:
     toc: true
     toc_depth: 2
 vignette: >
-  %\VignetteIndexEntry{ABCatlasR: choosing and retrieving ABC Atlas data for biological questions}
+  %\VignetteIndexEntry{ABCatlasR: choosing and retrieving ABC Atlas data}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
 ---
@@ -51,20 +53,20 @@ those cells.
 Across the neuroscience community, questions that can motivate use of the
 Atlas include:
 
-- **Cell identity and diversity:** Which neuronal and non-neuronal cell types
-  or states are present in a brain region, and how are they related to its
-  cellular organization?
-- **Molecular specialization:** Which genes and transcriptional programs
-  characterize particular cell populations or distinguish related populations
-  across anatomical regions?
-- **Spatial organization:** Where are molecularly defined cell types located,
-  and how does their organization vary across brain structures?
-- **Development, aging, and disease:** How do cell states and molecular
-  profiles differ across life stages or neurological and neurodegenerative
-  disease contexts?
-- **Cross-species neuroscience:** Which cellular and molecular features appear
-  conserved or divergent across mouse, marmoset, macaque, and human brain
-  resources?
+-   **Cell identity and diversity:** Which neuronal and non-neuronal cell types
+    or states are present in a brain region, and how are they related to its
+    cellular organization?
+-   **Molecular specialization:** Which genes and transcriptional programs
+    characterize particular cell populations or distinguish related populations
+    across anatomical regions?
+-   **Spatial organization:** Where are molecularly defined cell types located,
+    and how does their organization vary across brain structures?
+-   **Development, aging, and disease:** How do cell states and molecular
+    profiles differ across life stages or neurological and neurodegenerative
+    disease contexts?
+-   **Cross-species neuroscience:** Which cellular and molecular features appear
+    conserved or divergent across mouse, marmoset, macaque, and human brain
+    resources?
 
 The default output of `fetch_data()` is an `abc_matrix`: a sparse genes x
 cells matrix together with aligned cell metadata, gene metadata, and
@@ -312,13 +314,13 @@ head(abc$unique_values$brain_section_label)
 Depending on the route and the biological question, useful selection variables
 can include:
 
-- **cell identity**: class, subclass, supertype, cluster, or neurotransmitter;
-- **anatomy**: brain section, region of interest, or anatomical division;
-- **subject information**: donor, age, sex, genotype, or species;
-- **disease context**: diagnosis, neuropathology, or clinical annotations when
-  published for that resource;
-- **spatial questions**: section labels, regions, and spatial coordinates;
-- **dataset-specific quality fields**: when these are provided by the Atlas.
+-   **cell identity**: class, subclass, supertype, cluster, or neurotransmitter;
+-   **anatomy**: brain section, region of interest, or anatomical division;
+-   **subject information**: donor, age, sex, genotype, or species;
+-   **disease context**: diagnosis, neuropathology, or clinical annotations when
+    published for that resource;
+-   **spatial questions**: section labels, regions, and spatial coordinates;
+-   **dataset-specific quality fields**: when these are provided by the Atlas.
 
 For example, a question about GABAergic cells in one `Zhuang4` section can be
 translated directly into a metadata filter:
@@ -416,11 +418,11 @@ identical(
 
 The returned object contains:
 
-- `expression`: a sparse `dgCMatrix` with genes in rows and cells in columns;
-- `cell_metadata`: metadata aligned to the matrix columns;
-- `gene_data`: gene metadata aligned to the matrix rows;
-- `data_type`: the source expression representation;
-- `provenance`: the dataset, release, modality, and request details.
+-   `expression`: a sparse `dgCMatrix` with genes in rows and cells in columns;
+-   `cell_metadata`: metadata aligned to the matrix columns;
+-   `gene_data`: gene metadata aligned to the matrix rows;
+-   `data_type`: the source expression representation;
+-   `provenance`: the dataset, release, modality, and request details.
 
 This matrix is the main output of the package and can now be used for standard
 downstream single-cell analysis without another Atlas request.
@@ -478,11 +480,11 @@ metadata-first process used to choose the cells.
 `list_datasets()` reports the expression representations available for each
 route. Depending on the dataset, these can include:
 
-- `"raw"`: raw counts;
-- `"log2"`: log2-transformed expression published by the ABC Atlas;
-- `"batch_normalized"`: batch-normalized counts for supported spatial HMBA
-  routes;
-- `"ln"`: natural-log-transformed batch-normalized values.
+-   `"raw"`: raw counts;
+-   `"log2"`: log2-transformed expression published by the ABC Atlas;
+-   `"batch_normalized"`: batch-normalized counts for supported spatial HMBA
+    routes;
+-   `"ln"`: natural-log-transformed batch-normalized values.
 
 If `data_type` is omitted, the registered default for the route is used.
 `ABCatlasR` never creates one representation from another; it returns the
@@ -556,20 +558,20 @@ matrix provenance makes the source version explicit.
 
 A few practices make large Atlas workflows easier to manage:
 
-- choose the route according to the biological question before downloading
-  expression;
-- inspect metadata and define the cell population before calling
-  `fetch_data()`;
-- use `plan_fetch()` before a large or unfamiliar request;
-- remember that expression source files are downloaded whole;
-- selecting cells can reduce the number of source files needed when cells are
-  distributed across files;
-- selecting fewer genes reduces the returned matrix but may not reduce network
-  transfer size;
-- use raw counts for downstream methods that require counts;
-- pin a release for reproducible analyses;
-- reuse the cache, and use `offline = TRUE` on compute nodes without internet
-  access.
+-   choose the route according to the biological question before downloading
+    expression;
+-   inspect metadata and define the cell population before calling
+    `fetch_data()`;
+-   use `plan_fetch()` before a large or unfamiliar request;
+-   remember that expression source files are downloaded whole;
+-   selecting cells can reduce the number of source files needed when cells are
+    distributed across files;
+-   selecting fewer genes reduces the returned matrix but may not reduce network
+    transfer size;
+-   use raw counts for downstream methods that require counts;
+-   pin a release for reproducible analyses;
+-   reuse the cache, and use `offline = TRUE` on compute nodes without internet
+    access.
 
 # Scope and limitations
 
@@ -595,16 +597,16 @@ and do not require a scientific citation. Analyses using public ABC Atlas data
 should cite the Atlas and the primary publication(s) describing the dataset
 used.
 
-- Allen Institute for Brain Science. *Allen Brain Cell Atlas*
-  (RRID:SCR_024440).
-  <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
-- Yao Z, van Velthoven CTJ, Kunst M, et al. (2023). A high-resolution
-  transcriptomic and spatial atlas of cell types in the whole mouse brain.
-  *Nature* 624, 317-332.
-  <https://doi.org/10.1038/s41586-023-06812-z>
-- Zhang M, Pan X, Jung W, et al. (2023). Molecularly defined and spatially
-  resolved cell atlas of the whole mouse brain. *Nature* 624, 343-354.
-  <https://doi.org/10.1038/s41586-023-06808-9>
+-   Allen Institute for Brain Science. *Allen Brain Cell Atlas*
+    (RRID:SCR_024440).
+    <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
+-   Yao Z, van Velthoven CTJ, Kunst M, et al. (2023). A high-resolution
+    transcriptomic and spatial atlas of cell types in the whole mouse brain.
+    *Nature* 624, 317-332.
+    <https://doi.org/10.1038/s41586-023-06812-z>
+-   Zhang M, Pan X, Jung W, et al. (2023). Molecularly defined and spatially
+    resolved cell atlas of the whole mouse brain. *Nature* 624, 343-354.
+    <https://doi.org/10.1038/s41586-023-06808-9>
 
 # Session information
 
