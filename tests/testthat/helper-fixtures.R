@@ -264,3 +264,24 @@ fixture_spec <- list(
     gene = list(dir = "TEST-10X"),
     cols_of_interest = c("donor_sex", "cluster", "supercluster", "not_a_column")
 )
+
+# Add a metadata table to the fixture cache and its manifest.
+add_fixture_table <- function(fx, directory, name, df) {
+    rel <- file.path("metadata", directory, fx$version, paste0(name, ".csv"))
+    path <- file.path(fx$dir, rel)
+    dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+    utils::write.csv(df, path, row.names = FALSE, na = "")
+
+    manifest_path <- file.path(fx$dir, "releases", fx$version, "manifest.json")
+    manifest <- jsonlite::read_json(manifest_path, simplifyVector = FALSE)
+    entry <- list(
+        version = fx$version, relative_path = rel,
+        url = paste0("https://example.invalid/", rel),
+        size = file.size(path), file_hash = unname(tools::md5sum(path))
+    )
+    manifest$file_listing[[directory]][["metadata"]][[name]] <- list(
+        files = list(csv = entry)
+    )
+    jsonlite::write_json(manifest, manifest_path, auto_unbox = TRUE)
+    invisible(path)
+}

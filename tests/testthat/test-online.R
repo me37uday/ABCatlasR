@@ -35,18 +35,27 @@ test_that("a small file is downloaded, verified, recorded and reused", {
     expect_gt(nrow(df), 0)
 })
 
-test_that("every route's directories exist in the default release", {
+test_that("every route layout matches the release it is written for", {
     skip_on_cran()
     skip_if_offline("allen-brain-cell-atlas.s3.us-west-2.amazonaws.com")
-    cache <- abc_cache_connect(
-        withr::local_tempdir(),
-        release = .abc_default_release
-    )
-    listed <- names(cache$manifest$file_listing)
+    dir <- withr::local_tempdir()
+    listed <- function(release) {
+        cache <- abc_cache_connect(dir, release = release)
+        names(cache$manifest$file_listing)
+    }
+    # Current layouts in the default release, previous ones in 20260711.
+    releases <- c(.abc_default_release, "20260711")
+    listings <- lapply(releases, listed)
     for (dataset in names(.abc_datasets)) {
-        missing <- setdiff(
-            .abc_route_directories(.abc_datasets[[dataset]]), listed
-        )
-        expect_identical(missing, character(), info = dataset)
+        layouts <- .abc_route_layouts(.abc_datasets[[dataset]])
+        for (i in seq_along(layouts)) {
+            missing <- setdiff(
+                .abc_route_directories(layouts[[i]]), listings[[i]]
+            )
+            expect_identical(
+                missing, character(),
+                info = paste(dataset, releases[[i]])
+            )
+        }
     }
 })

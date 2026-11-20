@@ -42,10 +42,11 @@
 }
 
 # First published coordinate pair present in the metadata, in order of
-# preference: slab (mm), rotated (um), experiment, then plain x/y.
+# preference: slab (mm), rotated (mm, then um), experiment, then plain x/y.
 .abc_default_spatial_columns <- function(metadata) {
     candidates <- list(
         c("x_slab_mm", "y_slab_mm"),
+        c("x_rotated_mm", "y_rotated_mm"),
         c("x_rotated_um", "y_rotated_um"),
         c("x_experiment", "y_experiment"),
         c("x", "y")
@@ -239,11 +240,7 @@
 }
 
 .abc_bioc_assays <- function(expression, data_type) {
-    assay_name <- if (data_type == "raw") {
-        "counts"
-    } else {
-        "log2"
-    }
+    assay_name <- if (data_type == "raw") "counts" else data_type
 
     stats::setNames(
         list(expression),
@@ -494,9 +491,13 @@
 #'   gene in \code{data$gene_data} is returned.
 #' @param data_type Type of expression values: \code{"raw"} for counts or
 #'   \code{"log2"} for the log2-transformed values the ABC Atlas publishes.
-#'   If \code{NULL} (default), \code{"raw"} is used where the dataset
-#'   publishes it, otherwise \code{"log2"}. Values are returned as
-#'   published; log2 values are not converted back to counts.
+#'   The spatial HMBA datasets instead offer \code{"raw"},
+#'   \code{"batch_normalized"} (counts normalized for differences between
+#'   batches) and \code{"ln"} (the natural log of the batch-normalized
+#'   values). [list_datasets()] shows the types of each dataset. If
+#'   \code{NULL} (default), \code{"raw"} is used where the dataset publishes
+#'   it, otherwise \code{"log2"}. Values are returned as published; they
+#'   are never converted from one type to another.
 #' @param return_type Form of the result: \code{"matrix"} (default) for a
 #'   sparse matrix with its cell and gene tables, \code{"sce"} for a
 #'   SingleCellExperiment, or \code{"spatial"} for a SpatialExperiment with
@@ -519,7 +520,8 @@
 #'       cell, in the order of the matrix columns.}
 #'     \item{\code{gene_data}}{Data frame with one row per selected gene,
 #'       in the order of the matrix rows.}
-#'     \item{\code{data_type}}{\code{"raw"} or \code{"log2"}.}
+#'     \item{\code{data_type}}{The type of expression values, as in the
+#'       \code{data_type} argument.}
 #'     \item{\code{provenance}}{List recording where the data come from:
 #'       \code{dataset}, \code{release}, \code{data_type},
 #'       \code{modality}, \code{spatial}, \code{expression_directories},
@@ -528,7 +530,8 @@
 #'
 #'   For \code{"sce"}, a SingleCellExperiment, and for \code{"spatial"}, a
 #'   SpatialExperiment. The expression is in the \code{counts} assay for raw
-#'   data and in the \code{log2} assay for log2 data, the cell and gene
+#'   data and otherwise in an assay named after the data type (for example
+#'   \code{log2} or \code{ln}), the cell and gene
 #'   metadata are in \code{colData} and \code{rowData}, and the provenance
 #'   list is in \code{metadata(x)$ABCatlasR}. A SpatialExperiment also holds
 #'   the spatial coordinates in \code{spatialCoords}, and its provenance
@@ -630,10 +633,11 @@ fetch_data <- function(
 #' @param cell_ids Labels of the cells, from the \code{cell_label} column
 #'   of \code{data$cell_metadata}. If \code{NULL} (default), every cell of
 #'   the dataset is included.
-#' @param data_type Type of expression values: \code{"raw"} for counts or
-#'   \code{"log2"} for the log2-transformed values the ABC Atlas publishes.
-#'   If \code{NULL} (default), \code{"raw"} is used where the dataset
-#'   publishes it, otherwise \code{"log2"}.
+#' @param data_type Type of expression values, as in [fetch_data()]:
+#'   \code{"raw"}, \code{"log2"}, and for the spatial HMBA datasets
+#'   \code{"batch_normalized"} or \code{"ln"}. If \code{NULL} (default),
+#'   \code{"raw"} is used where the dataset publishes it, otherwise
+#'   \code{"log2"}.
 #' @param offline If \code{TRUE}, use only files already in the folder and
 #'   never connect to the internet.
 #' @return An \code{abc_fetch_plan} object, which prints as a report: a
@@ -750,6 +754,10 @@ print.abc_fetch_plan <- function(x, ...) {
     )
 }
 
+# Every data_type a dataset can offer: counts, log2 values, and for the
+# spatial HMBA datasets batch-normalized counts and their natural log.
+.abc_data_types <- c("raw", "log2", "batch_normalized", "ln")
+
 # Resolve an expression representation from dataset metadata.
 .abc_resolve_data_type <- function(data_type, metadata) {
     default <- attr(metadata, "abc_default_data_type")
@@ -770,14 +778,15 @@ print.abc_fetch_plan <- function(x, ...) {
         data_type <- default
     }
 
+    known <- paste(sprintf("'%s'", .abc_data_types), collapse = ", ")
     if (length(data_type) != 1L || is.na(data_type)) {
-        stop("data_type must be one of: 'raw', 'log2'.", call. = FALSE)
+        stop("data_type must be one of: ", known, ".", call. = FALSE)
     }
 
     data_type <- as.character(data_type)
 
-    if (!data_type %in% c("raw", "log2")) {
-        stop("data_type must be one of: 'raw', 'log2'.", call. = FALSE)
+    if (!data_type %in% .abc_data_types) {
+        stop("data_type must be one of: ", known, ".", call. = FALSE)
     }
 
     if (!data_type %in% available) {
@@ -1066,13 +1075,9 @@ print.abc_fetch_plan <- function(x, ...) {
 
 .abc_apply_expression_matrix_map <- function(
         matrix_labels,
-        cells
-) {
-    matrix_map <- attr(
         cells,
-        "abc_expression_matrix_map"
-    )
-
+        matrix_map = attr(cells, "abc_expression_matrix_map")
+) {
     if (is.null(matrix_map) || !length(matrix_map)) {
         return(matrix_labels)
     }
@@ -1108,14 +1113,27 @@ print.abc_fetch_plan <- function(x, ...) {
     matrix_labels
 }
 
-.abc_expression_matrix_labels <- function(cells) {
+.abc_expression_matrix_labels <- function(
+        cells, matrix_map = attr(cells, "abc_expression_matrix_map")) {
     matrix_labels <- .abc_validate_expression_matrix_labels(
         cells
     )
 
     .abc_apply_expression_matrix_map(
         matrix_labels = matrix_labels,
-        cells = cells
+        cells = cells,
+        matrix_map = matrix_map
+    )
+}
+
+# Published representation and matrix mapping behind a data_type. A data_type
+# without an entry in the dataset's expression types is read as published.
+.abc_expression_type_route <- function(cells, data_type) {
+    entry <- attr(cells, "abc_expression_types")[[data_type]]
+    list(
+        type = entry$type %||% data_type,
+        matrix_map = entry$matrix_map %||%
+            attr(cells, "abc_expression_matrix_map")
     )
 }
 
@@ -1250,7 +1268,9 @@ print.abc_fetch_plan <- function(x, ...) {
 }
 
 .abc_expression_files <- function(abc_cache, cells, data_type = "raw") {
-    matrix_labels <- .abc_expression_matrix_labels(cells)
+    route <- .abc_expression_type_route(cells, data_type)
+    data_type <- route$type
+    matrix_labels <- .abc_expression_matrix_labels(cells, route$matrix_map)
     pairs <- .abc_expression_route_pairs(
         abc_cache = abc_cache, cells = cells,
         matrix_labels = matrix_labels, data_type = data_type
@@ -1509,8 +1529,7 @@ print.abc_fetch_plan <- function(x, ...) {
     rows <- cols <- vals <- list()
     for (k in seq_len(nrow(files))) {
         pieces <- .abc_read_expression_file(
-            abc_cache, files[k, ], cells, gene_data, gene_sel, data_type,
-            block_size
+            abc_cache, files[k, ], cells, gene_data, gene_sel, block_size
         )
         rows <- c(rows, pieces$rows)
         cols <- c(cols, pieces$cols)
@@ -1538,12 +1557,11 @@ print.abc_fetch_plan <- function(x, ...) {
 # happens before the spinner starts so that curl's real download progress
 # display is never overwritten.
 .abc_read_expression_file <- function(
-        abc_cache, entry, cells, gene_data,
-        gene_sel, data_type, block_size) {
+        abc_cache, entry, cells, gene_data, gene_sel, block_size) {
     matrix_file <- entry$feature_matrix_label
     path <- abc_cache$get_file_path(
         directory = entry$dataset_label,
-        file_name = paste0(matrix_file, "/", data_type)
+        file_name = paste0(matrix_file, "/", entry$data_type)
     )
 
     spinner <- .abc_spinner_start(

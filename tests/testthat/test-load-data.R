@@ -113,7 +113,11 @@ test_that("registered datasets declare expression routing metadata", {
             info = dataset
         )
         expect_true(
-            all(spec$available_data_types %in% c("raw", "log2")),
+            all(spec$available_data_types %in% .abc_data_types),
+            info = dataset
+        )
+        expect_true(
+            all(names(spec$expression_types) %in% spec$available_data_types),
             info = dataset
         )
         expect_true(
@@ -735,11 +739,11 @@ test_that("HMBA species routes declare automatic species-specific sources", {
             spec$expression_directories,
             "HMBA-10xMultiome-BG"
         )
-        expect_identical(
-            spec$taxonomy,
-            "HMBA-BG-taxonomy-CCN20250428"
-        )
+        expect_identical(spec$taxonomy, "HMBA-BG-taxonomy")
         expect_identical(spec$gene$dir, "HMBA-10xMultiome-BG")
+        previous <- .abc_route_layouts(spec)[[2L]]
+        expect_identical(previous$taxonomy, "HMBA-BG-taxonomy-CCN20250428")
+        expect_identical(previous$cell$dir, "HMBA-10xMultiome-BG")
         expect_identical(spec$gene$file, want$gene)
 
         expect_identical(spec$subset$dir, "HMBA-10xMultiome-BG")
@@ -1220,35 +1224,63 @@ test_that("Zhuang spatial routes declare native sources", {
 })
 
 test_that("HMBA spatial routes declare native spatial sources", {
-    expected <- c(
-        HMBA_spatial_Human = "HMBA-MERSCOPE-H22.30.001-BG",
-        HMBA_spatial_Macaque = "HMBA-MERSCOPE-QM23.50.001-BG",
-        HMBA_spatial_Marmoset = "HMBA-Xenium-CJ23.56.004-BG"
+    expected <- list(
+        HMBA_spatial_Human = c(
+            "HMBA-BG-MERSCOPE-Human", "HMBA-MERSCOPE-H22.30.001-BG",
+            "MERSCOPE-H22.30.001-BG"
+        ),
+        HMBA_spatial_Macaque = c(
+            "HMBA-BG-MERSCOPE-Macaque", "HMBA-MERSCOPE-QM23.50.001-BG",
+            "MERSCOPE-QM23.50.001-BG"
+        ),
+        HMBA_spatial_Marmoset = c(
+            "HMBA-BG-Xenium-Marmoset", "HMBA-Xenium-CJ23.56.004-BG",
+            "Xenium-CJ23.56.004-BG"
+        )
     )
 
     for (route in names(expected)) {
-        directory <- unname(expected[[route]])
-        spec <- .abc_datasets[[route]]
+        want <- expected[[route]]
+        layouts <- .abc_route_layouts(.abc_datasets[[route]])
+        expect_length(layouts, 2L)
+        current <- layouts[[1L]]
+        previous <- layouts[[2L]]
 
-        expect_identical(spec$cell$dir, directory)
-        expect_identical(spec$gene$dir, directory)
-        expect_identical(spec$expression_directories, directory)
+        # Release 20261130 layout.
+        for (spec_dir in list(
+            current$cell$dir, current$gene$dir, current$expression_directories
+        )) {
+            expect_identical(spec_dir, want[[1L]])
+        }
+        expect_identical(current$taxonomy, "HMBA-BG-taxonomy")
+        expect_identical(
+            current$available_data_types, c("raw", "batch_normalized", "ln")
+        )
+        expect_identical(current$cell_membership$file, "mmc_results")
+        expect_identical(
+            current$expression_types$raw$matrix_map,
+            stats::setNames(want[[3L]], paste0(want[[3L]], "-batch-normalized"))
+        )
+        expect_identical(current$expression_types$ln$type, "ln")
 
-        expect_identical(
-            spec$taxonomy,
-            "HMBA-BG-taxonomy-CCN20250428"
-        )
+        # Release 20260711 layout.
+        for (spec_dir in list(
+            previous$cell$dir, previous$gene$dir,
+            previous$expression_directories
+        )) {
+            expect_identical(spec_dir, want[[2L]])
+        }
+        expect_identical(previous$taxonomy, "HMBA-BG-taxonomy-CCN20250428")
+        expect_identical(previous$available_data_types, c("raw", "log2"))
+        expect_null(previous$cell_membership)
+        expect_null(previous$expression_types)
+        expect_null(previous$previous_layout)
 
-        expect_identical(spec$default_data_type, "raw")
-        expect_identical(
-            spec$available_data_types,
-            c("raw", "log2")
-        )
-        expect_identical(
-            spec$modality,
-            "spatial_transcriptomics"
-        )
-        expect_true(spec$spatial)
+        for (spec in layouts) {
+            expect_identical(spec$default_data_type, "raw")
+            expect_identical(spec$modality, "spatial_transcriptomics")
+            expect_true(spec$spatial)
+        }
     }
 })
 
@@ -1370,8 +1402,9 @@ test_that("HMBA PatchSeq declares native log2-only sources", {
         spec$expression_directories,
         "HMBA-Macaque-PatchSeq"
     )
+    expect_identical(spec$taxonomy, "HMBA-BG-taxonomy")
     expect_identical(
-        spec$taxonomy,
+        .abc_route_layouts(spec)[[2L]]$taxonomy,
         "HMBA-BG-taxonomy-CCN20250428"
     )
 
@@ -1385,25 +1418,26 @@ test_that("HMBA PatchSeq declares native log2-only sources", {
     expect_false(spec$spatial)
 })
 
-test_that("aligned HMBA declares its authoritative shared taxonomy", {
-    spec <- .abc_datasets$HMBA
+test_that("cross-species HMBA declares its authoritative shared taxonomy", {
+    layouts <- .abc_route_layouts(.abc_datasets$HMBA)
+    spec <- layouts[[1L]]
+    previous <- layouts[[2L]]
 
-    expect_identical(
-        spec$cell$dir,
-        "HMBA-10xMultiome-BG-Aligned"
-    )
-    expect_identical(
-        spec$gene$dir,
-        "HMBA-10xMultiome-BG-Aligned"
-    )
-    expect_identical(
-        spec$expression_directories,
-        "HMBA-10xMultiome-BG-Aligned"
-    )
-    expect_identical(
-        spec$taxonomy,
-        "HMBA-BG-taxonomy-CCN20250428"
-    )
+    for (dir in list(
+        spec$cell$dir, spec$gene$dir, spec$expression_directories,
+        spec$joins[[1L]]$dir, spec$joins[[2L]]$dir
+    )) {
+        expect_identical(dir, "HMBA-10xMultiome-BG-Cross-Species")
+    }
+    expect_identical(spec$taxonomy, "HMBA-BG-taxonomy")
+
+    for (dir in list(
+        previous$cell$dir, previous$gene$dir, previous$expression_directories,
+        previous$joins[[1L]]$dir, previous$joins[[2L]]$dir
+    )) {
+        expect_identical(dir, "HMBA-10xMultiome-BG-Aligned")
+    }
+    expect_identical(previous$taxonomy, "HMBA-BG-taxonomy-CCN20250428")
 
     expect_true(
         all(
@@ -1532,8 +1566,85 @@ test_that("load_data explains a release that lacks a route directory", {
         ),
         paste0(
             "not available in ABC Atlas release ", fx$version,
-            ": the release has no 'TEST-renamed' directory"
+            ": the release has no directory named 'TEST-renamed'."
         ),
         fixed = TRUE
     )
+})
+
+test_that("routes without renamed directories have a single layout", {
+    for (dataset in c("WHB", "MERFISH", "HMBA_Subcortex_Marmoset")) {
+        layouts <- .abc_route_layouts(.abc_datasets[[dataset]])
+        expect_length(layouts, 1L)
+        expect_identical(layouts[[1L]], .abc_datasets[[dataset]])
+    }
+})
+
+test_that("the layout is chosen from the directories of the release", {
+    spec <- .abc_datasets$HMBA_spatial_Human
+    layouts <- .abc_route_layouts(spec)
+    cache_with <- function(dirs) {
+        listing <- stats::setNames(rep(list(list()), length(dirs)), dirs)
+        list(manifest = list(file_listing = listing), version = "99999999")
+    }
+
+    new <- cache_with(.abc_route_directories(layouts[[1L]]))
+    old <- cache_with(.abc_route_directories(layouts[[2L]]))
+    expect_identical(
+        .abc_route_for_release(spec, "HMBA_spatial_Human", new), layouts[[1L]]
+    )
+    expect_identical(
+        .abc_route_for_release(spec, "HMBA_spatial_Human", old), layouts[[2L]]
+    )
+    expect_error(
+        .abc_route_for_release(spec, "HMBA_spatial_Human", cache_with("X")),
+        paste0(
+            "release 99999999: the release has no directories named ",
+            "'HMBA-BG-taxonomy', 'HMBA-BG-MERSCOPE-Human'."
+        ),
+        fixed = TRUE
+    )
+})
+
+test_that("load_data reads a release in the previous layout", {
+    fx <- make_fixture_cache()
+    renamed <- .abc_rename_spec_directories(
+        fixture_spec, c("TEST-10X" = "TEST-NEW")
+    )
+    local_mocked_bindings(
+        .abc_datasets = list(TEST = renamed),
+        .abc_previous_layout_directories = c("TEST-NEW" = "TEST-10X")
+    )
+
+    out <- suppressMessages(load_data(
+        "TEST",
+        download_base = fx$dir, offline = TRUE, release = fx$version
+    ))
+    expect_identical(out$cell_metadata$cell_label, fx$cells$cell_label)
+    expect_identical(
+        attr(out$cell_metadata, "abc_expression_directories"), "TEST-10X"
+    )
+})
+
+test_that("a declared membership table supplies the cluster alias", {
+    fx <- make_fixture_cache()
+    # Reversed aliases, and a column that must not be joined.
+    add_fixture_table(fx, "TEST-10X", "mmc_results", data.frame(
+        cell_label = fx$cells$cell_label,
+        Class = "not joined",
+        cluster_alias = ifelse(fx$cells$cluster_alias == 1L, 2L, 1L)
+    ))
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
+    spec <- fixture_spec
+    spec$cell_membership <- list(
+        file = "mmc_results", columns = c("cell_label", "cluster_alias")
+    )
+
+    cm <- suppressMessages(.build_dataset(spec, cache, "TEST"))$cell_metadata
+    expect_identical(
+        cm$cluster_alias,
+        ifelse(fx$cells$cluster_alias == 1L, "2", "1")
+    )
+    expect_identical(cm$cluster, ifelse(cm$cluster_alias == "1", "cl1", "cl2"))
+    expect_false("Class" %in% names(cm))
 })

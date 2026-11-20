@@ -17,8 +17,9 @@
 #'     \item{\code{imputed}}{Whether the expression values are imputed
 #'       rather than measured.}
 #'     \item{\code{default_data_type}, \code{available_data_types}}{The
-#'       type of expression values used by default (\code{"raw"} or
-#'       \code{"log2"}) and the types the ABC Atlas publishes.}
+#'       type of expression values used by default and all the types the
+#'       dataset offers (see the \code{data_type} argument of
+#'       [fetch_data()]).}
 #'     \item{\code{cell_directory}, \code{gene_directory},
 #'       \code{taxonomy}, \code{expression_directories}}{The ABC Atlas
 #'       folders the dataset is read from.}

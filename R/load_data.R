@@ -17,6 +17,40 @@
 #   joins            ordered list of list(dir, file, key, suffix) left-joins
 #   gene             list(dir, file = "gene")
 #   cols_of_interest columns to summarise into `unique_values`
+#   cell_membership  list(file, columns): table in the cell directory that
+#                    gives each cell's cluster_alias, when it is not
+#                    cell_to_cluster_membership
+#   expression_types named list, one entry per data_type that is not read as
+#                    published: list(type, matrix_map), where `type` is the
+#                    published representation and `matrix_map` maps the
+#                    cells' feature_matrix_label to the matrix to read
+#   previous_layout  fields that differ in the layout of release 20260711;
+#                    see .abc_route_layouts()
+
+# Data types of the spatial HMBA datasets from release 20261031 on: the cells
+# point to the batch-normalized matrix, which holds batch-normalized counts
+# ("raw") and their natural log ("ln"); counts are in a separate matrix.
+.abc_batch_normalized_types <- function(matrix) {
+    list(
+        raw = list(
+            type = "raw",
+            matrix_map = stats::setNames(
+                matrix, paste0(matrix, "-batch-normalized")
+            )
+        ),
+        batch_normalized = list(type = "raw"),
+        ln = list(type = "ln")
+    )
+}
+
+# Spatial HMBA datasets in the layout of release 20260711: counts and log2
+# values, and a cell_to_cluster_membership table in the cell directory.
+.abc_hmba_spatial_20260711 <- list(
+    available_data_types = c("raw", "log2"),
+    expression_types = NULL,
+    cell_membership = NULL
+)
+
 .abc_datasets <- list(
     WHB = list(
         default_data_type = "raw",
@@ -150,28 +184,28 @@
     HMBA = list(
         default_data_type = "raw",
         available_data_types = c("raw", "log2"),
-        expression_directories = "HMBA-10xMultiome-BG-Aligned",
+        expression_directories = "HMBA-10xMultiome-BG-Cross-Species",
         modality = "single_nucleus_transcriptomics",
         spatial = FALSE,
         cell = list(
-            dir = "HMBA-10xMultiome-BG-Aligned",
+            dir = "HMBA-10xMultiome-BG-Cross-Species",
             col_classes = c(cell_label = "character")
         ),
-        taxonomy = "HMBA-BG-taxonomy-CCN20250428",
+        taxonomy = "HMBA-BG-taxonomy",
         joins = list(
             list(
-                dir = "HMBA-10xMultiome-BG-Aligned",
+                dir = "HMBA-10xMultiome-BG-Cross-Species",
                 file = "donor",
                 key = "donor_label"
             ),
             list(
-                dir = "HMBA-10xMultiome-BG-Aligned",
+                dir = "HMBA-10xMultiome-BG-Cross-Species",
                 file = "library",
                 key = "library_label",
                 column_suffix = "_library_table"
             )
         ),
-        gene = list(dir = "HMBA-10xMultiome-BG-Aligned"),
+        gene = list(dir = "HMBA-10xMultiome-BG-Cross-Species"),
         cols_of_interest = c(
             "species_scientific_name",
             "species_common_name",
@@ -203,7 +237,7 @@
             column = "species_genus",
             value = "Human"
         ),
-        taxonomy = "HMBA-BG-taxonomy-CCN20250428",
+        taxonomy = "HMBA-BG-taxonomy",
         gene = list(
             dir = "HMBA-10xMultiome-BG",
             file = "human_gene"
@@ -235,7 +269,7 @@
             column = "species_genus",
             value = "Macaque"
         ),
-        taxonomy = "HMBA-BG-taxonomy-CCN20250428",
+        taxonomy = "HMBA-BG-taxonomy",
         gene = list(
             dir = "HMBA-10xMultiome-BG",
             file = "macaque_gene"
@@ -267,7 +301,7 @@
             column = "species_genus",
             value = "Marmoset"
         ),
-        taxonomy = "HMBA-BG-taxonomy-CCN20250428",
+        taxonomy = "HMBA-BG-taxonomy",
         gene = list(
             dir = "HMBA-10xMultiome-BG",
             file = "marmoset_gene"
@@ -293,7 +327,7 @@
             col_classes = c(cell_label = "character")
         ),
         auto_joins = TRUE,
-        taxonomy = "HMBA-BG-taxonomy-CCN20250428",
+        taxonomy = "HMBA-BG-taxonomy",
         gene = list(dir = "HMBA-Macaque-PatchSeq"),
         cols_of_interest = c(
             "library_technique",
@@ -312,16 +346,24 @@
     ),
     HMBA_spatial_Human = list(
         default_data_type = "raw",
-        available_data_types = c("raw", "log2"),
-        expression_directories = "HMBA-MERSCOPE-H22.30.001-BG",
+        available_data_types = c("raw", "batch_normalized", "ln"),
+        expression_types = .abc_batch_normalized_types(
+            "MERSCOPE-H22.30.001-BG"
+        ),
+        expression_directories = "HMBA-BG-MERSCOPE-Human",
         modality = "spatial_transcriptomics",
         spatial = TRUE,
         cell = list(
-            dir = "HMBA-MERSCOPE-H22.30.001-BG",
+            dir = "HMBA-BG-MERSCOPE-Human",
             col_classes = c(cell_label = "character")
         ),
-        taxonomy = "HMBA-BG-taxonomy-CCN20250428",
-        gene = list(dir = "HMBA-MERSCOPE-H22.30.001-BG"),
+        cell_membership = list(
+            file = "mmc_results",
+            columns = c("cell_label", "cluster_alias")
+        ),
+        previous_layout = .abc_hmba_spatial_20260711,
+        taxonomy = "HMBA-BG-taxonomy",
+        gene = list(dir = "HMBA-BG-MERSCOPE-Human"),
         cols_of_interest = c(
             "brain_section_label",
             "x_experiment",
@@ -338,16 +380,24 @@
     ),
     HMBA_spatial_Macaque = list(
         default_data_type = "raw",
-        available_data_types = c("raw", "log2"),
-        expression_directories = "HMBA-MERSCOPE-QM23.50.001-BG",
+        available_data_types = c("raw", "batch_normalized", "ln"),
+        expression_types = .abc_batch_normalized_types(
+            "MERSCOPE-QM23.50.001-BG"
+        ),
+        expression_directories = "HMBA-BG-MERSCOPE-Macaque",
         modality = "spatial_transcriptomics",
         spatial = TRUE,
         cell = list(
-            dir = "HMBA-MERSCOPE-QM23.50.001-BG",
+            dir = "HMBA-BG-MERSCOPE-Macaque",
             col_classes = c(cell_label = "character")
         ),
-        taxonomy = "HMBA-BG-taxonomy-CCN20250428",
-        gene = list(dir = "HMBA-MERSCOPE-QM23.50.001-BG"),
+        cell_membership = list(
+            file = "mmc_results",
+            columns = c("cell_label", "cluster_alias")
+        ),
+        previous_layout = .abc_hmba_spatial_20260711,
+        taxonomy = "HMBA-BG-taxonomy",
+        gene = list(dir = "HMBA-BG-MERSCOPE-Macaque"),
         cols_of_interest = c(
             "brain_section_label",
             "x_experiment",
@@ -364,20 +414,30 @@
     ),
     HMBA_spatial_Marmoset = list(
         default_data_type = "raw",
-        available_data_types = c("raw", "log2"),
-        expression_directories = "HMBA-Xenium-CJ23.56.004-BG",
+        available_data_types = c("raw", "batch_normalized", "ln"),
+        expression_types = .abc_batch_normalized_types(
+            "Xenium-CJ23.56.004-BG"
+        ),
+        expression_directories = "HMBA-BG-Xenium-Marmoset",
         modality = "spatial_transcriptomics",
         spatial = TRUE,
         cell = list(
-            dir = "HMBA-Xenium-CJ23.56.004-BG",
+            dir = "HMBA-BG-Xenium-Marmoset",
             col_classes = c(cell_label = "character")
         ),
-        taxonomy = "HMBA-BG-taxonomy-CCN20250428",
-        gene = list(dir = "HMBA-Xenium-CJ23.56.004-BG"),
+        cell_membership = list(
+            file = "mmc_results",
+            columns = c("cell_label", "cluster_alias")
+        ),
+        previous_layout = .abc_hmba_spatial_20260711,
+        taxonomy = "HMBA-BG-taxonomy",
+        gene = list(dir = "HMBA-BG-Xenium-Marmoset"),
         cols_of_interest = c(
             "brain_section_label",
             "x_experiment",
             "y_experiment",
+            "x_rotated_mm",
+            "y_rotated_mm",
             "x_rotated_um",
             "y_rotated_um",
             "x_slab_mm",
@@ -386,6 +446,71 @@
             "Neighborhood",
             "Class",
             "Subclass",
+            "Group",
+            "Cluster"
+        )
+    ),
+    HMBA_Subcortex_Marmoset = list(
+        default_data_type = "raw",
+        available_data_types = c("raw", "log2"),
+        expression_directories = "HMBA-Subcortex-10xMultiome-Marmoset",
+        modality = "single_nucleus_transcriptomics",
+        spatial = FALSE,
+        cell = list(
+            dir = "HMBA-Subcortex-10xMultiome-Marmoset",
+            col_classes = c(cell_label = "character")
+        ),
+        taxonomy = "HMBA-Subcortex-taxonomy-Marmoset",
+        joins = list(
+            list(
+                dir = "HMBA-Subcortex-10xMultiome-Marmoset",
+                file = "barcoded_cell_sample",
+                key = "barcoded_cell_sample_label",
+                column_suffix = "_sample_table"
+            ),
+            list(
+                dir = "HMBA-Subcortex-10xMultiome-Marmoset",
+                file = "donor",
+                key = "donor_label"
+            )
+        ),
+        gene = list(dir = "HMBA-Subcortex-10xMultiome-Marmoset"),
+        cols_of_interest = c(
+            "donor_label",
+            "donor_sex",
+            "donor_age",
+            "region_of_interest_name",
+            "anatomical_division_label",
+            "Class",
+            "Group",
+            "Cluster"
+        )
+    ),
+    HMBA_spatial_Subcortex_Marmoset = list(
+        default_data_type = "raw",
+        available_data_types = c("raw", "batch_normalized", "ln"),
+        expression_types = .abc_batch_normalized_types(
+            "Xenium-CJ23.56.004-Subcortex"
+        ),
+        expression_directories = "HMBA-Subcortex-Xenium-Marmoset",
+        modality = "spatial_transcriptomics",
+        spatial = TRUE,
+        cell = list(
+            dir = "HMBA-Subcortex-Xenium-Marmoset",
+            col_classes = c(cell_label = "character")
+        ),
+        taxonomy = "HMBA-Subcortex-taxonomy-Marmoset",
+        gene = list(dir = "HMBA-Subcortex-Xenium-Marmoset"),
+        cols_of_interest = c(
+            "brain_section_label",
+            "x_experiment",
+            "y_experiment",
+            "x_rotated_mm",
+            "y_rotated_mm",
+            "x_slab_mm",
+            "y_slab_mm",
+            "parcellation_term_symbol",
+            "Class",
             "Group",
             "Cluster"
         )
@@ -654,9 +779,10 @@
 #'   never connect to the internet.
 #' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 #'   `r .abc_default_release`, the release validated against this package.
-#'   Metadata are read from exactly that release. If a release lacks a
-#'   folder the dataset needs, for example because it was renamed, loading
-#'   stops with a message.
+#'   Metadata are read from exactly that release. Release 20261031 renamed
+#'   the folders of the HMBA datasets; releases from before that are read
+#'   with the earlier folder names. If a release lacks a folder the dataset
+#'   needs, loading stops with a message.
 #' @return An \code{abc_data} object: a list of class
 #'   \code{c("abc_data", "list")} with these elements:
 #'   \describe{
@@ -703,7 +829,7 @@ load_data <- function(
         download_base,
         offline = offline, release = release
     )
-    .abc_check_route_release(spec, dataset, abc_cache)
+    spec <- .abc_route_for_release(spec, dataset, abc_cache)
 
     out <- .build_dataset(spec, abc_cache, dataset)
     rownames(out$cell_metadata) <- as.character(out$cell_metadata$cell_label)
@@ -779,22 +905,64 @@ print.abc_data <- function(x, ...) {
     unique(c(spec$taxonomy, spec$expression_directories, dir_entries(spec)))
 }
 
-# Stop when the requested release lacks a directory the route reads, for
-# example because a later ABC Atlas release renamed it.
-.abc_check_route_release <- function(spec, dataset, abc_cache) {
-    missing <- setdiff(
-        .abc_route_directories(spec), names(abc_cache$manifest$file_listing)
-    )
-    if (!length(missing)) {
-        return(invisible(TRUE))
+# Directories that release 20261031 renamed: current name = name in release
+# 20260711 and earlier.
+.abc_previous_layout_directories <- c(
+    "HMBA-BG-taxonomy" = "HMBA-BG-taxonomy-CCN20250428",
+    "HMBA-10xMultiome-BG-Cross-Species" = "HMBA-10xMultiome-BG-Aligned",
+    "HMBA-BG-MERSCOPE-Human" = "HMBA-MERSCOPE-H22.30.001-BG",
+    "HMBA-BG-MERSCOPE-Macaque" = "HMBA-MERSCOPE-QM23.50.001-BG",
+    "HMBA-BG-Xenium-Marmoset" = "HMBA-Xenium-CJ23.56.004-BG"
+)
+
+# Replace renamed directory names anywhere in a spec.
+.abc_rename_spec_directories <- function(x, renamed) {
+    if (is.list(x)) {
+        x[] <- lapply(x, .abc_rename_spec_directories, renamed = renamed)
+        return(x)
     }
+    if (is.character(x)) {
+        hit <- x %in% names(renamed)
+        x[hit] <- unname(renamed[x[hit]])
+    }
+    x
+}
+
+# The layouts a route can be read from, newest first: the current one and,
+# where it differs, the layout of release 20260711.
+.abc_route_layouts <- function(spec) {
+    previous <- spec$previous_layout
+    spec$previous_layout <- NULL
+    if (!is.null(previous)) {
+        previous <- utils::modifyList(spec, previous)
+    } else {
+        previous <- spec
+    }
+    previous <- .abc_rename_spec_directories(
+        previous, .abc_previous_layout_directories
+    )
+    if (identical(previous, spec)) list(spec) else list(spec, previous)
+}
+
+# The layout of the route that matches the requested release. A release that
+# has the directories of no layout is refused with the ones it lacks.
+.abc_route_for_release <- function(spec, dataset, abc_cache) {
+    listed <- names(abc_cache$manifest$file_listing)
+    layouts <- .abc_route_layouts(spec)
+    for (layout in layouts) {
+        if (all(.abc_route_directories(layout) %in% listed)) {
+            return(layout)
+        }
+    }
+    missing <- setdiff(.abc_route_directories(layouts[[1L]]), listed)
     stop(
         "Dataset '", dataset, "' is not available in ABC Atlas release ",
         abc_cache$version, ": the release has no ",
+        if (length(missing) > 1L) "directories" else "directory", " named ",
         paste0("'", missing, "'", collapse = ", "),
-        " directory (later releases renamed some directories). This route ",
-        "is validated against release ", .abc_default_release,
-        "; use release = \"", .abc_default_release, "\".",
+        ". This dataset is validated against release ",
+        .abc_default_release, "; use release = \"",
+        .abc_default_release, "\".",
         call. = FALSE
     )
 }
@@ -1036,22 +1204,28 @@ print.abc_data <- function(x, ...) {
 
 .abc_apply_taxonomy_membership <- function(
         cell_metadata, cell_dir,
-        taxonomy_dir, abc_cache) {
+        taxonomy_dir, abc_cache, cell_membership = NULL) {
     membership_dir <- NULL
-    for (candidate in c(cell_dir, taxonomy_dir)) {
-        if (.abc_metadata_exists(
-            abc_cache, candidate,
-            "cell_to_cluster_membership"
-        )) {
-            membership_dir <- candidate
-            break
+    membership_file <- "cell_to_cluster_membership"
+    if (!is.null(cell_membership)) {
+        membership_dir <- cell_dir
+        membership_file <- cell_membership$file
+    } else {
+        for (candidate in c(cell_dir, taxonomy_dir)) {
+            if (.abc_metadata_exists(abc_cache, candidate, membership_file)) {
+                membership_dir <- candidate
+                break
+            }
         }
     }
 
     if (!is.null(membership_dir)) {
         membership <- abc_cache$get_metadata_dataframe(
-            directory = membership_dir, file_name = "cell_to_cluster_membership"
+            directory = membership_dir, file_name = membership_file
         )
+        if (!is.null(cell_membership$columns)) {
+            membership <- membership[, cell_membership$columns, drop = FALSE]
+        }
         if ("cluster_alias" %in% names(cell_metadata)) {
             names(cell_metadata)[names(cell_metadata) == "cluster_alias"] <-
                 "cluster_alias_original"
@@ -1107,13 +1281,15 @@ print.abc_data <- function(x, ...) {
         cell_metadata,
         cell_dir,
         taxonomy_dir,
-        abc_cache
+        abc_cache,
+        cell_membership = NULL
 ) {
     cell_metadata <- .abc_apply_taxonomy_membership(
         cell_metadata = cell_metadata,
         cell_dir = cell_dir,
         taxonomy_dir = taxonomy_dir,
-        abc_cache = abc_cache
+        abc_cache = abc_cache,
+        cell_membership = cell_membership
     )
 
     .abc_join_taxonomy_annotations(
@@ -1130,6 +1306,7 @@ print.abc_data <- function(x, ...) {
 ) {
     spatial_files <- c(
         "slab_plane_coordinates",
+        "rotated_coordinates",
         "cell_anatomical_annotations"
     )
 
@@ -1276,6 +1453,10 @@ print.abc_data <- function(x, ...) {
     ) <- spec$expression_matrix_map
     attr(
         cell_metadata,
+        "abc_expression_types"
+    ) <- spec$expression_types
+    attr(
+        cell_metadata,
         "abc_modality"
     ) <- spec$modality
     attr(
@@ -1300,7 +1481,8 @@ print.abc_data <- function(x, ...) {
             cell_metadata = cell_metadata,
             cell_dir = spec$cell$dir,
             taxonomy_dir = spec$taxonomy,
-            abc_cache = abc_cache
+            abc_cache = abc_cache,
+            cell_membership = spec$cell_membership
         )
     }
 

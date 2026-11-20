@@ -19,7 +19,7 @@ never connect to the internet. The release must have been used online
 once before.}
 
 \item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to
-20260711, the release validated against this package.
+20261130, the release validated against this package.
 \code{NULL} selects the release as described in Details.}
 }
 \value{

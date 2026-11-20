@@ -16,7 +16,7 @@
 # Manifest versions the loaders understand (same window as abc_atlas_access).
 .abc_manifest_compatibility <- c("20230101", "20300101")
 # ABC Atlas release validated against this package's dataset registry.
-.abc_default_release <- "20260711"
+.abc_default_release <- "20261130"
 # Strings pandas.read_csv treats as missing by default; reused so metadata
 # tables have the same missing values as with the Python package.
 .abc_na_strings <- c(

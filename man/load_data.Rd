@@ -23,10 +23,11 @@ of them. The start of a name is enough if it matches only one dataset.}
 never connect to the internet.}
 
 \item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to
-20260711, the release validated against this package.
-Metadata are read from exactly that release. If a release lacks a
-folder the dataset needs, for example because it was renamed, loading
-stops with a message.}
+20261130, the release validated against this package.
+Metadata are read from exactly that release. Release 20261031 renamed
+the folders of the HMBA datasets; releases from before that are read
+with the earlier folder names. If a release lacks a folder the dataset
+needs, loading stops with a message.}
 }
 \value{
 An \code{abc_data} object: a list of class

@@ -2353,3 +2353,60 @@ test_that("cell metadata without routing information is refused", {
         "no expression routing information"
     )
 })
+
+test_that("a data type can read another published matrix", {
+    fx <- make_fixture_cache()
+    cells <- fx$cells
+    attr(cells, "abc_available_data_types") <-
+        c("raw", "batch_normalized", "ln")
+    attr(cells, "abc_expression_types") <- list(
+        raw = list(type = "raw"),
+        batch_normalized = list(
+            type = "raw", matrix_map = c("TEST-A" = "TEST-B")
+        ),
+        ln = list(type = "log2")
+    )
+    data <- fixture_data(fx, cells = cells)
+
+    ln <- plan_fetch(data, data_type = "ln", offline = TRUE)
+    expect_identical(ln$data_type, "ln")
+    expect_true(all(ln$files$data_type == "log2"))
+    expect_match(ln$files$relative_path, "-log2\\.h5ad$")
+
+    normalized <- plan_fetch(
+        data, data_type = "batch_normalized", offline = TRUE
+    )
+    expect_identical(normalized$files$feature_matrix_label, "TEST-B")
+    expect_identical(normalized$files$n_cells, 6L)
+
+    obj <- suppressMessages(fetch_data(
+        data, cell_ids = c("c1", "c4"), data_type = "ln", offline = TRUE
+    ))
+    expect_identical(obj$data_type, "ln")
+    expect_equal(
+        as.matrix(obj$expression),
+        fx$truth_log2[, c("c1", "c4")]
+    )
+    expect_error(
+        plan_fetch(data, data_type = "log2", offline = TRUE),
+        "does not publish data_type='log2'",
+        fixed = TRUE
+    )
+})
+
+test_that("assays are named counts for raw and by data type otherwise", {
+    m <- Matrix::Matrix(0, 1, 1, sparse = TRUE)
+    expect_named(.abc_bioc_assays(m, "raw"), "counts")
+    expect_named(.abc_bioc_assays(m, "log2"), "log2")
+    expect_named(.abc_bioc_assays(m, "ln"), "ln")
+})
+
+test_that("rotated coordinates in mm are preferred to um", {
+    md <- data.frame(
+        cell_label = "a", x_rotated_um = 1, y_rotated_um = 2,
+        x_rotated_mm = 3, y_rotated_mm = 4
+    )
+    expect_identical(
+        .abc_default_spatial_columns(md), c("x_rotated_mm", "y_rotated_mm")
+    )
+})

@@ -31,9 +31,13 @@ gene in \code{data$gene_data} is returned.}
 
 \item{data_type}{Type of expression values: \code{"raw"} for counts or
 \code{"log2"} for the log2-transformed values the ABC Atlas publishes.
-If \code{NULL} (default), \code{"raw"} is used where the dataset
-publishes it, otherwise \code{"log2"}. Values are returned as
-published; log2 values are not converted back to counts.}
+The spatial HMBA datasets instead offer \code{"raw"},
+\code{"batch_normalized"} (counts normalized for differences between
+batches) and \code{"ln"} (the natural log of the batch-normalized
+values). \code{\link[=list_datasets]{list_datasets()}} shows the types of each dataset. If
+\code{NULL} (default), \code{"raw"} is used where the dataset publishes
+it, otherwise \code{"log2"}. Values are returned as published; they
+are never converted from one type to another.}
 
 \item{return_type}{Form of the result: \code{"matrix"} (default) for a
 sparse matrix with its cell and gene tables, \code{"sce"} for a
@@ -60,7 +64,8 @@ Rows are named by \code{gene_identifier}, columns by
 cell, in the order of the matrix columns.}
 \item{\code{gene_data}}{Data frame with one row per selected gene,
 in the order of the matrix rows.}
-\item{\code{data_type}}{\code{"raw"} or \code{"log2"}.}
+\item{\code{data_type}}{The type of expression values, as in the
+\code{data_type} argument.}
 \item{\code{provenance}}{List recording where the data come from:
 \code{dataset}, \code{release}, \code{data_type},
 \code{modality}, \code{spatial}, \code{expression_directories},
@@ -69,7 +74,8 @@ in the order of the matrix rows.}
 
 For \code{"sce"}, a SingleCellExperiment, and for \code{"spatial"}, a
 SpatialExperiment. The expression is in the \code{counts} assay for raw
-data and in the \code{log2} assay for log2 data, the cell and gene
+data and otherwise in an assay named after the data type (for example
+\code{log2} or \code{ln}), the cell and gene
 metadata are in \code{colData} and \code{rowData}, and the provenance
 list is in \code{metadata(x)$ABCatlasR}. A SpatialExperiment also holds
 the spatial coordinates in \code{spatialCoords}, and its provenance

@@ -13,10 +13,11 @@ plan_fetch(data, cell_ids = NULL, data_type = NULL, offline = FALSE)
 of \code{data$cell_metadata}. If \code{NULL} (default), every cell of
 the dataset is included.}
 
-\item{data_type}{Type of expression values: \code{"raw"} for counts or
-\code{"log2"} for the log2-transformed values the ABC Atlas publishes.
-If \code{NULL} (default), \code{"raw"} is used where the dataset
-publishes it, otherwise \code{"log2"}.}
+\item{data_type}{Type of expression values, as in \code{\link[=fetch_data]{fetch_data()}}:
+\code{"raw"}, \code{"log2"}, and for the spatial HMBA datasets
+\code{"batch_normalized"} or \code{"ln"}. If \code{NULL} (default),
+\code{"raw"} is used where the dataset publishes it, otherwise
+\code{"log2"}.}
 
 \item{offline}{If \code{TRUE}, use only files already in the folder and
 never connect to the internet.}

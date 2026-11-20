@@ -2,7 +2,7 @@ test_that("list_datasets exposes every native route exactly once", {
     out <- list_datasets()
 
     expect_s3_class(out, "data.frame")
-    expect_equal(nrow(out), 23L)
+    expect_equal(nrow(out), 25L)
 
     expect_identical(
         out$dataset,
@@ -113,6 +113,7 @@ test_that("list_datasets identifies spatial and imputed routes", {
             "HMBA_spatial_Human",
             "HMBA_spatial_Macaque",
             "HMBA_spatial_Marmoset",
+            "HMBA_spatial_Subcortex_Marmoset",
             "Zhuang1",
             "Zhuang2",
             "Zhuang3",
@@ -148,7 +149,7 @@ test_that("list_datasets is dependency-light and deterministic", {
     second <- list_datasets()
 
     expect_identical(first, second)
-    expect_equal(nrow(first), 23L)
+    expect_equal(nrow(first), 25L)
 })
 
 test_that("list_datasets returns a printable catalog object", {
@@ -165,7 +166,7 @@ test_that("list_datasets returns a printable catalog object", {
 
     expect_output(
         print(out),
-        "ABC Atlas datasets: 23 routes \\(9 spatial, 1 imputed\\)"
+        "ABC Atlas datasets: 25 routes \\(10 spatial, 1 imputed\\)"
     )
 
     expect_output(
@@ -179,7 +180,7 @@ test_that("catalog remains an ordinary subsettable data frame", {
 
     spatial <- out[out$spatial, , drop = FALSE]
 
-    expect_equal(nrow(spatial), 9L)
+    expect_equal(nrow(spatial), 10L)
     expect_true(all(spatial$spatial))
 
     expect_setequal(
