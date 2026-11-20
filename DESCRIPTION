@@ -36,15 +36,14 @@ Authors@R: c(
 Description: Provides an R-native, release-aware interface to the Allen Brain
     Cell (ABC) Atlas <https://brain-map.org/bkp/explore/abc-atlas>.
     Discovers supported dataset routes, assembles validated cell and gene
-    metadata, selects exact or sampled cell populations, plans expression
-    requests before transfer, and reads selected H5AD expression directly in
-    R. Expression can be returned as a sparse matrix bundle, a
+    metadata, reports the expression files and disk space a request needs,
+    and reads the expression of selected cells and genes from H5AD files
+    directly in R. Expression can be returned as a sparse matrix bundle, a
     SingleCellExperiment, or a SpatialExperiment object. The package
-    preserves source representation and provenance, distinguishes raw counts
-    from upstream transformed or imputed expression, and requires no Python
-    installation. Atlas files are downloaded on first use and cached
-    locally, so an internet connection is needed the first time each file
-    is accessed.
+    preserves source representation and provenance and distinguishes raw
+    counts from upstream transformed or imputed expression. Atlas files are
+    downloaded on first use and cached locally, so an internet connection is
+    needed the first time each file is accessed.
 License: MIT + file LICENSE
 URL: https://github.com/me37uday/ABCatlasR
 BugReports: https://github.com/me37uday/ABCatlasR/issues
