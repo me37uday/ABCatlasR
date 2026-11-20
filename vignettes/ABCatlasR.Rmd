@@ -589,7 +589,10 @@ Cells from the same donor or sample are not independent biological replicates.
 For statistical comparisons, identify the appropriate independent experimental
 unit from the metadata of the dataset being analyzed.
 
-# References
+<!-- Two spaces after "#": BiocStyle adds an "Appendix" header after a
+heading that starts with "# References" when anything follows it. -->
+
+#  References
 
 -   Allen Institute for Brain Science. *Allen Brain Cell Atlas*
     (RRID:SCR_024440).
