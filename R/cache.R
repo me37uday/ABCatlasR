@@ -134,7 +134,8 @@ abc_cache_connect <- function(
     if (length(release) != 1L || is.na(release) ||
         !grepl("^[0-9]{8}$", release)) {
         stop(
-            "'release' must be a single date-like version such as '20260711'.",
+            "'release' must be a single date-like version such as '",
+            .abc_default_release, "'.",
             call. = FALSE
         )
     }

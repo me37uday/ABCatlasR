@@ -1418,51 +1418,25 @@ print.abc_data <- function(x, ...) {
     gene
 }
 
-.abc_finalize_dataset <- function(
-        cell_metadata,
-        gene_data,
-        spec,
-        dataset
-) {
-    cols <- intersect(
-        spec$cols_of_interest,
-        colnames(cell_metadata)
-    )
+.abc_finalize_dataset <- function(cell_metadata, gene_data, spec, dataset) {
+    cols <- intersect(spec$cols_of_interest, colnames(cell_metadata))
+    unique_values <- lapply(cell_metadata[cols], unique)
 
-    unique_values <- lapply(
-        cell_metadata[cols],
-        unique
+    # Attributes that tell plan_fetch() and fetch_data() how to read the
+    # expression of these cells.
+    routing <- list(
+        abc_dataset = dataset,
+        abc_default_data_type = spec$default_data_type,
+        abc_available_data_types = spec$available_data_types,
+        abc_expression_directories = spec$expression_directories,
+        abc_expression_matrix_map = spec$expression_matrix_map,
+        abc_expression_types = spec$expression_types,
+        abc_modality = spec$modality,
+        abc_spatial = spec$spatial
     )
-
-    attr(cell_metadata, "abc_dataset") <- dataset
-    attr(
-        cell_metadata,
-        "abc_default_data_type"
-    ) <- spec$default_data_type
-    attr(
-        cell_metadata,
-        "abc_available_data_types"
-    ) <- spec$available_data_types
-    attr(
-        cell_metadata,
-        "abc_expression_directories"
-    ) <- spec$expression_directories
-    attr(
-        cell_metadata,
-        "abc_expression_matrix_map"
-    ) <- spec$expression_matrix_map
-    attr(
-        cell_metadata,
-        "abc_expression_types"
-    ) <- spec$expression_types
-    attr(
-        cell_metadata,
-        "abc_modality"
-    ) <- spec$modality
-    attr(
-        cell_metadata,
-        "abc_spatial"
-    ) <- spec$spatial
+    for (name in names(routing)) {
+        attr(cell_metadata, name) <- routing[[name]]
+    }
 
     list(
         cell_metadata = cell_metadata,
