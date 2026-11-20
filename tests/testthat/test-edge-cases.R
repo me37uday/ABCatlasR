@@ -2,10 +2,8 @@
 # These tests were written against the pre-refactor code and must keep passing
 # after the functions involved are split into helpers.
 
-example_inputs <- function() {
-    example_dir <- system.file("extdata", "ex", package = "ABCatlasR")
-    example_data <- readRDS(file.path(example_dir, "example-data.rds"))
-    list(dir = example_dir, data = example_data)
+example_dir <- function() {
+    system.file("extdata", "ex", package = "ABCatlasR")
 }
 
 s3_listing_page <- function(prefixes, truncated, token = NULL) {
@@ -73,8 +71,7 @@ test_that("plan_fetch uses the package release when data records none", {
 })
 
 test_that("release = NULL selects the latest local manifest offline", {
-    ex <- example_inputs()
-    cache <- abc_cache_connect(ex$dir, offline = TRUE, release = NULL)
+    cache <- abc_cache_connect(example_dir(), offline = TRUE, release = NULL)
     expect_identical(cache$manifest_name, "releases/20250101/manifest.json")
     expect_s3_class(cache, "abc_cache")
 })

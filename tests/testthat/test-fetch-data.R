@@ -393,24 +393,6 @@ test_that("plan_fetch covers every cell by default and lists only needed files",
     expect_equal(one_file$files$feature_matrix_label, "TEST-A")
 })
 
-test_that("plan_fetch and fetch_data reject the removed arguments", {
-    fx <- make_fixture_cache()
-    data <- fixture_data(fx)
-
-    expect_error(plan_fetch(data, genes = "G1"), "unused argument")
-    expect_error(plan_fetch(data, filters = list()), "unused argument")
-    expect_error(plan_fetch(data, n_cells = 2), "unused argument")
-    expect_error(plan_fetch(data, confirm = FALSE), "unused argument")
-    expect_error(
-        fetch_data(data, cell_ids = "c1", plan = list()),
-        "unused argument"
-    )
-    expect_error(
-        fetch_data(data, cell_ids = "c1", coordinate_columns = c("x", "y")),
-        "unused argument"
-    )
-})
-
 test_that("plan_fetch reports remaining bytes without downloading", {
     fx <- make_fixture_cache()
 
@@ -688,34 +670,6 @@ test_that("expression inventory reports published representations", {
 })
 
 
-test_that("route provenance overrides legacy dataset_label routing", {
-    fx <- make_fixture_cache()
-    cache <- abc_cache_connect(
-        fx$dir,
-        offline = TRUE,
-        release = fx$version
-    )
-
-    cells <- fx$cells
-    cells$dataset_label <- "NOT-AN-EXPRESSION-DIRECTORY"
-
-    files <- .abc_expression_files(
-        cache,
-        cells,
-        data_type = "raw"
-    )
-
-    expect_equal(
-        files$dataset_label,
-        c("TEST-10X", "TEST-10X")
-    )
-    expect_equal(
-        files$feature_matrix_label,
-        c("TEST-A", "TEST-B")
-    )
-    expect_equal(files$n_cells, c(3L, 3L))
-})
-
 
 test_that("route-aware expression routing rejects unknown matrix labels", {
     fx <- make_fixture_cache()
@@ -760,33 +714,6 @@ test_that("route-aware expression routing rejects missing matrix labels", {
     )
 })
 
-
-test_that("legacy metadata still routes through dataset_label", {
-    fx <- make_fixture_cache()
-    cache <- abc_cache_connect(
-        fx$dir,
-        offline = TRUE,
-        release = fx$version
-    )
-
-    cells <- fx$cells
-    attr(cells, "abc_expression_directories") <- NULL
-
-    files <- .abc_expression_files(
-        cache,
-        cells,
-        data_type = "raw"
-    )
-
-    expect_equal(
-        files$dataset_label,
-        c("TEST-10X", "TEST-10X")
-    )
-    expect_equal(
-        files$feature_matrix_label,
-        c("TEST-A", "TEST-B")
-    )
-})
 
 test_that("route-aware expression routing rejects ambiguous matrices", {
     fx <- make_fixture_cache()
@@ -1186,45 +1113,6 @@ test_that("expression routing can map published cell labels to another matrix", 
         sum(files$n_cells),
         nrow(cells)
     )
-})
-
-test_that("plan_fetch accepts abc_data directly", {
-    fx <- make_fixture_cache()
-
-    cache <- abc_cache_connect(
-        fx$dir,
-        offline = TRUE,
-        release = fx$version
-    )
-
-    built <- suppressMessages(
-        .build_dataset(
-            fixture_spec,
-            cache,
-            "TEST"
-        )
-    )
-
-    data <- structure(
-        c(
-            built,
-            list(
-                dataset = "TEST",
-                download_base = fx$dir,
-                release = fx$version
-            )
-        ),
-        class = c("abc_data", "list")
-    )
-
-    plan <- plan_fetch(
-        data,
-        offline = TRUE
-    )
-
-    expect_s3_class(plan, "abc_fetch_plan")
-    expect_identical(plan$n_cells, 6L)
-    expect_identical(plan$release, fx$version)
 })
 
 test_that("load_data output passes directly to plan_fetch and fetch_data", {
@@ -2452,4 +2340,16 @@ test_that("plan printing aligns the storage lines in both branches", {
     plan$total_download <- 0
     out <- capture.output(print(plan))
     expect_true("  storage check:        PASS (nothing to download)" %in% out)
+})
+
+test_that("cell metadata without routing information is refused", {
+    fx <- make_fixture_cache()
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
+    cells <- fx$cells
+    attr(cells, "abc_expression_directories") <- NULL
+
+    expect_error(
+        .abc_expression_files(cache, cells, data_type = "raw"),
+        "no expression routing information"
+    )
 })

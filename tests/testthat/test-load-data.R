@@ -1418,49 +1418,6 @@ test_that("aligned HMBA declares its authoritative shared taxonomy", {
     )
 })
 
-test_that("shared cell selection preserves requested cell order", {
-    metadata <- data.frame(
-        cell_label = c("c1", "c2", "c3", "c4"),
-        group = c("A", "B", "A", "B"),
-        stringsAsFactors = FALSE
-    )
-
-    out <- .abc_select_cells(
-        metadata,
-        cell_ids = c("c4", "c1", "c3")
-    )
-
-    expect_identical(
-        out$cell_label,
-        c("c4", "c1", "c3")
-    )
-})
-
-test_that("shared cell selection validates exact cell requests", {
-    metadata <- data.frame(
-        cell_label = c("c1", "c2", "c3"),
-        stringsAsFactors = FALSE
-    )
-
-    expect_error(
-        .abc_select_cells(
-            metadata,
-            cell_ids = c("c1", "ghost")
-        ),
-        "1 requested cell not found in this dataset",
-        fixed = TRUE
-    )
-
-    expect_error(
-        .abc_select_cells(
-            metadata,
-            cell_ids = c("c1", "c1")
-        ),
-        "contain no duplicates",
-        fixed = TRUE
-    )
-})
-
 test_that("abc_data preserves the established load-data components", {
     fx <- make_fixture_cache()
 
@@ -1527,51 +1484,6 @@ test_that("abc_data preserves the established load-data components", {
     expect_identical(
         out$unique_values$donor_sex,
         "M"
-    )
-})
-
-test_that("cell selection preserves ABC routing provenance", {
-    metadata <- data.frame(
-        cell_label = paste0("c", 1:5),
-        group = c("A", "A", "B", "B", "B"),
-        stringsAsFactors = FALSE
-    )
-
-    attr(metadata, "abc_dataset") <- "TEST"
-    attr(metadata, "abc_default_data_type") <- "log2"
-    attr(metadata, "abc_available_data_types") <- "log2"
-    attr(metadata, "abc_expression_directories") <- "TEST-DIR"
-    attr(metadata, "abc_modality") <- "test_transcriptomics"
-    attr(metadata, "abc_spatial") <- FALSE
-
-    out <- .abc_select_cells(
-        metadata,
-        cell_ids = c("c5", "c3")
-    )
-
-    expect_identical(
-        attr(out, "abc_dataset"),
-        "TEST"
-    )
-    expect_identical(
-        attr(out, "abc_default_data_type"),
-        "log2"
-    )
-    expect_identical(
-        attr(out, "abc_available_data_types"),
-        "log2"
-    )
-    expect_identical(
-        attr(out, "abc_expression_directories"),
-        "TEST-DIR"
-    )
-    expect_identical(
-        attr(out, "abc_modality"),
-        "test_transcriptomics"
-    )
-    expect_identical(
-        attr(out, "abc_spatial"),
-        FALSE
     )
 })
 

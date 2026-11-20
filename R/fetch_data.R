@@ -1073,44 +1073,6 @@ print.abc_fetch_plan <- function(x, ...) {
     )
 }
 
-.abc_legacy_expression_route_pairs <- function(
-        cells,
-        matrix_labels
-) {
-    if (!"dataset_label" %in% names(cells)) {
-        stop(
-            "Cell metadata has no ABC expression-route provenance ",
-            "and is missing ",
-            "dataset_label. Use metadata returned by load_data(), ",
-            "or provide a ",
-            "dataset_label column for legacy routing.",
-            call. = FALSE
-        )
-    }
-
-    dataset_labels <- as.character(
-        cells$dataset_label
-    )
-
-    if (
-        anyNA(dataset_labels) ||
-            any(!nzchar(dataset_labels))
-    ) {
-        stop(
-            "Selected cells contain a missing dataset_label.",
-            call. = FALSE
-        )
-    }
-
-    unique(
-        data.frame(
-            directory = dataset_labels,
-            feature_matrix_label = matrix_labels,
-            stringsAsFactors = FALSE
-        )
-    )
-}
-
 .abc_expression_route_inventory <- function(
         abc_cache,
         expression_dirs,
@@ -1226,11 +1188,10 @@ print.abc_fetch_plan <- function(x, ...) {
     )
 
     if (is.null(expression_dirs) || !length(expression_dirs)) {
-        return(
-            .abc_legacy_expression_route_pairs(
-                cells = cells,
-                matrix_labels = matrix_labels
-            )
+        stop(
+            "The cell metadata has no expression routing information. ",
+            "Use the cell metadata of the object returned by load_data().",
+            call. = FALSE
         )
     }
 
