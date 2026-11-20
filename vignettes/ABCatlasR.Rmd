@@ -1,7 +1,6 @@
 ---
 title: >-
-  ABCatlasR: choosing and retrieving ABC Atlas data for biological
-  questions
+  ABCatlasR: accessing ABC Atlas data in R
 author:
 - name: Uday Rangaswamy
 - name: Mahdi Komeili
