@@ -1,9 +1,5 @@
 ^LICENSE\.md$
-^\.Rproj\.user$
 ^README\.md$
-^vignettes/.*\.orig$
-^vignettes/precompile\.R$
+^\.Rproj\.user$
 ^\.github$
-^bioc-validation-evidence$
-
 ^docs$
