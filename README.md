@@ -103,14 +103,14 @@ head(abc$unique_values$brain_section_label)
 ```
 
 For this example, we select GABAergic cells from one brain section and keep the
-first 1,000 cells to make the example bounded and reproducible.
+first 1,00 cells to make the example bounded and reproducible.
 
 ```r
 keep <- abc$cell_metadata$brain_section_label == "Zhuang-ABCA-4.002" &
     abc$cell_metadata$neurotransmitter == "GABA"
 
 cells <- abc$cell_metadata$cell_label[keep]
-cells <- head(cells, 1000)
+cells <- head(cells, 100)
 length(cells)
 ```
 
