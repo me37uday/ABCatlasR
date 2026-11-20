@@ -23,7 +23,7 @@ options(ABCatlasR.download_base = file.path(tempdir(), "ABCatlasR-cache"))
 
 `ABCatlasR` provides an R-native, release-aware interface to the
 [Allen Brain Cell (ABC)
-Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
+Atlas](https://brain-map.org/bkp/explore/abc-atlas).
 
 The ABC Atlas, from the Allen Institute, brings together whole-brain
 single-cell, single-nucleus and spatial transcriptomics datasets from the
@@ -362,7 +362,7 @@ access.
 
 -   Allen Institute for Brain Science. Allen Brain Cell Atlas
     (RRID:SCR_024440).
-    <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
+    <https://brain-map.org/bkp/explore/abc-atlas>
 -   Yao Z, van Velthoven CTJ, Kunst M, et al. (2023). A high-resolution
     transcriptomic and spatial atlas of cell types in the whole mouse
     brain. *Nature* 624(7991), 317-332.

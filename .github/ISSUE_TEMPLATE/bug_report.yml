@@ -22,7 +22,7 @@ body:
     id: data_type
     attributes:
       label: Expression representation
-      options: [raw, log2, "Not applicable / metadata only", Unsure]
+      options: [raw, log2, batch_normalized, ln, "Not applicable / metadata only", Unsure]
     validations:
       required: true
   - type: textarea
@@ -48,7 +48,6 @@ body:
         - load_data()
         - plan_fetch()
         - fetch_data() - matrix
-        - fetch_data() - Seurat
         - fetch_data() - SingleCellExperiment
         - fetch_data() - SpatialExperiment
         - Cache / download

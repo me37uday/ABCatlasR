@@ -1,6 +1,6 @@
 # ABCatlasR
 
-`ABCatlasR` provides an R interface to the [Allen Brain Cell (ABC) Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
+`ABCatlasR` provides an R interface to the [Allen Brain Cell (ABC) Atlas](https://brain-map.org/bkp/explore/abc-atlas).
 
 It lets you explore available datasets, select cells and genes, check how much data needs to be downloaded, and load expression data directly into R.
 

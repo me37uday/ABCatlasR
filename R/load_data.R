@@ -150,9 +150,8 @@
                 wmb_cluster_alias = "integer"
             )
         ),
-        # Match the validated Python-reticulate annotation path: native Aging
-        # annotations define cluster identity and age bias, while the separate
-        # mapping directory contributes the optional WMB reference mapping.
+        # The Aging annotations define cluster identity and age bias; the
+        # separate mapping directory adds the optional WMB reference mapping.
         joins = list(
             list(
                 dir = "Zeng-Aging-Mouse-10Xv3",
@@ -1555,7 +1554,7 @@ print.abc_data <- function(x, ...) {
 
 # Build the wide cluster_details / cluster_colors lookup tables from a taxonomy
 # directory's membership + term-set tables, keyed by cluster_alias. Shared by
-# every dataset that declares a `taxonomy` (currently WHB and WMB).
+# every dataset that declares a `taxonomy`.
 .abc_validate_taxonomy_alias <- function(
         x,
         source,
