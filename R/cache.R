@@ -429,12 +429,60 @@ print.abc_cache <- function(x, ...) {
     }
 
     f <- entry[[1]]
+    .abc_check_relative_path(f$relative_path)
     list(
         url = f$url, version = f$version, size = f$size,
         relative_path = f$relative_path, file_type = names(entry)[1],
         file_hash = f$file_hash,
         local_path = file.path(cache$download_base, f$relative_path)
     )
+}
+
+# Manifest file paths must stay inside the cache folder: a damaged or
+# tampered manifest must not make a download write anywhere else.
+.abc_check_relative_path <- function(relative_path) {
+    ok <- is.character(relative_path) && length(relative_path) == 1L &&
+        !is.na(relative_path) && nzchar(relative_path) &&
+        !grepl("^([/\\\\~]|[A-Za-z]:)", relative_path) &&
+        !(".." %in% strsplit(relative_path, "[/\\\\]")[[1L]])
+
+    if (!ok) {
+        stop(
+            "The manifest lists a file path outside the cache folder ('",
+            paste(relative_path, collapse = ""), "'); it was not used.",
+            call. = FALSE
+        )
+    }
+    invisible(relative_path)
+}
+
+# TRUE when the cached file has the size the manifest lists. A file cut
+# short by a disk error or an interrupted copy fails this; checking the md5
+# of every cached file would take too long for multi-GB matrices.
+.abc_size_matches <- function(attrs) {
+    expected <- suppressWarnings(as.numeric(attrs$size))
+    if (length(expected) != 1L || is.na(expected)) {
+        return(TRUE)
+    }
+    isTRUE(file.size(attrs$local_path) == expected)
+}
+
+# Refuse a file download that does not fit, with the rule fetch_data()
+# applies to a whole request (see .abc_storage_check()).
+.abc_check_file_space <- function(download_base, attrs) {
+    part <- paste0(attrs$local_path, ".part")
+    partial <- if (file.exists(part)) file.size(part) else 0
+    remaining <- max(suppressWarnings(as.numeric(attrs$size)) - partial, 0)
+
+    if (is.na(remaining)) {
+        return(invisible(TRUE))
+    }
+
+    storage <- .abc_storage_check(download_base, remaining)
+    if (!storage$sufficient) {
+        stop(.abc_storage_message(storage), call. = FALSE)
+    }
+    invisible(TRUE)
 }
 
 # TRUE when a metadata table is published for a manifest directory.
@@ -527,12 +575,27 @@ print.abc_cache <- function(x, ...) {
                 "Run once with offline = FALSE to download it."
             )
         }
+        if (!.abc_size_matches(attrs)) {
+            stop(
+                "The cached '", attrs$relative_path, "' is incomplete or ",
+                "damaged (its size differs from the manifest). Run once ",
+                "with offline = FALSE to download it again.",
+                call. = FALSE
+            )
+        }
         .abc_report_cached(attrs)
         return(path)
     }
 
     base <- cache$download_base
     if (file.exists(path) && !.abc_is_recorded(base, path)) {
+        force_download <- TRUE
+    }
+    if (file.exists(path) && !force_download && !.abc_size_matches(attrs)) {
+        message(
+            "The cached ", attrs$relative_path, " is incomplete or ",
+            "damaged; downloading it again."
+        )
         force_download <- TRUE
     }
     if (force_download) {
@@ -544,6 +607,7 @@ print.abc_cache <- function(x, ...) {
         return(path)
     }
 
+    .abc_check_file_space(base, attrs)
     message(
         "Downloading ", attrs$relative_path,
         " (", .abc_format_size(attrs$size), ")"
@@ -910,7 +974,7 @@ print.abc_cache <- function(x, ...) {
         .abc_format_size(storage$available - storage$download),
         " free on the system disk, and below ",
         .abc_format_size(storage$headroom),
-        " the computer may become unstable. ", advice
+        " the system may become unstable. ", advice
     )
 }
 

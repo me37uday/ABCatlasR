@@ -475,7 +475,10 @@
 #' Before downloading, the free space of the disk holding the cache is
 #' checked. A download that does not fit is refused. On the disk the
 #' operating system runs from, at least 2 GB must also remain free after
-#' the download, so the system keeps room for virtual memory. No space is checked when every file is already cached.
+#' the download, so the system keeps room for virtual memory. No space is
+#' checked when every file is already cached. The same check runs before
+#' any other file is downloaded, including the metadata read by
+#' [load_data()].
 #'
 #' @param data An \code{abc_data} object returned by [load_data()]. It
 #'   provides the metadata, release and cache directory.
@@ -1338,7 +1341,7 @@ print.abc_fetch_plan <- function(x, ...) {
         size = as.numeric(attrs$size),
         relative_path = attrs$relative_path,
         local_path = attrs$local_path,
-        cached = file.exists(attrs$local_path),
+        cached = file.exists(attrs$local_path) && .abc_size_matches(attrs),
         partial_bytes = partial,
         stringsAsFactors = FALSE
     )

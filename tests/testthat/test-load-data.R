@@ -469,6 +469,8 @@ test_that("taxonomy rejects conflicting annotations for one hierarchy level", {
         row.names = FALSE,
         na = ""
     )
+    # The edited file no longer has its manifest size; accept it here.
+    local_mocked_bindings(.abc_size_matches = function(attrs) TRUE)
 
     cache <- abc_cache_connect(
         fx$dir,

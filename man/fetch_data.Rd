@@ -60,7 +60,10 @@ beforehand, but is not needed to fetch.
 Before downloading, the free space of the disk holding the cache is
 checked. A download that does not fit is refused. On the disk the
 operating system runs from, at least 2 GB must also remain free after
-the download, so the system keeps room for virtual memory. No space is checked when every file is already cached.
+the download, so the system keeps room for virtual memory. No space is
+checked when every file is already cached. The same check runs before
+any other file is downloaded, including the metadata read by
+\code{\link[=load_data]{load_data()}}.
 }
 \section{Converting to other formats}{
 

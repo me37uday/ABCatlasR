@@ -463,3 +463,82 @@ test_that("a failed disk write stops the download without retrying", {
     )
     expect_identical(calls, 1L)
 })
+
+test_that("manifest file paths must stay inside the cache folder", {
+    expect_silent(.abc_check_relative_path("metadata/X/20250101/gene.csv"))
+    bad <- list(
+        "../outside.csv", "metadata/../../outside.csv", "/etc/passwd",
+        "C:/Windows/x.csv", "~/x.csv", "metadata\\..\\..\\x.csv",
+        NA_character_, "", c("a", "b"), 1
+    )
+    for (path in bad) {
+        expect_error(.abc_check_relative_path(path), "outside the cache folder")
+    }
+})
+
+test_that("a damaged cached file is reported offline", {
+    fx <- make_fixture_cache()
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
+    path <- file.path(fx$dir, "metadata/TEST-10X/20250101/gene.csv")
+    writeLines("cut short", path)
+
+    expect_error(
+        cache$get_file_path("TEST-10X", "gene"),
+        "incomplete or damaged"
+    )
+})
+
+test_that("a damaged cached file is downloaded again online", {
+    fx <- make_fixture_cache()
+    rel <- "metadata/TEST-10X/20250101/gene.csv"
+    path <- file.path(fx$dir, rel)
+    original <- readBin(path, "raw", file.size(path))
+
+    local_mocked_bindings(
+        .abc_remote_manifests = function() "releases/20250101/manifest.json",
+        .abc_download = function(url, dest, md5 = NULL, ...) {
+            writeBin(original, dest)
+            invisible(dest)
+        }
+    )
+    cache <- abc_cache_connect(fx$dir, offline = FALSE, release = fx$version)
+    .abc_record(fx$dir, path)
+    writeLines("cut short", path)
+
+    expect_message(
+        out <- cache$get_file_path("TEST-10X", "gene"),
+        "incomplete or damaged; downloading it again"
+    )
+    expect_identical(readBin(out, "raw", file.size(out)), original)
+})
+
+test_that("a single file download is refused when it does not fit", {
+    fx <- make_fixture_cache()
+    rel <- "metadata/TEST-10X/20250101/gene.csv"
+    unlink(file.path(fx$dir, rel))
+
+    local_mocked_bindings(
+        .abc_remote_manifests = function() "releases/20250101/manifest.json",
+        .abc_available_space = function(path) 1,
+        .abc_system_volume = function(path) FALSE,
+        .abc_download = function(...) stop("should not download", call. = FALSE)
+    )
+    cache <- abc_cache_connect(fx$dir, offline = FALSE, release = fx$version)
+
+    expect_error(
+        cache$get_file_path("TEST-10X", "gene"),
+        "Not enough disk space"
+    )
+})
+
+test_that("plan_fetch does not count a damaged file as cached", {
+    fx <- make_fixture_cache()
+    cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)
+    attrs <- .abc_file_attributes(cache, "TEST-10X", "TEST-A/raw")
+    writeBin(as.raw(1:10), attrs$local_path)
+
+    plan <- plan_fetch(fixture_data(fx), offline = TRUE)
+    row <- plan$files[plan$files$feature_matrix_label == "TEST-A", ]
+    expect_false(row$cached)
+    expect_gt(plan$total_download, 0)
+})
