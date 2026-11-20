@@ -1,6 +1,6 @@
 ---
 title: >-
-  ABCatlasR: accessing ABC Atlas data in R
+  ABCatlasR: access to ABC Atlas data in R
 author:
 - name: Uday Rangaswamy
 - name: Mahdi Komeili
@@ -18,7 +18,7 @@ output:
     toc: true
     toc_depth: 2
 vignette: >
-  %\VignetteIndexEntry{ABCatlasR: accessing ABC Atlas data in R}
+  %\VignetteIndexEntry{ABCatlasR: access to ABC Atlas data in R}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
 ---
