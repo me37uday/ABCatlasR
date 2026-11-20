@@ -248,7 +248,7 @@ spatial HMBA routes publish `batch_normalized` values, which are counts
 normalized for differences between batches, and their natural log,
 `ln`, instead of `log2`.
 
-With `genes = NULL`, the default, every gene of the expression file is
+With `genes = NULL`, the default, every gene in `abc$gene_data` is
 returned.
 
 ## Output representations

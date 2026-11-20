@@ -1164,7 +1164,7 @@ test_that("MERFISH routes declare measured and imputed expression correctly", {
         imputed$cell$dir,
         "MERFISH-C57BL6J-638850"
     )
-    expect_identical(imputed$gene$dir, "WMB-10X")
+    expect_identical(imputed$gene$dir, "MERFISH-C57BL6J-638850-imputed")
     expect_identical(
         imputed$expression_directories,
         "MERFISH-C57BL6J-638850-imputed"

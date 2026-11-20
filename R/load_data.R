@@ -659,7 +659,7 @@
             col_classes = c(cell_label = "character")
         ),
         taxonomy = "WMB-taxonomy",
-        gene = list(dir = "WMB-10X"),
+        gene = list(dir = "MERFISH-C57BL6J-638850-imputed"),
         cols_of_interest = c(
             "brain_section_label",
             "donor_sex",
