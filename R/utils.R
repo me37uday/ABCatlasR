@@ -1,7 +1,7 @@
-#' Resolve the ABC Atlas download/cache directory
+#' Find the folder where ABC Atlas files are stored
 #'
-#' Determines where ABC Atlas data is downloaded and cached. The location is
-#' resolved with the following precedence (first non-empty wins):
+#' Returns the folder where ABC Atlas files are downloaded and kept for
+#' reuse. It is the first of these that is set:
 #' \enumerate{
 #'   \item the explicit \code{path} argument;
 #'   \item \code{getOption("ABCatlasR.download_base")};
@@ -9,12 +9,11 @@
 #'   \item a per-user cache directory,
 #'     \code{tools::R_user_dir("ABCatlasR", "cache")}.
 #' }
-#' The resolved directory is created if it does not yet exist and returned as an
-#' absolute path.
+#' The folder is created if it does not exist yet.
 #'
-#' @param path Optional explicit directory. If \code{NULL} or empty, the other
-#'   sources above are consulted in order.
-#' @return An absolute path to the (existing) download directory.
+#' @param path Folder to use. If \code{NULL} or empty, the other settings
+#'   above are checked in order.
+#' @return The full path of the folder.
 #' @examples
 #' # Use a temporary cache directory.
 #' cache_dir <- file.path(tempdir(), "ABCatlasR-example")

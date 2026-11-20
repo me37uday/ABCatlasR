@@ -14,38 +14,41 @@ fetch_data(
 )
 }
 \arguments{
-\item{data}{An \code{abc_data} object returned by \code{\link[=load_data]{load_data()}}. It
-provides the metadata, release and cache directory.}
+\item{data}{The object returned by \code{\link[=load_data]{load_data()}}. It provides the
+metadata, the release and the folder.}
 
-\item{cell_ids}{Character vector of cell labels (the
-\code{cell_label} column of \code{data$cell_metadata}) to fetch. The
-columns of the result follow this order. To fetch every cell, use
+\item{cell_ids}{Labels of the cells to fetch, from the
+\code{cell_label} column of \code{data$cell_metadata}. The cells are
+returned in this order. To fetch every cell, use
 \code{data$cell_metadata$cell_label}.}
 
-\item{genes}{Character vector of genes to include. Each entry is matched
-first against \code{gene_identifier}, then against
-\code{source_gene_identifier} where the dataset has it, then against
-\code{gene_symbol}; a symbol shared by several
-genes is reported as ambiguous. If \code{NULL} (default), every gene of
-\code{data$gene_data} is returned.}
+\item{genes}{Genes to fetch, given as gene identifiers or gene symbols.
+Each name is looked up in \code{gene_identifier}, then in
+\code{source_gene_identifier} where the dataset has it, then in
+\code{gene_symbol}. A symbol that belongs to several genes is reported
+so that you can choose by identifier. If \code{NULL} (default), every
+gene in \code{data$gene_data} is returned.}
 
-\item{data_type}{Published expression representation, \code{"raw"} or
-\code{"log2"}. If \code{NULL} (default), the dataset's default is used:
-\code{"raw"} where it is published, otherwise \code{"log2"}. Values
-are returned as published; log2 values are not converted to counts.}
+\item{data_type}{Type of expression values: \code{"raw"} for counts or
+\code{"log2"} for the log2-transformed values the ABC Atlas publishes.
+If \code{NULL} (default), \code{"raw"} is used where the dataset
+publishes it, otherwise \code{"log2"}. Values are returned as
+published; log2 values are not converted back to counts.}
 
-\item{return_type}{Output format: \code{"matrix"} (default) for the sparse
-expression bundle, \code{"sce"} for a SingleCellExperiment, or
-\code{"spatial"} for a SpatialExperiment with the dataset's spatial
-coordinates. \code{"spatial"} needs the SpatialExperiment package and a
-spatial dataset (see \code{\link[=list_datasets]{list_datasets()}}). For Seurat or Monocle 3
-objects, see "Converting to other formats" below.}
+\item{return_type}{Form of the result: \code{"matrix"} (default) for a
+sparse matrix with its cell and gene tables, \code{"sce"} for a
+SingleCellExperiment, or \code{"spatial"} for a SpatialExperiment with
+the cells' spatial coordinates. \code{"spatial"} needs the
+SpatialExperiment package and a dataset with spatial coordinates (see
+\code{\link[=list_datasets]{list_datasets()}}). For Seurat or Monocle 3, see "Converting to other
+formats" below.}
 
-\item{offline}{If \code{TRUE}, use only locally cached files and never
-contact S3; a file that is not cached is an error instead of a download.}
+\item{offline}{If \code{TRUE}, use only files already in the folder and
+never connect to the internet; a missing file is an error instead of a
+download.}
 }
 \value{
-The requested expression representation.
+The expression, in the form chosen by \code{return_type}.
 
 For \code{return_type = "matrix"}, an \code{abc_matrix} object: a list
 of class \code{c("abc_matrix", "list")} with these elements:
@@ -58,10 +61,10 @@ cell, in the order of the matrix columns.}
 \item{\code{gene_data}}{Data frame with one row per selected gene,
 in the order of the matrix rows.}
 \item{\code{data_type}}{\code{"raw"} or \code{"log2"}.}
-\item{\code{provenance}}{List with \code{dataset}, \code{release},
-\code{data_type}, \code{modality}, \code{spatial},
-\code{expression_directories}, \code{n_cells} and
-\code{n_genes}.}
+\item{\code{provenance}}{List recording where the data come from:
+\code{dataset}, \code{release}, \code{data_type},
+\code{modality}, \code{spatial}, \code{expression_directories},
+\code{n_cells} and \code{n_genes}.}
 }
 
 For \code{"sce"}, a SingleCellExperiment, and for \code{"spatial"}, a
@@ -73,25 +76,25 @@ the spatial coordinates in \code{spatialCoords}, and its provenance
 records their columns in \code{coordinate_columns}.
 }
 \description{
-Downloads the expression files the selected cells need, if they are not
-already cached, and reads the selected cells and genes into the requested
-R representation. \code{\link[=plan_fetch]{plan_fetch()}} reports the same files and sizes
-beforehand, but is not needed to fetch.
+Downloads the expression files that hold the selected cells, unless they
+were downloaded before, and reads the expression of those cells and genes
+into R. \code{\link[=plan_fetch]{plan_fetch()}} can show the files and their sizes first, but is
+not needed.
 }
 \details{
-Before downloading, the free space of the disk holding the cache is
-checked. A download that does not fit is refused. On the disk the
-operating system runs from, at least 2 GB must also remain free after
-the download, so the system keeps room for virtual memory. No space is
-checked when every file is already cached. The same check runs before
-any other file is downloaded, including the metadata read by
+Before downloading, the free space on the disk holding the folder is
+checked, and a download that does not fit is refused. On the disk the
+operating system runs from, at least 2 GB must also remain free
+afterwards, so the system keeps room for virtual memory. Nothing is
+checked when every file was downloaded before. The same check runs
+before every other download, including the metadata read by
 \code{\link[=load_data]{load_data()}}.
 }
 \section{Converting to other formats}{
 
-Seurat and Monocle 3 objects are not built by this package. Fetch raw
-expression as a matrix bundle and convert it with the package you use.
-Both tools expect count data, so fetch with \code{data_type = "raw"}.
+This package does not create Seurat or Monocle 3 objects. Fetch raw
+counts with \code{return_type = "matrix"} and convert them with the
+package you use; both expect counts, so use \code{data_type = "raw"}.
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{x <- fetch_data(abc, cell_ids = cells, genes = genes, data_type = "raw")
 

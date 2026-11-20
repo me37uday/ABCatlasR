@@ -6,24 +6,27 @@
 \alias{ABCatlasR-package}
 \title{ABCatlasR: access the Allen Brain Cell Atlas from R}
 \description{
-ABCatlasR reads cell metadata and expression of the Allen Brain Cell (ABC)
-Atlas directly in R, from a fixed ABC Atlas release, and returns them as a
-sparse matrix bundle, a SingleCellExperiment or a SpatialExperiment.
+ABCatlasR reads cell metadata and gene expression from the Allen Brain
+Cell (ABC) Atlas into R. Data come from a fixed ABC Atlas release, so
+results can be reproduced, and expression is returned as a sparse matrix
+with its cell and gene tables, a SingleCellExperiment or a
+SpatialExperiment.
 }
 \details{
 The workflow has four steps:
 \enumerate{
-\item \code{\link[=list_datasets]{list_datasets()}} lists the supported dataset routes.
-\item \code{\link[=load_data]{load_data()}} loads the cell and gene metadata of one route.
+\item \code{\link[=list_datasets]{list_datasets()}} lists the datasets you can load.
+\item \code{\link[=load_data]{load_data()}} loads the cell and gene metadata of one dataset.
 \item \code{\link[=plan_fetch]{plan_fetch()}} optionally reports the expression files a
 selection of cells needs, their sizes and the disk space required.
 \item \code{\link[=fetch_data]{fetch_data()}} downloads and reads the expression of the
 selected cells and genes.
 }
 
-Downloaded files are cached and reused; \code{\link[=abc_download_dir]{abc_download_dir()}} shows and
-sets the cache location, and \code{\link[=abc_cache_connect]{abc_cache_connect()}} gives direct access
-to the files of a release. The vignette walks through a complete example:
+Downloaded files are kept in a local folder and reused.
+\code{\link[=abc_download_dir]{abc_download_dir()}} shows and sets that folder, and
+\code{\link[=abc_cache_connect]{abc_cache_connect()}} gives direct access to the files of a release.
+The vignette walks through a complete example:
 \code{vignette("ABCatlasR", package = "ABCatlasR")}.
 }
 \seealso{

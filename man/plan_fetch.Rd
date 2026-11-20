@@ -7,52 +7,54 @@
 plan_fetch(data, cell_ids = NULL, data_type = NULL, offline = FALSE)
 }
 \arguments{
-\item{data}{An \code{abc_data} object returned by \code{\link[=load_data]{load_data()}}.}
+\item{data}{The object returned by \code{\link[=load_data]{load_data()}}.}
 
-\item{cell_ids}{Optional character vector of cell labels (the
-\code{cell_label} column of \code{data$cell_metadata}). If \code{NULL}
-(default), every cell of the dataset is included.}
+\item{cell_ids}{Labels of the cells, from the \code{cell_label} column
+of \code{data$cell_metadata}. If \code{NULL} (default), every cell of
+the dataset is included.}
 
-\item{data_type}{Published expression representation, \code{"raw"} or
-\code{"log2"}. If \code{NULL} (default), the dataset's default is used:
-\code{"raw"} where it is published, otherwise \code{"log2"}.}
+\item{data_type}{Type of expression values: \code{"raw"} for counts or
+\code{"log2"} for the log2-transformed values the ABC Atlas publishes.
+If \code{NULL} (default), \code{"raw"} is used where the dataset
+publishes it, otherwise \code{"log2"}.}
 
-\item{offline}{If \code{TRUE}, use only locally cached files and never
-contact S3.}
+\item{offline}{If \code{TRUE}, use only files already in the folder and
+never connect to the internet.}
 }
 \value{
-An \code{abc_fetch_plan} object, printed as a report: a list of
-class \code{"abc_fetch_plan"} with these elements:
+An \code{abc_fetch_plan} object, which prints as a report: a
+list of class \code{"abc_fetch_plan"} with these elements:
 \describe{
-\item{\code{dataset}, \code{release}, \code{data_type}}{The route,
-ABC Atlas release and representation of the request.}
+\item{\code{dataset}, \code{release}, \code{data_type}}{The
+dataset, ABC Atlas release and type of expression values.}
 \item{\code{n_cells}}{Number of selected cells.}
 \item{\code{files}}{Data frame with one row per expression file:
 \code{dataset_label}, \code{feature_matrix_label},
 \code{data_type}, \code{n_cells} (selected cells in the file),
 \code{size} (bytes), \code{relative_path}, \code{local_path},
-\code{cached}, \code{partial_bytes} (resumable partial download)
-and \code{additional_download} (bytes still to download).}
+\code{cached} (downloaded before), \code{partial_bytes} (bytes of
+an interrupted download that will be resumed) and
+\code{additional_download} (bytes still to download).}
 \item{\code{total_size}, \code{total_partial},
 \code{total_download}}{Sums of \code{size}, \code{partial_bytes}
 and \code{additional_download}, in bytes.}
-\item{\code{storage}}{List with \code{available} (free bytes, or
-\code{NA} if unknown), \code{download}, \code{system_disk},
-\code{headroom}, \code{required} and \code{sufficient}: the same
-storage check \code{\link[=fetch_data]{fetch_data()}} applies before downloading.}
+\item{\code{storage}}{The disk space check \code{\link[=fetch_data]{fetch_data()}} makes
+before downloading: \code{available} (free bytes, or \code{NA} if
+unknown), \code{download}, \code{system_disk}, \code{headroom}
+(space that must stay free), \code{required} and
+\code{sufficient}.}
 }
 }
 \description{
-Lists the expression files that \code{\link[=fetch_data]{fetch_data()}} would need for the selected
-cells, with their sizes, whether they are already cached, and how much
-would still be downloaded, and checks that against the free disk space.
-Nothing is downloaded. Calling \code{plan_fetch()} is optional:
-\code{\link[=fetch_data]{fetch_data()}} does not use its result.
+Shows which expression files \code{\link[=fetch_data]{fetch_data()}} would need for the selected
+cells: their sizes, which were downloaded before and how much is still to
+download, and whether that fits on the disk. Nothing is downloaded.
+Using \code{plan_fetch()} is optional; \code{\link[=fetch_data]{fetch_data()}} does not need it.
 }
 \details{
 Expression files are downloaded whole, so the sizes do not depend on the
-genes that will be fetched. They depend on the cells, because the cells of
-some datasets are spread over several files, and on the representation.
+genes. They depend on the cells, because some datasets spread their
+cells over several files, and on \code{data_type}.
 }
 \examples{
 # A small synthetic dataset shipped with the package.

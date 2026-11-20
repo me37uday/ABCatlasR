@@ -467,44 +467,47 @@
 
 #' Fetch ABC Atlas expression for selected cells and genes
 #'
-#' Downloads the expression files the selected cells need, if they are not
-#' already cached, and reads the selected cells and genes into the requested
-#' R representation. [plan_fetch()] reports the same files and sizes
-#' beforehand, but is not needed to fetch.
+#' Downloads the expression files that hold the selected cells, unless they
+#' were downloaded before, and reads the expression of those cells and genes
+#' into R. [plan_fetch()] can show the files and their sizes first, but is
+#' not needed.
 #'
-#' Before downloading, the free space of the disk holding the cache is
-#' checked. A download that does not fit is refused. On the disk the
-#' operating system runs from, at least 2 GB must also remain free after
-#' the download, so the system keeps room for virtual memory. No space is
-#' checked when every file is already cached. The same check runs before
-#' any other file is downloaded, including the metadata read by
+#' Before downloading, the free space on the disk holding the folder is
+#' checked, and a download that does not fit is refused. On the disk the
+#' operating system runs from, at least 2 GB must also remain free
+#' afterwards, so the system keeps room for virtual memory. Nothing is
+#' checked when every file was downloaded before. The same check runs
+#' before every other download, including the metadata read by
 #' [load_data()].
 #'
-#' @param data An \code{abc_data} object returned by [load_data()]. It
-#'   provides the metadata, release and cache directory.
-#' @param cell_ids Character vector of cell labels (the
-#'   \code{cell_label} column of \code{data$cell_metadata}) to fetch. The
-#'   columns of the result follow this order. To fetch every cell, use
+#' @param data The object returned by [load_data()]. It provides the
+#'   metadata, the release and the folder.
+#' @param cell_ids Labels of the cells to fetch, from the
+#'   \code{cell_label} column of \code{data$cell_metadata}. The cells are
+#'   returned in this order. To fetch every cell, use
 #'   \code{data$cell_metadata$cell_label}.
-#' @param genes Character vector of genes to include. Each entry is matched
-#'   first against \code{gene_identifier}, then against
-#'   \code{source_gene_identifier} where the dataset has it, then against
-#'   \code{gene_symbol}; a symbol shared by several
-#'   genes is reported as ambiguous. If \code{NULL} (default), every gene of
-#'   \code{data$gene_data} is returned.
-#' @param data_type Published expression representation, \code{"raw"} or
-#'   \code{"log2"}. If \code{NULL} (default), the dataset's default is used:
-#'   \code{"raw"} where it is published, otherwise \code{"log2"}. Values
-#'   are returned as published; log2 values are not converted to counts.
-#' @param return_type Output format: \code{"matrix"} (default) for the sparse
-#'   expression bundle, \code{"sce"} for a SingleCellExperiment, or
-#'   \code{"spatial"} for a SpatialExperiment with the dataset's spatial
-#'   coordinates. \code{"spatial"} needs the SpatialExperiment package and a
-#'   spatial dataset (see [list_datasets()]). For Seurat or Monocle 3
-#'   objects, see "Converting to other formats" below.
-#' @param offline If \code{TRUE}, use only locally cached files and never
-#'   contact S3; a file that is not cached is an error instead of a download.
-#' @return The requested expression representation.
+#' @param genes Genes to fetch, given as gene identifiers or gene symbols.
+#'   Each name is looked up in \code{gene_identifier}, then in
+#'   \code{source_gene_identifier} where the dataset has it, then in
+#'   \code{gene_symbol}. A symbol that belongs to several genes is reported
+#'   so that you can choose by identifier. If \code{NULL} (default), every
+#'   gene in \code{data$gene_data} is returned.
+#' @param data_type Type of expression values: \code{"raw"} for counts or
+#'   \code{"log2"} for the log2-transformed values the ABC Atlas publishes.
+#'   If \code{NULL} (default), \code{"raw"} is used where the dataset
+#'   publishes it, otherwise \code{"log2"}. Values are returned as
+#'   published; log2 values are not converted back to counts.
+#' @param return_type Form of the result: \code{"matrix"} (default) for a
+#'   sparse matrix with its cell and gene tables, \code{"sce"} for a
+#'   SingleCellExperiment, or \code{"spatial"} for a SpatialExperiment with
+#'   the cells' spatial coordinates. \code{"spatial"} needs the
+#'   SpatialExperiment package and a dataset with spatial coordinates (see
+#'   [list_datasets()]). For Seurat or Monocle 3, see "Converting to other
+#'   formats" below.
+#' @param offline If \code{TRUE}, use only files already in the folder and
+#'   never connect to the internet; a missing file is an error instead of a
+#'   download.
+#' @return The expression, in the form chosen by \code{return_type}.
 #'
 #'   For \code{return_type = "matrix"}, an \code{abc_matrix} object: a list
 #'   of class \code{c("abc_matrix", "list")} with these elements:
@@ -517,10 +520,10 @@
 #'     \item{\code{gene_data}}{Data frame with one row per selected gene,
 #'       in the order of the matrix rows.}
 #'     \item{\code{data_type}}{\code{"raw"} or \code{"log2"}.}
-#'     \item{\code{provenance}}{List with \code{dataset}, \code{release},
-#'       \code{data_type}, \code{modality}, \code{spatial},
-#'       \code{expression_directories}, \code{n_cells} and
-#'       \code{n_genes}.}
+#'     \item{\code{provenance}}{List recording where the data come from:
+#'       \code{dataset}, \code{release}, \code{data_type},
+#'       \code{modality}, \code{spatial}, \code{expression_directories},
+#'       \code{n_cells} and \code{n_genes}.}
 #'   }
 #'
 #'   For \code{"sce"}, a SingleCellExperiment, and for \code{"spatial"}, a
@@ -531,9 +534,9 @@
 #'   the spatial coordinates in \code{spatialCoords}, and its provenance
 #'   records their columns in \code{coordinate_columns}.
 #' @section Converting to other formats:
-#' Seurat and Monocle 3 objects are not built by this package. Fetch raw
-#' expression as a matrix bundle and convert it with the package you use.
-#' Both tools expect count data, so fetch with \code{data_type = "raw"}.
+#' This package does not create Seurat or Monocle 3 objects. Fetch raw
+#' counts with \code{return_type = "matrix"} and convert them with the
+#' package you use; both expect counts, so use \code{data_type = "raw"}.
 #'
 #' ```r
 #' x <- fetch_data(abc, cell_ids = cells, genes = genes, data_type = "raw")
@@ -614,44 +617,46 @@ fetch_data <- function(
 
 #' Report the expression files a request needs
 #'
-#' Lists the expression files that [fetch_data()] would need for the selected
-#' cells, with their sizes, whether they are already cached, and how much
-#' would still be downloaded, and checks that against the free disk space.
-#' Nothing is downloaded. Calling \code{plan_fetch()} is optional:
-#' [fetch_data()] does not use its result.
+#' Shows which expression files [fetch_data()] would need for the selected
+#' cells: their sizes, which were downloaded before and how much is still to
+#' download, and whether that fits on the disk. Nothing is downloaded.
+#' Using \code{plan_fetch()} is optional; [fetch_data()] does not need it.
 #'
 #' Expression files are downloaded whole, so the sizes do not depend on the
-#' genes that will be fetched. They depend on the cells, because the cells of
-#' some datasets are spread over several files, and on the representation.
+#' genes. They depend on the cells, because some datasets spread their
+#' cells over several files, and on \code{data_type}.
 #'
-#' @param data An \code{abc_data} object returned by [load_data()].
-#' @param cell_ids Optional character vector of cell labels (the
-#'   \code{cell_label} column of \code{data$cell_metadata}). If \code{NULL}
-#'   (default), every cell of the dataset is included.
-#' @param data_type Published expression representation, \code{"raw"} or
-#'   \code{"log2"}. If \code{NULL} (default), the dataset's default is used:
-#'   \code{"raw"} where it is published, otherwise \code{"log2"}.
-#' @param offline If \code{TRUE}, use only locally cached files and never
-#'   contact S3.
-#' @return An \code{abc_fetch_plan} object, printed as a report: a list of
-#'   class \code{"abc_fetch_plan"} with these elements:
+#' @param data The object returned by [load_data()].
+#' @param cell_ids Labels of the cells, from the \code{cell_label} column
+#'   of \code{data$cell_metadata}. If \code{NULL} (default), every cell of
+#'   the dataset is included.
+#' @param data_type Type of expression values: \code{"raw"} for counts or
+#'   \code{"log2"} for the log2-transformed values the ABC Atlas publishes.
+#'   If \code{NULL} (default), \code{"raw"} is used where the dataset
+#'   publishes it, otherwise \code{"log2"}.
+#' @param offline If \code{TRUE}, use only files already in the folder and
+#'   never connect to the internet.
+#' @return An \code{abc_fetch_plan} object, which prints as a report: a
+#'   list of class \code{"abc_fetch_plan"} with these elements:
 #'   \describe{
-#'     \item{\code{dataset}, \code{release}, \code{data_type}}{The route,
-#'       ABC Atlas release and representation of the request.}
+#'     \item{\code{dataset}, \code{release}, \code{data_type}}{The
+#'       dataset, ABC Atlas release and type of expression values.}
 #'     \item{\code{n_cells}}{Number of selected cells.}
 #'     \item{\code{files}}{Data frame with one row per expression file:
 #'       \code{dataset_label}, \code{feature_matrix_label},
 #'       \code{data_type}, \code{n_cells} (selected cells in the file),
 #'       \code{size} (bytes), \code{relative_path}, \code{local_path},
-#'       \code{cached}, \code{partial_bytes} (resumable partial download)
-#'       and \code{additional_download} (bytes still to download).}
+#'       \code{cached} (downloaded before), \code{partial_bytes} (bytes of
+#'       an interrupted download that will be resumed) and
+#'       \code{additional_download} (bytes still to download).}
 #'     \item{\code{total_size}, \code{total_partial},
 #'       \code{total_download}}{Sums of \code{size}, \code{partial_bytes}
 #'       and \code{additional_download}, in bytes.}
-#'     \item{\code{storage}}{List with \code{available} (free bytes, or
-#'       \code{NA} if unknown), \code{download}, \code{system_disk},
-#'       \code{headroom}, \code{required} and \code{sufficient}: the same
-#'       storage check [fetch_data()] applies before downloading.}
+#'     \item{\code{storage}}{The disk space check [fetch_data()] makes
+#'       before downloading: \code{available} (free bytes, or \code{NA} if
+#'       unknown), \code{download}, \code{system_disk}, \code{headroom}
+#'       (space that must stay free), \code{required} and
+#'       \code{sufficient}.}
 #'   }
 #' @examples
 #' # A small synthetic dataset shipped with the package.

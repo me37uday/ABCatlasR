@@ -1,24 +1,27 @@
-#' List supported ABC Atlas dataset routes
+#' List the ABC Atlas datasets you can load
 #'
-#' Returns the dataset routes the package supports, as names to pass to
-#' [load_data()]. It reads the package's own registry, so it needs no
-#' network access and downloads nothing.
+#' Returns one row per dataset the package supports, with the name to pass
+#' to [load_data()]. The list is part of the package, so this needs no
+#' internet connection and downloads nothing.
 #'
 #' @return A data frame of class
 #'   \code{c("abc_dataset_catalog", "data.frame")} with one row per
-#'   supported dataset route and these columns:
+#'   dataset and these columns:
 #'   \describe{
-#'     \item{\code{dataset}}{Route name, used as \code{dataset} in
+#'     \item{\code{dataset}}{Dataset name, used as \code{dataset} in
 #'       [load_data()].}
-#'     \item{\code{modality}}{For example \code{"spatial_transcriptomics"}.}
-#'     \item{\code{spatial}}{Whether the route has spatial coordinates, so
-#'       that \code{return_type = "spatial"} is available.}
-#'     \item{\code{imputed}}{Whether the expression is imputed.}
+#'     \item{\code{modality}}{Kind of data, for example
+#'       \code{"spatial_transcriptomics"}.}
+#'     \item{\code{spatial}}{Whether the cells have spatial coordinates,
+#'       so that \code{return_type = "spatial"} can be used.}
+#'     \item{\code{imputed}}{Whether the expression values are imputed
+#'       rather than measured.}
 #'     \item{\code{default_data_type}, \code{available_data_types}}{The
-#'       representation used by default and those published.}
+#'       type of expression values used by default (\code{"raw"} or
+#'       \code{"log2"}) and the types the ABC Atlas publishes.}
 #'     \item{\code{cell_directory}, \code{gene_directory},
 #'       \code{taxonomy}, \code{expression_directories}}{The ABC Atlas
-#'       directories the route reads.}
+#'       folders the dataset is read from.}
 #'   }
 #'
 #' @examples

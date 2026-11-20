@@ -11,11 +11,12 @@ abc_cache_connect(
 )
 }
 \arguments{
-\item{download_base}{Download/cache directory; resolved by
-\code{\link{abc_download_dir}}.}
+\item{download_base}{Folder for ABC Atlas files. If \code{NULL}
+(default), the folder given by \code{\link[=abc_download_dir]{abc_download_dir()}} is used.}
 
-\item{offline}{If \code{TRUE}, use only locally cached data and never contact
-S3. Requires a manifest to have been downloaded previously.}
+\item{offline}{If \code{TRUE}, use only files already in the folder and
+never connect to the internet. The release must have been used online
+once before.}
 
 \item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 20260711, the release validated against this package.
@@ -23,29 +24,36 @@ S3. Requires a manifest to have been downloaded previously.}
 }
 \value{
 An \code{abc_cache} object: a list of class \code{"abc_cache"}
-with the \code{download_base},
-\code{manifest_name}, \code{version} and \code{offline} fields, plus the
-functions \code{get_file_path(directory, file_name)} (returns the local
-path of a file, downloading it if needed) and
-\code{get_metadata_dataframe(directory, file_name, col_classes, ...)}
-(reads a metadata CSV into a data.frame; \code{col_classes} defaults to
-\code{NULL} and \code{...} goes to \code{data.table::fread}).
+with these elements:
+\describe{
+\item{\code{download_base}}{The folder.}
+\item{\code{manifest_name}, \code{version}}{The release file list in
+use and its release date.}
+\item{\code{offline}}{Whether downloads are switched off.}
+\item{\code{get_file_path(directory, file_name)}}{Function that
+returns the local path of a file, downloading it if needed.}
+\item{\code{get_metadata_dataframe(directory, file_name, col_classes,
+      ...)}}{Function that reads a metadata CSV file into a data frame;
+\code{...} is passed to \code{data.table::fread()}.}
+}
 }
 \description{
-Selects a release manifest and returns a handle used to locate, download and
-read ABC Atlas files under \code{download_base}. With \code{offline = FALSE}
-(default) the available releases are listed from S3 and missing files are
-downloaded (and md5-verified) on first use; with \code{offline = TRUE} only
-manifests and files already on disk are used, and the network is never
-contacted and nothing is written to \code{download_base}.
+Opens the files of one ABC Atlas release in a local folder and returns an
+object that finds, downloads and reads them. \code{\link[=load_data]{load_data()}} and
+\code{\link[=fetch_data]{fetch_data()}} use it internally; call it yourself only to work with
+individual ABC Atlas files.
 }
 \details{
-By default the release validated against this package is used. With
-\code{release = NULL}, the manifest is chosen as in the Python
-\code{abc_atlas_access} package: the one last used with this directory if
-any (with a warning when a newer release exists), otherwise the latest
-release. The directory layout is the same as in the Python package, so a
-download directory can be shared between them.
+A file is downloaded the first time it is needed and checked against the
+checksum the ABC Atlas publishes for it. With \code{offline = TRUE}, only
+files already in the folder are used: nothing is downloaded or written.
+
+By default the release this package was validated against is used. With
+\code{release = NULL}, the release is chosen as the Python
+\code{abc_atlas_access} package chooses it: the one last used with this
+folder, with a warning if a newer one exists, or else the newest. Files
+are stored with the same layout as in the Python package, so the two can
+share a folder.
 }
 \examples{
 example_dir <- system.file(

@@ -636,47 +636,48 @@
 
 #' Load the cell and gene metadata of an ABC Atlas dataset
 #'
-#' Downloads, on first use, and reads the cell and gene metadata of one
-#' supported dataset route, joined with the route's annotation tables.
-#' Expression is not downloaded; see [fetch_data()].
+#' Reads the metadata of every cell and gene in one dataset, together with
+#' its annotation tables such as cell types, donors and spatial positions.
+#' The files are downloaded the first time and reused afterwards. Gene
+#' expression is not downloaded here; see [fetch_data()].
 #'
-#' The full cell and gene metadata of the dataset are loaded. Cells and
-#' genes are selected afterwards, by passing their labels and names to
-#' [fetch_data()]. The returned object records the release and cache
-#' directory, which [plan_fetch()] and [fetch_data()] reuse.
+#' Choose cells and genes from the returned tables, then pass their labels
+#' and names to [fetch_data()]. The returned object also records the release
+#' and the folder, so [plan_fetch()] and [fetch_data()] use the same ones.
 #'
-#' @param dataset Dataset route name. Run [list_datasets()] to see every
-#'   supported route (for example \code{"WHB"}, \code{"AgingMouse"} or
-#'   \code{"MERFISH"}). Unambiguous partial names are accepted.
-#' @param download_base Directory where ABC Atlas data is downloaded and cached.
-#'   If \code{NULL} (default), it is resolved by \code{\link{abc_download_dir}}.
-#' @param offline If \code{TRUE}, use only locally cached data and never contact
-#'   S3 (see \code{\link{abc_cache_connect}}).
+#' @param dataset Dataset name, for example \code{"WHB"},
+#'   \code{"AgingMouse"} or \code{"MERFISH"}; [list_datasets()] shows all
+#'   of them. The start of a name is enough if it matches only one dataset.
+#' @param download_base Folder for ABC Atlas files. If \code{NULL}
+#'   (default), the folder given by [abc_download_dir()] is used.
+#' @param offline If \code{TRUE}, use only files already in the folder and
+#'   never connect to the internet.
 #' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 #'   `r .abc_default_release`, the release validated against this package.
-#'   Metadata are loaded from exactly that release. A release that lacks a
-#'   directory the route reads, for example because it was renamed, is
-#'   refused with a message.
+#'   Metadata are read from exactly that release. If a release lacks a
+#'   folder the dataset needs, for example because it was renamed, loading
+#'   stops with a message.
 #' @return An \code{abc_data} object: a list of class
 #'   \code{c("abc_data", "list")} with these elements:
 #'   \describe{
-#'     \item{\code{cell_metadata}}{Data frame with one row per cell, named by
-#'       \code{cell_label}. It holds the published cell metadata joined with
-#'       the route's annotation tables (taxonomy terms and colours, donor,
-#'       library and spatial tables where they exist). Its attributes record
-#'       the route: \code{abc_dataset}, \code{abc_modality},
-#'       \code{abc_spatial}, \code{abc_default_data_type},
-#'       \code{abc_available_data_types} and
-#'       \code{abc_expression_directories}. [plan_fetch()] and
-#'       [fetch_data()] read them, so keep the data frame as returned.}
-#'     \item{\code{gene_data}}{Data frame with one row per gene; the
-#'       \code{gene_identifier} column is the unique gene key, and
-#'       \code{gene_symbol} is included where published.}
-#'     \item{\code{unique_values}}{Named list with the distinct values of the
-#'       route's main metadata columns, to help choose cells.}
-#'     \item{\code{dataset}}{Route name, as listed by [list_datasets()].}
-#'     \item{\code{download_base}}{Cache directory used.}
-#'     \item{\code{release}}{ABC Atlas release of the metadata.}
+#'     \item{\code{cell_metadata}}{Data frame with one row per cell; the
+#'       row names are the \code{cell_label} values. It combines the
+#'       published cell metadata with the annotation tables that exist for
+#'       the dataset: cell type names and colours, donor, library and
+#'       spatial information. Attributes on the data frame
+#'       (\code{abc_dataset}, \code{abc_modality}, \code{abc_spatial},
+#'       \code{abc_default_data_type}, \code{abc_available_data_types} and
+#'       \code{abc_expression_directories}) tell [plan_fetch()] and
+#'       [fetch_data()] where the expression is stored, so pass the object on
+#'       as returned.}
+#'     \item{\code{gene_data}}{Data frame with one row per gene. The
+#'       \code{gene_identifier} column identifies each gene uniquely;
+#'       \code{gene_symbol} is included where the ABC Atlas publishes it.}
+#'     \item{\code{unique_values}}{Named list with the different values
+#'       found in the main metadata columns, to help choose cells.}
+#'     \item{\code{dataset}}{Dataset name, as listed by [list_datasets()].}
+#'     \item{\code{download_base}}{Folder used for the files.}
+#'     \item{\code{release}}{ABC Atlas release the metadata come from.}
 #'   }
 #' @examples
 #' # Cache the downloaded metadata in a temporary folder.
