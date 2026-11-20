@@ -19,7 +19,7 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
 BiocManager::install("ABCatlasR")
 ```
 
-Until `ABCatlasR` is available from Bioconductor, install it from GitHub
+Until `ABCatlasR` is available on Bioconductor, install it from GitHub
 instead:
 
 ```r
