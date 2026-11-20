@@ -460,11 +460,20 @@ print.abc_cache <- function(x, ...) {
 # short by a disk error or an interrupted copy fails this; checking the md5
 # of every cached file would take too long for multi-GB matrices.
 .abc_size_matches <- function(attrs) {
-    expected <- suppressWarnings(as.numeric(attrs$size))
-    if (length(expected) != 1L || is.na(expected)) {
+    expected <- .abc_manifest_size(attrs)
+    if (is.na(expected)) {
         return(TRUE)
     }
     isTRUE(file.size(attrs$local_path) == expected)
+}
+
+# File size listed in the manifest, or NA when it is not a single number.
+.abc_manifest_size <- function(attrs) {
+    size <- attrs$size
+    if (is.numeric(size) && length(size) == 1L && !is.na(size)) {
+        return(as.numeric(size))
+    }
+    NA_real_
 }
 
 # Refuse a file download that does not fit, with the rule fetch_data()
@@ -472,7 +481,7 @@ print.abc_cache <- function(x, ...) {
 .abc_check_file_space <- function(download_base, attrs) {
     part <- paste0(attrs$local_path, ".part")
     partial <- if (file.exists(part)) file.size(part) else 0
-    remaining <- max(suppressWarnings(as.numeric(attrs$size)) - partial, 0)
+    remaining <- max(.abc_manifest_size(attrs) - partial, 0)
 
     if (is.na(remaining)) {
         return(invisible(TRUE))
@@ -568,37 +577,11 @@ print.abc_cache <- function(x, ...) {
     if (dir.exists(path)) stop(path, " exists but is not a file.")
 
     if (cache$offline) {
-        if (!file.exists(path)) {
-            stop(
-                "'", attrs$relative_path,
-                "' is not available locally (offline = TRUE). ",
-                "Run once with offline = FALSE to download it."
-            )
-        }
-        if (!.abc_size_matches(attrs)) {
-            stop(
-                "The cached '", attrs$relative_path, "' is incomplete or ",
-                "damaged (its size differs from the manifest). Run once ",
-                "with offline = FALSE to download it again.",
-                call. = FALSE
-            )
-        }
-        .abc_report_cached(attrs)
-        return(path)
+        return(.abc_offline_file_path(attrs))
     }
 
     base <- cache$download_base
-    if (file.exists(path) && !.abc_is_recorded(base, path)) {
-        force_download <- TRUE
-    }
-    if (file.exists(path) && !force_download && !.abc_size_matches(attrs)) {
-        message(
-            "The cached ", attrs$relative_path, " is incomplete or ",
-            "damaged; downloading it again."
-        )
-        force_download <- TRUE
-    }
-    if (force_download) {
+    if (force_download || .abc_needs_redownload(base, attrs)) {
         .abc_unrecord(base, path)
         unlink(path)
     }
@@ -615,6 +598,47 @@ print.abc_cache <- function(x, ...) {
     .abc_download(attrs$url, path, if (!skip_hash_check) attrs$file_hash)
     .abc_record(base, path)
     path
+}
+
+# Offline, a file is used only if it is cached and has its manifest size.
+.abc_offline_file_path <- function(attrs) {
+    if (!file.exists(attrs$local_path)) {
+        stop(
+            "'", attrs$relative_path,
+            "' is not available locally (offline = TRUE). ",
+            "Run once with offline = FALSE to download it."
+        )
+    }
+    if (!.abc_size_matches(attrs)) {
+        stop(
+            "The cached '", attrs$relative_path, "' is incomplete or ",
+            "damaged (its size differs from the manifest). Run once ",
+            "with offline = FALSE to download it again.",
+            call. = FALSE
+        )
+    }
+    .abc_report_cached(attrs)
+    attrs$local_path
+}
+
+# A file on disk is downloaded again when it is not recorded as a complete
+# download, or when its size differs from the manifest.
+.abc_needs_redownload <- function(download_base, attrs) {
+    path <- attrs$local_path
+    if (!file.exists(path)) {
+        return(FALSE)
+    }
+    if (!.abc_is_recorded(download_base, path)) {
+        return(TRUE)
+    }
+    if (!.abc_size_matches(attrs)) {
+        message(
+            "The cached ", attrs$relative_path, " is incomplete or ",
+            "damaged; downloading it again."
+        )
+        return(TRUE)
+    }
+    FALSE
 }
 
 # Report that a requested file is served from the local cache. It mirrors the
