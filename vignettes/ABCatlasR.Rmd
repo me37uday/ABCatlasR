@@ -1,5 +1,5 @@
 ---
-title: "Accessing Allen Brain Cell Atlas data from R"
+title: "ABCatlasR: choosing and retrieving ABC Atlas data for biological questions"
 author:
 - name: Uday Rangaswamy
 - name: Mahdi Komeili
@@ -12,14 +12,14 @@ author:
 - name: Remo Sanges
 date: "`r format(Sys.Date(), '%d %B %Y')`"
 package: ABCatlasR
-output: BiocStyle::html_document
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_depth: 2
 vignette: >
-  %\VignetteIndexEntry{Accessing Allen Brain Cell Atlas data from R}
+  %\VignetteIndexEntry{ABCatlasR: choosing and retrieving ABC Atlas data for biological questions}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
-editor_options:
-  markdown:
-    wrap: 72
 ---
 
 ```{r setup, include=FALSE}
@@ -33,280 +33,428 @@ options(ABCatlasR.download_progress = FALSE)
 options(ABCatlasR.download_base = file.path(tempdir(), "ABCatlasR-cache"))
 ```
 
-## Introduction
+# Introduction
 
 `ABCatlasR` provides an R-native, release-aware interface to the
 [Allen Brain Cell (ABC)
-Atlas](https://brain-map.org/bkp/explore/abc-atlas).
+Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
+The ABC Atlas brings together large single-cell, single-nucleus, and spatial
+transcriptomic resources across species, brain regions, life stages, and
+disease contexts.
 
-The ABC Atlas, from the Allen Institute, brings together whole-brain
-single-cell, single-nucleus and spatial transcriptomics datasets from the
-mouse, human, macaque and marmoset brain, together with their cell type
-taxonomies. Its H5AD expression matrices and CSV metadata files are
-distributed through a public Amazon S3 bucket that requires no account.
-`ABCatlasR` lets R users find these datasets, select cells and genes from
-their metadata, check the size of a request before downloading, and read
-the selected expression into R.
+The package is designed around a metadata-first workflow. Rather than
+starting by loading a large expression matrix, users first choose an Atlas
+dataset, inspect the biological annotations available for that resource,
+select the cells relevant to their question, and then retrieve expression for
+those cells.
 
-The package separates metadata discovery from expression transfer:
+Across the neuroscience community, questions that can motivate use of the
+Atlas include:
 
-1.  `list_datasets()` discovers curated dataset routes.
-2.  `load_data()` loads the cell and gene metadata of a dataset.
-3.  `plan_fetch()` reports the expression files a selection of cells
-    needs, their sizes and the disk space required. It is optional.
-4.  `fetch_data()` downloads and reads the expression of the selected
-    cells and genes into the requested R representation.
+- **Cell identity and diversity:** Which neuronal and non-neuronal cell types
+  or states are present in a brain region, and how are they related to its
+  cellular organization?
+- **Molecular specialization:** Which genes and transcriptional programs
+  characterize particular cell populations or distinguish related populations
+  across anatomical regions?
+- **Spatial organization:** Where are molecularly defined cell types located,
+  and how does their organization vary across brain structures?
+- **Development, aging, and disease:** How do cell states and molecular
+  profiles differ across life stages or neurological and neurodegenerative
+  disease contexts?
+- **Cross-species neuroscience:** Which cellular and molecular features appear
+  conserved or divergent across mouse, marmoset, macaque, and human brain
+  resources?
 
-The Allen Institute provides the Python package `abc_atlas_access` to
-download ABC Atlas files. `ABCatlasR` reads the same releases and keeps
-downloaded files in the same folder layout, so the two can share a
-download folder. Where `abc_atlas_access` returns file paths and pandas
-data frames, `ABCatlasR` joins the cell metadata with its annotations and
-returns expression as R and Bioconductor objects, without Python.
+The default output of `fetch_data()` is an `abc_matrix`: a sparse genes x
+cells matrix together with aligned cell metadata, gene metadata, and
+provenance. This keeps the primary output simple and makes it suitable for
+downstream R, Seurat, Monocle, or Bioconductor workflows.
 
-## Installation
+`ABCatlasR` is not a normalization, differential-expression, integration,
+orthology-mapping, or cell-type-prediction package. Its purpose is to make ABC
+Atlas data easier to discover, select, retrieve, and represent in R while
+preserving the source expression values and release provenance.
 
-Install the package with `BiocManager`:
+# Installation
 
-```{r install, eval=FALSE}
+Install the package from Bioconductor:
+
+```{r installation, eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
     install.packages("BiocManager")
 }
 BiocManager::install("ABCatlasR")
 ```
 
-Then load it:
+Load the package:
 
 ```{r library}
 library(ABCatlasR)
 ```
 
-Core metadata and matrix functionality is R-native. The primary output is a
-sparse matrix bundle. SingleCellExperiment and SpatialExperiment outputs
-are available directly as alternative representations.
+```{r vignette-validation, include=FALSE}
+# Exercise the core planning and retrieval path during vignette building
+# without making the rendered tutorial depend on the public network.
+validation_dir <- system.file("extdata", "ex", package = "ABCatlasR")
+validation_abc <- readRDS(file.path(validation_dir, "example-data.rds"))
+validation_abc$download_base <- validation_dir
+validation_keep <-
+    validation_abc$cell_metadata$region_of_interest_label == "R1"
+validation_cells <-
+    validation_abc$cell_metadata$cell_label[validation_keep]
+validation_plan <- plan_fetch(
+    validation_abc,
+    cell_ids = validation_cells,
+    data_type = "raw",
+    offline = TRUE
+)
+validation_x <- fetch_data(
+    validation_abc,
+    cell_ids = validation_cells,
+    data_type = "raw",
+    offline = TRUE
+)
+stopifnot(
+    identical(
+        colnames(validation_x$expression),
+        validation_x$cell_metadata$cell_label
+    ),
+    identical(
+        rownames(validation_x$expression),
+        validation_x$gene_data$gene_identifier
+    )
+)
+```
 
-## Discovering datasets
+# Choosing a dataset for your biological question
 
-Use `list_datasets()` to inspect the curated routes supported by the
-package:
+A useful first step is to decide which ABC Atlas resource best matches the
+question. `ABCatlasR` exposes the supported routes through `list_datasets()`.
+The returned table gives the modality, whether spatial coordinates are
+available, and the expression representations supported by each route.
 
-```{r list-datasets}
+```{r dataset-catalog}
 datasets <- list_datasets()
 datasets
 ```
 
-The catalog reports each route's modality, spatial and imputed status,
-default representation and available expression representations.
+The routes currently registered in `ABCatlasR` can be viewed in broad
+biological groups:
 
-It is also an ordinary data frame:
-
-```{r spatial-datasets}
-datasets[datasets$spatial, ]
+```{r dataset-groups, echo=FALSE}
+groups <- data.frame(
+    focus = c(
+        "Whole mouse brain transcriptomics",
+        "Mouse spatial transcriptomics",
+        "Mouse development and aging",
+        "Whole human brain",
+        "Human disease and clinical metadata",
+        "Mammalian basal ganglia",
+        "Electrophysiology-linked transcriptomics",
+        "Mammalian basal-ganglia spatial data",
+        "Marmoset subcortex"
+    ),
+    routes = c(
+        "`WMB`, `ConsensusMouseAIBS`, `ConsensusMouseMacosko`",
+        "`Zhuang1`-`Zhuang4`, `MERFISH`, `MERFISH_imputed`",
+        "`DevelopingMouse`, `AgingMouse`",
+        "`WHB`",
+        "`SEAAD_Multiregion`, `SEAAD_CaH`, `PMDBS`",
+        "`HMBA`, `HMBA_Human`, `HMBA_Macaque`, `HMBA_Marmoset`",
+        "`HMBA_PatchSeq`",
+        paste(
+            "`HMBA_spatial_Human`, `HMBA_spatial_Macaque`,",
+            "`HMBA_spatial_Marmoset`"
+        ),
+        "`HMBA_Subcortex_Marmoset`, `HMBA_spatial_Subcortex_Marmoset`"
+    ),
+    use = c(
+        paste(
+            "Cell-type and whole-brain transcriptomic questions, including",
+            "consensus taxonomies"
+        ),
+        paste(
+            "Spatial localization of cell types and gene expression across",
+            "the mouse brain"
+        ),
+        paste(
+            "Questions involving developmental stage, age, or",
+            "age-associated cell states"
+        ),
+        "Human brain cell types across anatomical locations",
+        paste(
+            "Alzheimer disease, Parkinson-related collections,",
+            "neuropathology, diagnosis, and donor-level questions"
+        ),
+        paste(
+            "Human and non-human primate basal-ganglia transcriptomics and",
+            "cross-species exploration"
+        ),
+        "Macaque Patch-seq cells with transcriptomic annotations",
+        "Spatial cell-type and expression questions across HMBA species",
+        paste(
+            "Single-nucleus and spatial questions across the marmoset",
+            "subcortex"
+        )
+    )
+)
+names(groups) <- c("Biological focus", "`ABCatlasR` routes", "Typical use")
+knitr::kable(groups)
 ```
 
-`list_datasets()` reads the package registry only and performs no
-network access.
+This table is intended as a guide rather than a substitute for the dataset
+metadata. Once a route has been chosen, `load_data()` exposes the annotations
+that can actually be used to define the cells of interest.
 
-## Loading metadata
+For cross-species studies, the HMBA human, macaque, and marmoset routes provide
+closely related resources that can be explored with the same metadata-first
+strategy. Each route should still be inspected independently because available
+annotations and gene identifiers can differ. `ABCatlasR` retrieves the
+published source data but does not perform orthology mapping, integration, or
+cross-species statistical harmonization.
 
-`load_data()` loads and assembles cell and gene metadata. It does not
-fetch the large expression matrices.
+The current package is validated against ABC Atlas release `20261130`.
+`ABCatlasR` is release-aware, and its dataset registry and documentation are
+versioned with the package. As newer ABC Atlas releases are incorporated and
+validated, the manual and vignette are updated to reflect the available
+routes, metadata structure, and expression representations. The examples in
+this vignette therefore describe the release supported by the package version
+being read.
 
-This vignette uses `Zhuang4`, one of four MERFISH datasets from Zhang et
-al. (2023). It covers three sagittal sections of an adult mouse brain
-measured with a 1,122-gene panel, and its cells are mapped to the whole
-mouse brain taxonomy of Yao et al. (2023). The ABC Atlas distributes the
-approximately 0.16 million cells that passed the mapping confidence
-threshold. Its metadata take about 40 MB and its raw expression about
-64 MB.
+For detailed biological descriptions and publication-specific citations for a
+dataset, consult the corresponding ABC Atlas resource page.
 
-```{r load-data}
-abc <- load_data(dataset = "Zhuang4", release = "20261130")
+# Basic workflow
+
+The practical workflow mirrors the short example in the README but is expanded
+here to explain the decisions made at each step:
+
+1. inspect the available datasets;
+2. load metadata for a chosen route;
+3. explore the metadata and define the cells of interest;
+4. optionally inspect the required downloads;
+5. retrieve a complete expression matrix for downstream analysis.
+
+Gene selection is optional. When `genes` is not supplied, `fetch_data()`
+returns all genes available in the selected expression representation. The
+examples below use that default so that the result is a matrix ready for
+downstream single-cell analysis.
+
+The examples below show the public ABC Atlas workflow directly. They are run
+when the vignette is built, so the output shown comes from the ABC Atlas
+release validated for this package version. The vignette build also exercises
+the same core planning and retrieval path against the package's bundled
+validation files in a hidden check.
+
+## 1. See which datasets are available
+
+`list_datasets()` requires no network access. It is useful both for discovery
+and for checking whether a route is spatial and which expression
+representations it provides.
+
+```{r workflow-list}
+head(datasets[, c(
+    "dataset", "modality", "spatial",
+    "default_data_type", "available_data_types"
+)])
+```
+
+A biological question should usually determine the route before any expression
+files are considered. For example, a whole-brain mouse cell-type question, a
+human disease question, and a primate spatial question naturally lead to
+different routes in the table above.
+
+## 2. Load a dataset
+
+`load_data()` downloads and assembles **metadata only**. Expression matrices
+are not downloaded at this stage. This separation is important because the
+metadata can be explored before deciding which cells are worth retrieving.
+
+For a real spatial mouse-brain analysis using the release validated for this
+package version, the call is:
+
+```{r live-load}
+abc <- load_data(
+    dataset = "Zhuang4",
+    release = "20261130"
+)
 abc
 ```
 
-The cell metadata hold one row per cell, with anatomical, donor and
-taxonomy annotations and, for this spatial route, the `x`, `y` and `z`
-coordinates:
+The returned `abc_data` object contains the assembled cell metadata, gene
+metadata, convenient summaries of selected annotations, the dataset name, and
+the Atlas release.
 
-```{r cell-metadata}
-head(abc$cell_metadata)
+The important point is that `load_data()` prepares the information needed to
+make the biological selection; it does not force an expression download.
+
+## 3. Explore the metadata and choose cells
+
+Cell selection is usually the most important biological step in an
+`ABCatlasR` workflow. The relevant variables differ between datasets, so the
+first action after `load_data()` should be to inspect what is available rather
+than assume that every route has the same annotations.
+
+For the public `Zhuang4` example:
+
+```{r live-metadata}
+names(abc$cell_metadata)
+head(abc$cell_metadata[, c(
+    "cell_label", "brain_section_label", "neurotransmitter"
+)])
+
+names(abc$unique_values)
+abc$unique_values$neurotransmitter
+head(abc$unique_values$brain_section_label)
 ```
 
-The gene metadata hold one row per gene, keyed by `gene_identifier`:
+Depending on the route and the biological question, useful selection variables
+can include:
 
-```{r gene-data}
-head(abc$gene_data)
-```
+- **cell identity**: class, subclass, supertype, cluster, or neurotransmitter;
+- **anatomy**: brain section, region of interest, or anatomical division;
+- **subject information**: donor, age, sex, genotype, or species;
+- **disease context**: diagnosis, neuropathology, or clinical annotations when
+  published for that resource;
+- **spatial questions**: section labels, regions, and spatial coordinates;
+- **dataset-specific quality fields**: when these are provided by the Atlas.
 
-`unique_values` lists the values found in the main metadata columns,
-which helps when choosing cells. The number of values per column and the
-first few of each:
+For example, a question about GABAergic cells in one `Zhuang4` section can be
+translated directly into a metadata filter:
 
-```{r unique-values}
-lengths(abc$unique_values)
-lapply(abc$unique_values, head, n = 3)
-```
+```{r live-cell-selection}
+keep <- abc$cell_metadata$brain_section_label == "Zhuang-ABCA-4.002" &
+    abc$cell_metadata$neurotransmitter == "GABA"
 
-## Selecting cells and genes
-
-Cells are selected by their `cell_label` and genes by their identifier
-or symbol; both are passed to `fetch_data()`. The cells and genes below
-are taken from the outputs shown in the previous section.
-
-### Cell selection
-
-Any subset of the cell metadata gives a vector of cell labels. Here,
-brain section `Zhuang-ABCA-4.002` and the GABAergic and glutamatergic
-cells in it:
-
-```{r cell-selection}
-keep <- abc$cell_metadata$brain_section_label %in% "Zhuang-ABCA-4.002" &
-    abc$cell_metadata$neurotransmitter %in% c("GABA", "Glut")
 cells <- abc$cell_metadata$cell_label[keep]
+cells <- head(cells, 1000)
 length(cells)
-table(abc$cell_metadata$neurotransmitter[keep])
 ```
 
-When the desired cells are already known, their labels can be listed
-directly. Here, the first three cells of `head(abc$cell_metadata)`:
+The stable `cell_label` values are then passed to `fetch_data()`. Keeping the
+selection explicit makes it clear which biological population generated the
+expression matrix.
 
-```{r cell-id-selection}
-my_cell_labels <- head(abc$cell_metadata$cell_label, 3)
-my_cell_labels
+This same pattern applies across routes: inspect the metadata, express the
+biological inclusion criteria, and retain the corresponding cell labels.
+
+## 4. Check what will be downloaded
+
+`plan_fetch()` is optional, but **we recommend running it on local machines
+before `fetch_data()`**, especially for a first request, an unfamiliar dataset,
+or a large cell selection. It reports the expression files required for the
+selected cells, whether they are already cached, and the associated storage
+requirements before a transfer begins.
+
+This is important because ABC Atlas expression files are downloaded as source
+files rather than gene-by-gene. Reviewing the plan gives the user an
+opportunity to change the cache location, free disk space, or refine the cell
+selection before downloading. On a workstation or laptop, this can prevent a
+request from exhausting local storage and reduce the risk of an interrupted or
+failed session.
+
+For the public example:
+
+```{r live-plan}
+plan_fetch(
+    abc,
+    cell_ids = cells,
+    data_type = "raw"
+)
 ```
 
-When the selected population is still large, a random subset keeps the
-request small. `set.seed()` makes the subset reproducible:
 
-```{r cell-sampling}
-set.seed(42)
-cells_sampled <- sample(cells, 1000)
-length(cells_sampled)
-```
+The plan is particularly useful when a metadata selection spans several source
+expression files or when the request is being prepared for a workstation or
+compute node with limited local storage. On managed clusters with dedicated
+storage it remains optional, but it is still a useful record of what the
+request will require.
 
-### Gene selection
+## 5. Retrieve the expression matrix
 
-Expression rows are keyed by canonical `gene_identifier`. Each requested
-gene is matched first against `gene_identifier`, then against the
-published source identifier, then against `gene_symbol`, so symbols and
-identifiers can be mixed. Here, three genes from `head(abc$gene_data)`
-by symbol and Rxrg by its identifier:
+`fetch_data()` retrieves expression for the selected cells. The default return
+value is an `abc_matrix`, so `return_type = "matrix"` does not need to be
+specified.
 
-```{r gene-selection}
-genes <- c("Htr7", "Sema3c", "Itga8", "ENSMUSG00000015843")
-abc$gene_data[
-    abc$gene_data$gene_symbol %in% genes |
-        abc$gene_data$gene_identifier %in% genes,
-    c("gene_identifier", "gene_symbol")
-]
-```
+For the public `Zhuang4` workflow:
 
-## Planning expression access
-
-Expression files can be several gigabytes. Before downloading them,
-`plan_fetch()` reports what a selection of cells needs. It is optional:
-`fetch_data()` does not use its result.
-
-```{r plan-fetch}
-plan_fetch(abc, cell_ids = cells)
-```
-
-The report lists:
-
--   the resolved ABC Atlas release;
--   the published representation, for example `raw` or `log2`;
--   the number of selected cells;
--   expression files involved;
--   selected-file sizes;
--   whether each file is cached;
--   resumable partial bytes;
--   additional download required;
--   available disk space and the storage check.
-
-Expression files are downloaded whole, so the report does not depend on
-the genes. `plan_fetch()` does not download expression matrices.
-
-Before downloading, `fetch_data()` checks the free space of the disk
-that holds the cache, whether or not `plan_fetch()` was called. A
-download that does not fit is refused, and on the disk the operating
-system runs from at least 2 GB must remain free after the download, so
-the system keeps room for virtual memory.
-
-## Fetching expression
-
-`fetch_data()` downloads the expression files the selected cells need,
-then reads only the selected cells and genes:
-
-```{r fetch-matrix}
+```{r live-fetch}
 x <- fetch_data(
     abc,
     cell_ids = cells,
-    genes = genes,
-    data_type = "raw",
-    return_type = "matrix" # could pick "sce" or "spatial"
+    data_type = "raw"
 )
-dim(x$expression)
-x$expression[, 1:3]
-Matrix::rowSums(x$expression > 0)
-x$provenance
 ```
 
-This returns an `abc_matrix` object containing sparse expression,
-selected metadata and provenance. Rows are genes, keyed by
-`gene_identifier`, and columns are cells;
-`Matrix::rowSums(x$expression > 0)` counts the selected cells in which
-each gene is detected. The provenance records the dataset, release,
-representation, modality, spatial status and selected dimensions.
+Because `genes` is not supplied, all genes available in the selected source
+representation are returned. This is the recommended starting point when the
+matrix will be passed to a general downstream single-cell workflow.
 
-Depending on the downstream analysis, choose `data_type = "raw"` for raw
-counts or `data_type = "log2"` for the log2-transformed values published
-by the ABC Atlas. Without `data_type`, the dataset's default is used:
-`raw` where it is published, otherwise `log2`. `list_datasets()` shows
-the default and available representations of each route. Each
-representation is a separate file, so only one is downloaded. The
-spatial HMBA routes publish `batch_normalized` values, which are counts
-normalized for differences between batches, and their natural log,
-`ln`, instead of `log2`.
+After retrieval, the result can be inspected directly:
 
-With `genes = NULL`, the default, every gene in `abc$gene_data` is
-returned.
+```{r live-matrix-inspection}
+dim(x$expression)
+class(x$expression)
+x$expression[1:5, 1:5]
+```
 
-## Output representations
+Cell and gene metadata remain aligned to the matrix columns and rows. These
+checks are useful when passing the result to another single-cell framework:
 
-`return_type` selects the representation returned by `fetch_data()`:
-
--   `"matrix"`, the primary output, is the sparse matrix bundle shown
-    above.
--   `"sce"` returns a SingleCellExperiment. Raw expression uses a
-    `counts` assay. Other representations use an assay of the same
-    name, such as `log2`.
--   `"spatial"` returns a SpatialExperiment with the dataset's spatial
-    coordinates attached. It is available for routes declared spatial,
-    such as `Zhuang4`, and needs the SpatialExperiment package.
-
-SingleCellExperiment and SpatialExperiment objects store the provenance
-in object metadata, and SpatialExperiment provenance additionally
-records the coordinate columns used.
-
-Seurat and Monocle 3 objects are not built by `ABCatlasR`. Users of
-either tool can convert the matrix output with the code below, which
-needs the `SeuratObject` package (CRAN) or the `monocle3` package
-(GitHub). Both tools expect count data, so use raw expression; `x` above
-is raw.
-
-```{r convert-seurat-monocle3, eval=FALSE}
-# Seurat: Seurat replaces "_" in feature names, so rename them first.
-counts <- x$expression
-rownames(counts) <- gsub("_", "-", rownames(counts))
-seu <- SeuratObject::CreateSeuratObject(
-    counts = counts,
-    meta.data = x$cell_metadata
+```{r live-alignment}
+identical(
+    colnames(x$expression),
+    x$cell_metadata$cell_label
 )
 
-# Monocle 3: gene metadata need a gene_short_name column.
+identical(
+    rownames(x$expression),
+    x$gene_data$gene_identifier
+)
+```
+
+The returned object contains:
+
+- `expression`: a sparse `dgCMatrix` with genes in rows and cells in columns;
+- `cell_metadata`: metadata aligned to the matrix columns;
+- `gene_data`: gene metadata aligned to the matrix rows;
+- `data_type`: the source expression representation;
+- `provenance`: the dataset, release, modality, and request details.
+
+This matrix is the main output of the package and can now be used for standard
+downstream single-cell analysis without another Atlas request.
+
+# Using the matrix in downstream single-cell workflows
+
+The default matrix interface is intentionally portable. For methods that
+expect counts, retrieve `data_type = "raw"` when raw counts are available for
+the selected route.
+
+## Seurat
+
+When `SeuratObject` is installed, the expression matrix and aligned cell
+metadata can be used directly:
+
+```{r seurat, eval=FALSE}
+seu <- SeuratObject::CreateSeuratObject(
+    counts = x$expression,
+    meta.data = x$cell_metadata
+)
+```
+
+Seurat may sanitize some feature names internally. `x$gene_data` retains the
+original ABC Atlas gene identifiers and symbols.
+
+## Monocle 3
+
+When `monocle3` is installed, the same matrix can be used to construct a cell
+data set:
+
+```{r monocle, eval=FALSE}
 gene_metadata <- x$gene_data
 gene_metadata$gene_short_name <- gene_metadata$gene_symbol
+
 cds <- monocle3::new_cell_data_set(
     x$expression,
     cell_metadata = x$cell_metadata,
@@ -314,88 +462,151 @@ cds <- monocle3::new_cell_data_set(
 )
 ```
 
-## Reusing cached data
+## Bioconductor containers
 
-Downloaded files are reused from the local cache. The report for the same
-cells now shows that nothing needs to be downloaded:
+The matrix bundle is the default output. The same biological selection can
+instead be returned directly as a `SingleCellExperiment` with
+`return_type = "sce"`. For a spatial route, `return_type = "spatial"` returns
+a `SpatialExperiment` with the available coordinates represented in a standard
+Bioconductor container.
 
-```{r reuse-plan}
-plan_again <- plan_fetch(abc, cell_ids = cells)
-plan_again$total_download
+These alternatives change the representation of the result, not the
+metadata-first process used to choose the cells.
+
+# Choosing an expression representation
+
+`list_datasets()` reports the expression representations available for each
+route. Depending on the dataset, these can include:
+
+- `"raw"`: raw counts;
+- `"log2"`: log2-transformed expression published by the ABC Atlas;
+- `"batch_normalized"`: batch-normalized counts for supported spatial HMBA
+  routes;
+- `"ln"`: natural-log-transformed batch-normalized values.
+
+If `data_type` is omitted, the registered default for the route is used.
+`ABCatlasR` never creates one representation from another; it returns the
+selected source values as published.
+
+For downstream methods that expect counts, use `data_type = "raw"` when that
+representation is available.
+
+# Gene identifiers and optional gene selection
+
+Gene selection is optional. If `genes = NULL`, which is the default,
+`fetch_data()` returns all genes available in the selected expression
+representation. This is often the most useful choice when the result is being
+created for general downstream single-cell analysis.
+
+For focused questions, `genes` can instead contain canonical
+`gene_identifier` values or, where unambiguous, gene symbols. Stable gene
+identifiers are preferable for reproducible analyses because a symbol can map
+to more than one gene.
+
+Selecting fewer genes reduces the size of the returned R object, but ABC Atlas
+expression source files are downloaded whole. Gene filtering therefore does
+not necessarily reduce the size of an uncached network transfer.
+
+Matrix rows are keyed by `gene_identifier`; published symbols remain available
+in `x$gene_data$gene_symbol`.
+
+# Downloads, cache, and release-aware reproducibility
+
+ABC Atlas resources can be large, so `ABCatlasR` maintains a local cache. Files
+are downloaded only when needed, checked against release metadata, and reused
+on later requests.
+
+The cache location is resolved in this order:
+
+1. the `download_base` argument of `load_data()`;
+2. `options(ABCatlasR.download_base = ...)`;
+3. the `ABC_ATLAS_CACHE` environment variable;
+4. the package's per-user cache directory.
+
+For example:
+
+```{r cache-location, eval=FALSE}
+options(ABCatlasR.download_base = "/path/to/abc_atlas_cache")
+abc_download_dir()
 ```
 
-Fetching the same request again reads the expression file from the
-cache, and the message reports that no download was needed:
+After required files have been cached, `offline = TRUE` prevents network
+access. A missing file then produces an error instead of a download.
 
-```{r reuse-fetch}
-x_again <- fetch_data(abc, cell_ids = cells, genes = genes, data_type = "raw")
-identical(x$expression, x_again$expression)
+```{r offline, eval=FALSE}
+abc_offline <- load_data(
+    "Zhuang4",
+    release = "20261130",
+    offline = TRUE
+)
+
+x_offline <- fetch_data(
+    abc_offline,
+    cell_ids = cells,
+    data_type = "raw",
+    offline = TRUE
+)
 ```
 
-Other datasets use the same cache. `Zhuang2` is another MERFISH dataset
-from Zhang et al. (2023), measured with the same gene panel, so the genes
-selected above can be fetched from it too:
+Release pinning is particularly useful for long-lived projects because the
+Atlas continues to grow. The release recorded in the returned object and in
+matrix provenance makes the source version explicit.
 
-```{r second-dataset}
-abc2 <- load_data(dataset = "Zhuang2", release = "20261130")
-abc2
-```
+# Practical considerations for large datasets
 
-Here, a reproducible random sample of 5,000 cells:
+A few practices make large Atlas workflows easier to manage:
 
-```{r second-fetch}
-set.seed(1)
-cells2 <- sample(abc2$cell_metadata$cell_label, 5000)
-y <- fetch_data(abc2, cell_ids = cells2, genes = genes)
-dim(y$expression)
-Matrix::rowSums(y$expression > 0)
-```
+- choose the route according to the biological question before downloading
+  expression;
+- inspect metadata and define the cell population before calling
+  `fetch_data()`;
+- use `plan_fetch()` before a large or unfamiliar request;
+- remember that expression source files are downloaded whole;
+- selecting cells can reduce the number of source files needed when cells are
+  distributed across files;
+- selecting fewer genes reduces the returned matrix but may not reduce network
+  transfer size;
+- use raw counts for downstream methods that require counts;
+- pin a release for reproducible analyses;
+- reuse the cache, and use `offline = TRUE` on compute nodes without internet
+  access.
 
-## Cache location and releases
+# Scope and limitations
 
-ABC Atlas metadata and expression files can be large. Files are
-downloaded once and reused from a local cache.
+`ABCatlasR` is a data-access and representation package. It intentionally does
+not perform normalization, differential expression, integration, trajectory
+inference, cell-type prediction, or orthology mapping. Those decisions depend
+on the scientific question and can be handled by downstream tools using the
+returned matrix or Bioconductor containers.
 
-The cache directory is resolved in this order:
+For cross-dataset and cross-species studies, differences in experimental
+design, expression representation, gene availability, taxonomy, sampling, and
+independent replication should be considered before making inferential
+comparisons.
 
-1.  the `download_base` argument of `load_data()`;
-2.  `options(ABCatlasR.download_base = ...)`;
-3.  the `ABC_ATLAS_CACHE` environment variable;
-4.  a per-user package cache directory.
+Cells from the same donor or sample are not independent biological replicates.
+For statistical comparisons, identify the appropriate independent experimental
+unit from the metadata of the dataset being analyzed.
 
-For example, `options(ABCatlasR.download_base = "~/ABCatlasR-cache")` keeps
-the cache in a folder of your home directory. The object returned by
-`load_data()` records its cache directory, which `plan_fetch()` and
-`fetch_data()` reuse.
+# References
 
-The package is release-aware. Without `release`, `load_data()` uses
-20261130, the ABC Atlas release this version of the package is
-validated against. A release can be pinned explicitly for reproducible
-analyses, as above, and earlier releases can be requested too, for
-example with `load_data("AgingMouse", release = "20260711")`. Release
-20261031 renamed the folders of the HMBA routes; `load_data()` reads
-earlier releases with the earlier folder names.
+The synthetic data used for evaluated package examples are generated locally
+and do not require a scientific citation. Analyses using public ABC Atlas data
+should cite the Atlas and the primary publication(s) describing the dataset
+used.
 
-After required files are cached, `offline = TRUE` prevents network
-access.
+- Allen Institute for Brain Science. *Allen Brain Cell Atlas*
+  (RRID:SCR_024440).
+  <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
+- Yao Z, van Velthoven CTJ, Kunst M, et al. (2023). A high-resolution
+  transcriptomic and spatial atlas of cell types in the whole mouse brain.
+  *Nature* 624, 317-332.
+  <https://doi.org/10.1038/s41586-023-06812-z>
+- Zhang M, Pan X, Jung W, et al. (2023). Molecularly defined and spatially
+  resolved cell atlas of the whole mouse brain. *Nature* 624, 343-354.
+  <https://doi.org/10.1038/s41586-023-06808-9>
 
-## References
-
--   Allen Institute for Brain Science. abc_atlas_access: data access for
-    the Allen Brain Cell Atlas.
-    <https://github.com/AllenInstitute/abc_atlas_access>
--   Allen Institute for Brain Science. Allen Brain Cell Atlas
-    (RRID:SCR_024440).
-    <https://brain-map.org/bkp/explore/abc-atlas>
--   Yao Z, van Velthoven CTJ, Kunst M, et al. (2023). A high-resolution
-    transcriptomic and spatial atlas of cell types in the whole mouse
-    brain. *Nature* 624(7991), 317-332.
-    <https://doi.org/10.1038/s41586-023-06812-z>
--   Zhang M, Pan X, Jung W, et al. (2023). Molecularly defined and
-    spatially resolved cell atlas of the whole mouse brain. *Nature*
-    624(7991), 343-354. <https://doi.org/10.1038/s41586-023-06808-9>
-
-## Session information
+# Session information
 
 ```{r session-info}
 sessionInfo()
