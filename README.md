@@ -122,8 +122,7 @@ plan_fetch(
 
 ### 5. Retrieve the expression matrix
 
-`fetch_data()` returns a matrix bundle by default. Because `genes` is not
-specified here, **all genes available for this expression dataset are
+`fetch_data()` returns a matrix bundle by default. By default, **all genes available for this expression dataset are
 returned**, giving a matrix suitable for downstream single-cell workflows.
 
 ```r
