@@ -162,12 +162,11 @@ not normalize or transform them internally.
 
 ## Other return types
 
-The sparse matrix bundle is the default and is the main interface used in this
-README. When useful, the same request can instead return standard Bioconductor
+Sparse matrix is the default. When useful, the same request can instead return standard Bioconductor
 containers by setting:
 
 Use `return_type = "sce"` for a `SingleCellExperiment`, or
-`return_type = "spatial"` for a `SpatialExperiment` on a spatial route.
+`return_type = "spatial"` for a `SpatialExperiment` in `fetch_data()`.
 
 Raw expression is stored in a `counts` assay. Other source representations are
 stored in an assay named after the data type.
