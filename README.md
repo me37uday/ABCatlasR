@@ -162,7 +162,7 @@ not normalize or transform them internally.
 
 ## Other return types
 
-Sparse matrix is the default. When useful, the same request can instead return standard Bioconductor
+Sparse matrix is the default. When useful, the same request can return standard Bioconductor
 containers by setting:
 
 Use `return_type = "sce"` for a `SingleCellExperiment`, or
