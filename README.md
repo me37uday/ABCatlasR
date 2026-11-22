@@ -81,25 +81,14 @@ select cells by:
 - cell identity: class, subclass, supertype, cluster, or neurotransmitter;
 - anatomy: brain section, region of interest, or anatomical division;
 - subject information: donor, sex, age, genotype, or species;
-- disease or clinical annotation, when available;
+- disease or clinical annotation, if available;
 - spatial coordinates or dataset-specific quality annotations.
 
 The full metadata table is available in `abc$cell_metadata`.
 
 ```r
 names(abc$cell_metadata)
-head(abc$cell_metadata[, c(
-    "class", "subclass", "neurotransmitter"
-)])
-```
-
-`abc$unique_values` provides a convenient summary of the main annotations that
-are useful for selecting cells in that dataset.
-
-```r
-names(abc$unique_values)
-abc$unique_values$neurotransmitter
-head(abc$unique_values$class)
+head(abc$cell_metadata)
 ```
 
 For this example, we select GABAergic cells from one brain section and keep the
