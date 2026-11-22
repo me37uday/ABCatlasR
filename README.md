@@ -75,7 +75,7 @@ abc
 ### 3. Explore the metadata and choose cells
 
 Cell selection is usually the most important step. The appropriate variables
-depend on the dataset and on your biological question. For example, you might
+depend on the dataset and on your question of interest. For example, you might
 select cells by:
 
 - cell identity: class, subclass, supertype, cluster, or neurotransmitter;
