@@ -103,8 +103,8 @@ cells <- head(cells, 100)
 length(cells)
 ```
 
-Cell labels are passed explicitly to `fetch_data()`, so the biological
-selection remains clear and reproducible.
+Cell labels are passed explicitly to `fetch_data()`, so the filtering criteria
+remains clear and reproducible.
 
 ### 4. Check what will be downloaded
 
