@@ -46,7 +46,7 @@ library(ABCatlasR)
 
 ### 1. See which datasets are available
 
-`list_datasets()` shows the routes supported by the package, their modality,
+`list_datasets()` informs about the list of datasets supported by the package, their modality,
 whether spatial coordinates are available, and the expression representations
 that can be retrieved.
 
