@@ -89,7 +89,7 @@ The full metadata table is available in `abc$cell_metadata`.
 ```r
 names(abc$cell_metadata)
 head(abc$cell_metadata[, c(
-    "cell_label", "brain_section_label", "neurotransmitter"
+    "class", "subclass", "neurotransmitter"
 )])
 ```
 
@@ -99,7 +99,7 @@ are useful for selecting cells in that dataset.
 ```r
 names(abc$unique_values)
 abc$unique_values$neurotransmitter
-head(abc$unique_values$brain_section_label)
+head(abc$unique_values$class)
 ```
 
 For this example, we select GABAergic cells from one brain section and keep the
