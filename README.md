@@ -91,20 +91,22 @@ names(abc$cell_metadata)
 head(abc$cell_metadata)
 ```
 
-For this example, we select GABAergic cells from one brain section and keep the
-first 100 cells to make the example bounded and reproducible.
+For this example, we subset the metadata to GABAergic cells from a single brain 
+section and take the first 100 cell labels to keep the workflow fast and 
+reproducible:
 
 ```r
-keep <- abc$cell_metadata$brain_section_label == "Zhuang-ABCA-4.002" &
-    abc$cell_metadata$neurotransmitter == "GABA"
+selected_meta <- subset(
+    abc$cell_metadata,
+    brain_section_label == "Zhuang-ABCA-4.002" & neurotransmitter == "GABA"
+)
 
-cells <- abc$cell_metadata$cell_label[keep]
-cells <- head(cells, 100)
+cells <- head(selected_meta$cell_label, 100)
 length(cells)
 ```
 
-Cell labels are passed explicitly to `fetch_data()`, so the filtering criteria
-remains clear and reproducible.
+Passing these cell labels explicitly to `fetch_data()` keeps your filtering 
+criteria transparent and easy to reproduce.
 
 ### 4. Check what will be downloaded
 
