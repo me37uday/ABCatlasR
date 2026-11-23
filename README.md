@@ -91,8 +91,8 @@ names(abc$cell_metadata)
 head(abc$cell_metadata)
 ```
 
-For this example, we subset the metadata to ## GABAergic cells from a ## single brain 
-section and take the first 100 cell labels to keep the workflow fast and 
+For this example, we subset the metadata to **GABAergic cells** from a **single brain 
+section** and take the first 100 cell labels to keep the workflow fast and 
 reproducible:
 
 ```r
