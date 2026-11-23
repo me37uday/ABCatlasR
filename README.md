@@ -105,7 +105,7 @@ cells <- head(selected_meta$cell_label, 100)
 length(cells)
 ```
 
-Please note, the downstream functions rely on the cell ids contained in the `cell_label` column of the metadata.
+Please note, the downstream functions rely on the cell IDs contained in the `cell_label` column of the metadata.
 
 ### 4. Check what will be downloaded
 
