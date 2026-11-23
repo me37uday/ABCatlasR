@@ -105,8 +105,7 @@ cells <- head(selected_meta$cell_label, 100)
 length(cells)
 ```
 
-Passing these cell labels explicitly to `fetch_data()` keeps your filtering 
-criteria transparent and easy to reproduce.
+Please note, the downstream functions rely on the cells ids contained in `cell_label` column of the metadata of respective datasets.
 
 ### 4. Check what will be downloaded
 
