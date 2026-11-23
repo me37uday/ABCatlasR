@@ -6,9 +6,12 @@ It helps you discover supported datasets, explore their metadata, select cells
 that match a biological question, and retrieve expression data for downstream
 single-cell analysis.
 
-The default output is a sparse **genes x cells matrix bundle** with aligned
-cell metadata, gene metadata, and provenance. `SingleCellExperiment` and
-`SpatialExperiment` outputs are also available.
+The package focuses strictly on **data access and representation**—leaving 
+normalization, differential expression, integration, and trajectory analysis to 
+downstream frameworks like Seurat, Monocle 3, or Bioconductor. The default output 
+is a sparse **genes x cells matrix bundle** with aligned cell metadata, gene 
+metadata, and provenance, with `SingleCellExperiment` and `SpatialExperiment` 
+formats also supported.
 
 ## Installation
 
@@ -247,12 +250,6 @@ After installation:
 vignette("ABCatlasR", package = "ABCatlasR")
 ```
 
-## Scope
-
-`ABCatlasR` focuses on data access and representation. Normalization,
-differential expression, integration, cell-type prediction, trajectory
-analysis, and cross-species orthology mapping are left to downstream analysis
-packages where those choices can be made according to the biological question.
 
 ## Getting help
 
