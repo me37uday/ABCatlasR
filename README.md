@@ -34,7 +34,8 @@ remotes::install_github(
     dependencies = NA,
     build_vignettes = FALSE,
     upgrade = "never"
-)```
+)
+```
 
 Load the package:
 
