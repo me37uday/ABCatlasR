@@ -1,0 +1,23 @@
+name: abcatlasr
+
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+
+dependencies:
+  - r-base=4.5
+  - r-biocmanager
+  - r-remotes
+  - r-curl
+  - r-data.table
+  - r-dplyr
+  - r-jsonlite
+  - r-matrix
+  - r-processx
+  - r-xml2
+  - bioconductor-hdf5array
+  - bioconductor-rhdf5
+  - bioconductor-s4vectors
+  - bioconductor-singlecellexperiment
+  - bioconductor-spatialexperiment

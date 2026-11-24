@@ -65,6 +65,7 @@ Imports:
     rhdf5,
     S4Vectors,
     SingleCellExperiment,
+    SpatialExperiment,
     stats,
     tools,
     utils,
@@ -73,7 +74,6 @@ Suggests:
     BiocStyle,
     knitr,
     rmarkdown,
-    SpatialExperiment,
     SummarizedExperiment,
     testthat (>= 3.0.0),
     withr

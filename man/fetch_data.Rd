@@ -42,10 +42,9 @@ are never converted from one type to another.}
 \item{return_type}{Form of the result: \code{"matrix"} (default) for a
 sparse matrix with its cell and gene tables, \code{"sce"} for a
 SingleCellExperiment, or \code{"spatial"} for a SpatialExperiment with
-the cells' spatial coordinates. \code{"spatial"} needs the
-SpatialExperiment package and a dataset with spatial coordinates (see
-\code{\link[=list_datasets]{list_datasets()}}). For Seurat or Monocle 3, see "Converting to other
-formats" below.}
+the cells' spatial coordinates. \code{"spatial"} needs a dataset with
+spatial coordinates (see \code{\link[=list_datasets]{list_datasets()}}). For Seurat or Monocle 3,
+see "Converting to other formats" below.}
 
 \item{offline}{If \code{TRUE}, use only files already in the folder and
 never connect to the internet; a missing file is an error instead of a
