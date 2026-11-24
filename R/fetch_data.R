@@ -508,6 +508,8 @@
 #' @param offline If \code{TRUE}, use only files already in the folder and
 #'   never connect to the internet; a missing file is an error instead of a
 #'   download.
+#'   If \code{FALSE} (default) and the ABC Atlas server cannot be reached,
+#'   the files already in the folder are used, as with \code{TRUE}.
 #' @return The expression, in the form chosen by \code{return_type}.
 #'
 #'   For \code{return_type = "matrix"}, an \code{abc_matrix} object: a list
@@ -640,6 +642,8 @@ fetch_data <- function(
 #'   \code{"log2"}.
 #' @param offline If \code{TRUE}, use only files already in the folder and
 #'   never connect to the internet.
+#'   If \code{FALSE} (default) and the ABC Atlas server cannot be reached,
+#'   the files already in the folder are used, as with \code{TRUE}.
 #' @return An \code{abc_fetch_plan} object, which prints as a report: a
 #'   list of class \code{"abc_fetch_plan"} with these elements:
 #'   \describe{

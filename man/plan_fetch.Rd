@@ -20,7 +20,9 @@ the dataset is included.}
 \code{"log2"}.}
 
 \item{offline}{If \code{TRUE}, use only files already in the folder and
-never connect to the internet.}
+never connect to the internet.
+If \code{FALSE} (default) and the ABC Atlas server cannot be reached,
+the files already in the folder are used, as with \code{TRUE}.}
 }
 \value{
 An \code{abc_fetch_plan} object, which prints as a report: a

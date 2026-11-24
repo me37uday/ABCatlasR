@@ -47,7 +47,9 @@
 #'   (default), the folder given by [abc_download_dir()] is used.
 #' @param offline If \code{TRUE}, use only files already in the folder and
 #'   never connect to the internet. The release must have been used online
-#'   once before.
+#'   once before. If \code{FALSE} (default) and the ABC Atlas server cannot
+#'   be reached, the connection continues offline with the files already in
+#'   the folder.
 #' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 #'   `r .abc_default_release`, the release validated against this package.
 #'   \code{NULL} selects the release as described in Details.
@@ -98,7 +100,11 @@ abc_cache_connect <- function(
     available <- if (offline) {
         .abc_local_manifests(download_base)
     } else {
-        .abc_remote_manifests()
+        tryCatch(.abc_remote_manifests(), error = identity)
+    }
+    if (inherits(available, "error")) {
+        available <- .abc_offline_fallback(download_base, available)
+        offline <- TRUE
     }
     if (length(available) == 0L) {
         stop("No ABC Atlas release manifests found.")
@@ -125,6 +131,26 @@ abc_cache_connect <- function(
     }
 
     .abc_new_cache(download_base, manifest_name, manifest, offline)
+}
+
+# When the release list cannot be retrieved, continue offline with the
+# releases already in the folder; with none, report the original error.
+.abc_offline_fallback <- function(download_base, cond) {
+    local <- .abc_local_manifests(download_base)
+    if (length(local) == 0L) {
+        stop(
+            "Could not reach the ABC Atlas server, and no release has been ",
+            "downloaded to '", download_base, "' yet: ",
+            conditionMessage(cond),
+            call. = FALSE
+        )
+    }
+    message(
+        "Could not reach the ABC Atlas server (", conditionMessage(cond),
+        "). Continuing offline with the files already in '", download_base,
+        "'. Use offline = TRUE to skip this check."
+    )
+    local
 }
 
 # Manifest name for an explicitly requested release: a single YYYYMMDD
@@ -560,15 +586,15 @@ print.abc_cache <- function(x, ...) {
     if (!file.exists(attrs$local_path)) {
         stop(
             "'", attrs$relative_path,
-            "' is not available locally (offline = TRUE). ",
-            "Run once with offline = FALSE to download it."
+            "' is not available locally (working offline). ",
+            "Run once with internet access to download it."
         )
     }
     if (!.abc_size_matches(attrs)) {
         stop(
             "The cached '", attrs$relative_path, "' is incomplete or ",
             "damaged (its size differs from the manifest). Run once ",
-            "with offline = FALSE to download it again.",
+            "with internet access to download it again.",
             call. = FALSE
         )
     }

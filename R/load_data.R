@@ -776,6 +776,8 @@
 #'   (default), the folder given by [abc_download_dir()] is used.
 #' @param offline If \code{TRUE}, use only files already in the folder and
 #'   never connect to the internet.
+#'   If \code{FALSE} (default) and the ABC Atlas server cannot be reached,
+#'   the files already in the folder are used, as with \code{TRUE}.
 #' @param release ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 #'   `r .abc_default_release`, the release validated against this package.
 #'   Metadata are read from exactly that release. Release 20261031 renamed
