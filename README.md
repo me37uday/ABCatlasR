@@ -27,17 +27,22 @@ instead. This also builds the vignette and skips updating your other
 packages:
 
 ```r
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+
 if (!requireNamespace("remotes", quietly = TRUE)) {
     install.packages("remotes")
 }
-BiocManager::install(
+
+options(repos = BiocManager::repositories())
+
+remotes::install_github(
     "me37uday/ABCatlasR",
-    build_vignettes = TRUE,
-    dependencies = TRUE,
-    update = FALSE,
-    ask = FALSE
-)
-```
+    dependencies = NA,
+    build_vignettes = FALSE,
+    upgrade = "never"
+)```
 
 Load the package:
 
