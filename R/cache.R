@@ -97,15 +97,9 @@ abc_cache_connect <- function(
         )
     }
 
-    available <- if (offline) {
-        .abc_local_manifests(download_base)
-    } else {
-        tryCatch(.abc_remote_manifests(), error = identity)
-    }
-    if (inherits(available, "error")) {
-        available <- .abc_offline_fallback(download_base, available)
-        offline <- TRUE
-    }
+    found <- .abc_available_manifests(download_base, offline)
+    available <- found$available
+    offline <- found$offline
     if (length(available) == 0L) {
         stop("No ABC Atlas release manifests found.")
     }
@@ -131,6 +125,24 @@ abc_cache_connect <- function(
     }
 
     .abc_new_cache(download_base, manifest_name, manifest, offline)
+}
+
+# Release manifests to choose from: the downloaded ones offline, otherwise
+# those on the server, or the downloaded ones when the server is unreachable.
+.abc_available_manifests <- function(download_base, offline) {
+    if (offline) {
+        return(list(
+            available = .abc_local_manifests(download_base), offline = TRUE
+        ))
+    }
+    remote <- tryCatch(.abc_remote_manifests(), error = identity)
+    if (!inherits(remote, "error")) {
+        return(list(available = remote, offline = FALSE))
+    }
+    list(
+        available = .abc_offline_fallback(download_base, remote),
+        offline = TRUE
+    )
 }
 
 # When the release list cannot be retrieved, continue offline with the
