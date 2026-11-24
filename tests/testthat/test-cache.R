@@ -32,6 +32,52 @@ test_that("online connect records the manifest in use", {
     )
 })
 
+test_that("an unreachable server falls back to the cached releases", {
+    fx <- make_fixture_cache()
+    local_mocked_bindings(
+        .abc_remote_manifests = function() {
+            stop("Request failed after 5 attempts: timeout", call. = FALSE)
+        }
+    )
+
+    expect_message(
+        cache <- abc_cache_connect(fx$dir, release = fx$version),
+        "Continuing offline"
+    )
+    expect_true(cache$offline)
+    expect_identical(cache$manifest_name, "releases/20250101/manifest.json")
+    # Offline connections leave the folder unchanged.
+    expect_false(file.exists(file.path(fx$dir, "_manifest_last_used.txt")))
+
+    expect_error(
+        suppressMessages(abc_cache_connect(fx$dir, release = "20240101")),
+        "not available in this offline cache"
+    )
+})
+
+test_that("an unreachable server with an empty folder is an error", {
+    local_mocked_bindings(
+        .abc_remote_manifests = function() {
+            stop("Request failed after 5 attempts: timeout", call. = FALSE)
+        }
+    )
+    expect_error(
+        abc_cache_connect(withr::local_tempdir()),
+        "no release has been downloaded"
+    )
+})
+
+test_that("fetch_data uses cached files when the server is unreachable", {
+    fx <- make_fixture_cache()
+    local_mocked_bindings(
+        .abc_remote_manifests = function() {
+            stop("Request failed after 5 attempts: timeout", call. = FALSE)
+        }
+    )
+    x <- suppressMessages(fetch_data(fixture_data(fx), cell_ids = "c1"))
+    expect_identical(colnames(x$expression), "c1")
+})
+
 test_that("file attributes resolve plain names and name/kind", {
     fx <- make_fixture_cache()
     cache <- abc_cache_connect(fx$dir, offline = TRUE, release = fx$version)

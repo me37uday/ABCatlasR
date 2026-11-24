@@ -49,7 +49,9 @@ formats" below.}
 
 \item{offline}{If \code{TRUE}, use only files already in the folder and
 never connect to the internet; a missing file is an error instead of a
-download.}
+download.
+If \code{FALSE} (default) and the ABC Atlas server cannot be reached,
+the files already in the folder are used, as with \code{TRUE}.}
 }
 \value{
 The expression, in the form chosen by \code{return_type}.

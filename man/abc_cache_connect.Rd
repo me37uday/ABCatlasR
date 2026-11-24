@@ -16,7 +16,9 @@ abc_cache_connect(
 
 \item{offline}{If \code{TRUE}, use only files already in the folder and
 never connect to the internet. The release must have been used online
-once before.}
+once before. If \code{FALSE} (default) and the ABC Atlas server cannot
+be reached, the connection continues offline with the files already in
+the folder.}
 
 \item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 20261130, the release validated against this package.

@@ -7,6 +7,7 @@
 * Supports raw and upstream published transformed expression representations where available.
 * Supports sparse matrix, SingleCellExperiment and SpatialExperiment output; the vignette and `?fetch_data` show how to convert the matrix output to Seurat and Monocle 3 objects.
 * Provides local caching, resumable downloads, offline access to previously downloaded data, and an optional report of the files and disk space a request needs (`plan_fetch()`).
+* When the ABC Atlas server cannot be reached, `load_data()`, `plan_fetch()` and `fetch_data()` continue offline with the files already downloaded, with a message, so cached data stay usable on compute nodes without internet access.
 * `fetch_data()` checks free disk space before downloading and keeps 2 GB free on the system disk. The same check runs before every other file download, including metadata.
 * A cached file whose size differs from the manifest is treated as damaged: it is downloaded again, or reported when offline.
 * File paths in the manifest that point outside the cache folder are refused.

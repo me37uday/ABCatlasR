@@ -20,7 +20,9 @@ of them. The start of a name is enough if it matches only one dataset.}
 (default), the folder given by \code{\link[=abc_download_dir]{abc_download_dir()}} is used.}
 
 \item{offline}{If \code{TRUE}, use only files already in the folder and
-never connect to the internet.}
+never connect to the internet.
+If \code{FALSE} (default) and the ABC Atlas server cannot be reached,
+the files already in the folder are used, as with \code{TRUE}.}
 
 \item{release}{ABC Atlas release in \code{YYYYMMDD} form. Defaults to
 20261130, the release validated against this package.
