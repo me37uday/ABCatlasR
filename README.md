@@ -30,10 +30,7 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 options(repos = BiocManager::repositories())
 
 remotes::install_github(
-    "me37uday/ABCatlasR",
-    dependencies = NA,
-    build_vignettes = FALSE,
-    upgrade = "never"
+    "me37uday/ABCatlasR"
 )
 ```
 
