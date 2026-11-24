@@ -15,16 +15,8 @@ formats also supported.
 
 ## Installation
 
-```r
-if (!requireNamespace("BiocManager", quietly = TRUE)) {
-    install.packages("BiocManager")
-}
-BiocManager::install("ABCatlasR")
-```
-
 Until `ABCatlasR` is available on Bioconductor, install it from GitHub
-instead. This also builds the vignette and skips updating your other
-packages:
+instead:
 
 ```r
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
