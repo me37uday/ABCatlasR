@@ -47,15 +47,15 @@ define the relevant cells, and then retrieves the corresponding expression
 matrix. This approach is useful for questions such as:
 
 - **cell identity and diversity:** which neuronal and non-neuronal populations
-  are represented within a brain region or dataset;
+    are represented within a brain region or dataset;
 - **molecular specialization:** how gene-expression profiles differ across
-  cell types, states, or anatomical structures;
+    cell types, states, or anatomical structures;
 - **spatial organization:** where molecularly defined populations are located
-  within brain tissue;
+    within brain tissue;
 - **development, aging, and disease:** how cellular composition or molecular
-  states vary across life stages or disease-associated collections;
+    states vary across life stages or disease-associated collections;
 - **cross-species neuroscience:** which cellular and molecular features can be
-  explored across mouse, marmoset, macaque, and human resources.
+    explored across mouse, marmoset, macaque, and human resources.
 
 # Package overview
 
@@ -340,9 +340,9 @@ abc
 The returned `abc_data` object contains:
 
 - `cell_metadata`: one row per cell, including annotations published for the
-  selected route;
+    selected route;
 - `gene_data`: one row per gene, including stable gene identifiers and gene
-  symbols when available;
+    symbols when available;
 - `unique_values`: precomputed summaries of selected metadata variables;
 - `dataset`: the route name;
 - `download_base`: the cache location;
@@ -422,7 +422,7 @@ The default `abc_matrix` contains:
 - `gene_data`: gene metadata aligned to the matrix rows;
 - `data_type`: the selected source expression representation;
 - `provenance`: information describing the dataset, release, modality, and
-  request.
+    request.
 
 The alignment can be verified directly:
 
@@ -647,15 +647,15 @@ heading that starts with "# References" when anything follows it. -->
 #  References
 
 1. Allen Institute for Brain Science. *Allen Brain Cell Atlas*
-   (RRID:SCR_024440).
-   <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
+    (RRID:SCR_024440).
+    <https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas>
 2. Yao Z, van Velthoven CTJ, Kunst M, et al. (2023). A high-resolution
-   transcriptomic and spatial atlas of cell types in the whole mouse brain.
-   *Nature* 624, 317-332.
-   <https://doi.org/10.1038/s41586-023-06812-z>
+    transcriptomic and spatial atlas of cell types in the whole mouse brain.
+    *Nature* 624, 317-332.
+    <https://doi.org/10.1038/s41586-023-06812-z>
 3. Zhang M, Pan X, Jung W, et al. (2023). Molecularly defined and spatially
-   resolved cell atlas of the whole mouse brain. *Nature* 624, 343-354.
-   <https://doi.org/10.1038/s41586-023-06808-9>
+    resolved cell atlas of the whole mouse brain. *Nature* 624, 343-354.
+    <https://doi.org/10.1038/s41586-023-06808-9>
 
 # Session information
 
