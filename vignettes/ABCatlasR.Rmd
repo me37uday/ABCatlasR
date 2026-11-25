@@ -104,7 +104,7 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
 BiocManager::install("ABCatlasR")
 ```
 
-Until the package is available through Bioconductor, the development version
+Until the package is available on Bioconductor, the development version
 can alternatively be installed directly from GitHub:
 
 ```{r hpc-github-install, eval=FALSE}
