@@ -2,6 +2,7 @@
 
 ## New package
 
+* Developed with AI assistance (Assisted-by: Anthropic Claude); all code was reviewed, tested and is maintained by the authors.
 * Provides an R-native, release-aware interface to Allen Brain Cell Atlas data.
 * Supports metadata discovery and expression retrieval for selected cells and genes.
 * Supports raw and upstream published transformed expression representations where available.
