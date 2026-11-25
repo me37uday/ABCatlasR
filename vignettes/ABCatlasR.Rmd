@@ -110,9 +110,6 @@ can alternatively be installed directly from GitHub:
 ```{r hpc-github-install, eval=FALSE}
 remotes::install_github(
     "me37uday/ABCatlasR",
-    dependencies = FALSE,
-    build_vignettes = FALSE,
-    upgrade = "never"
 )
 ```
 
