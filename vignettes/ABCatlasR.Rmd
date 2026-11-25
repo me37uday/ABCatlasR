@@ -613,14 +613,12 @@ abc <- load_data(
 The selected release is retained in the returned object and in the expression
 provenance, allowing the source version used for an analysis to be recorded.
 
-On systems where internet access is limited, such as HPC compute nodes that
-may not be able to reach external servers, the required metadata and
-expression files can be downloaded in advance on a machine with internet
-access, such as a login or data-transfer node, and stored in a shared or
-persistent cache. Analyses can then point to the same cache and use the
-package's offline mode, so that no network connection is required. If the ABC
-Atlas server cannot be reached, `ABCatlasR` also continues automatically with
-the files already in the cache.
+On HPC systems where compute nodes do not have internet access, the required
+metadata and expression files can be downloaded in advance on an
+internet-enabled login or data-transfer node and stored in a shared or
+persistent cache. Compute jobs can then point to the same cache and use the
+package's offline mode so that no network connection is required during the
+analysis.
 
 # Lower-level cache access
 
