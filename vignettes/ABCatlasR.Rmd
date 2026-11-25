@@ -108,9 +108,11 @@ Until the package is available on Bioconductor, the development version
 can alternatively be installed directly from GitHub:
 
 ```{r hpc-github-install, eval=FALSE}
-remotes::install_github(
-    "me37uday/ABCatlasR",
-)
+if (!requireNamespace("remotes", quietly = TRUE)) {
+    install.packages("remotes")
+}
+options(repos = BiocManager::repositories())
+remotes::install_github("me37uday/ABCatlasR")
 ```
 
 Load the package:
