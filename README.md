@@ -1,28 +1,37 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
 # ABCatlasR
 
 `ABCatlasR` is an R-native interface to the
 [Allen Brain Cell (ABC) Atlas](https://portal.brain-map.org/atlases-and-data/bkp/abc-atlas).
-It helps you discover supported datasets, explore their metadata, select cells
-that match a biological question, and retrieve expression data for downstream
-single-cell analysis.
+It provides a simple workflow for discovering supported datasets, exploring
+cell and gene metadata, selecting cells that match a biological question, and
+retrieving expression data for downstream single-cell analysis.
 
-The package focuses strictly on **data access and representation**—leaving 
-normalization, differential expression, integration, and trajectory analysis to 
-downstream frameworks like Seurat, Monocle 3, or Bioconductor. The default output 
-is a sparse **genes x cells matrix bundle** with aligned cell metadata, gene 
-metadata, and provenance, with `SingleCellExperiment` and `SpatialExperiment` 
-formats also supported.
+The default output is a sparse **genes x cells** matrix together with aligned
+cell metadata, gene metadata, and provenance. The same request can also be
+returned as a `SingleCellExperiment` or `SpatialExperiment`.
 
 ## Installation
 
-Until `ABCatlasR` is available on Bioconductor, install it from GitHub
-instead:
+After Bioconductor acceptance, install with:
 
 ```r
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
     install.packages("BiocManager")
 }
+BiocManager::install("ABCatlasR")
+```
 
+Until then, install the development version from GitHub:
+
+```r
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
 if (!requireNamespace("remotes", quietly = TRUE)) {
     install.packages("remotes")
 }
@@ -40,27 +49,38 @@ Load the package:
 library(ABCatlasR)
 ```
 
+For installation on HPC systems with Conda/Bioconda, see the
+[package vignette](vignettes/ABCatlasR.Rmd).
+
 ## Quick start
 
-### 1. See which datasets are available
+### 1. Choose where Atlas files are stored
 
-`list_datasets()` informs about the list of datasets supported by the package, their modality,
-whether spatial coordinates are available, and the expression representations
-that can be retrieved.
+ABC Atlas files are downloaded when they are first needed and then reused from
+local storage. Set the download directory before starting the analysis.
+
+```r
+options(ABCatlasR.download_base = "/path/to/abc_atlas_cache")
+abc_download_dir()
+```
+
+### 2. See which datasets are available
+
+`list_datasets()` lists the datasets supported by the installed version of
+`ABCatlasR`, together with their modality, spatial status, and available
+expression representations.
 
 ```r
 datasets <- list_datasets()
 datasets
 ```
 
-### 2. Load a dataset
+### 3. Load a dataset
 
-`load_data()` downloads and assembles the **metadata only**. Expression
-matrices are not downloaded at this stage, so you can first decide which cells
-are relevant to your question.
-
-Here we use the `Zhuang4` spatial mouse-brain dataset from the ABC Atlas release
-validated for this version of `ABCatlasR`.
+`load_data()` loads the cell and gene metadata for a dataset. Expression data
+are not retrieved at this stage, so the metadata can first be used to define
+the cells relevant to the biological question.The examples below use Zhuang4, 
+a spatial mouse-brain resource.
 
 ```r
 abc <- load_data(
@@ -70,46 +90,37 @@ abc <- load_data(
 abc
 ```
 
-### 3. Explore the metadata and choose cells
+### 4. Explore the metadata and select cells
 
-Cell selection is usually the most important step. The appropriate variables
-depend on the dataset and on your question of interest. For example, you might
-select cells by:
-
-- cell identity: class, subclass, supertype, cluster, or neurotransmitter;
-- anatomy: brain section, region of interest, or anatomical division;
-- subject information: donor, sex, age, genotype, or species;
-- disease or clinical annotation, if available;
-- spatial coordinates or dataset-specific quality annotations.
-
-The full metadata table is available in `abc$cell_metadata`.
+The available annotations depend on the dataset. Start by inspecting the cell
+metadata and the curated values provided in `unique_values`.
 
 ```r
 names(abc$cell_metadata)
 head(abc$cell_metadata)
 ```
 
-For this example, we subset the metadata to **GABAergic cells** from a **single brain 
-section** and take the first 100 cell labels to keep the workflow fast and 
-reproducible:
+For example, select **GABAergic cells** from **one brain section**:
 
 ```r
 selected_meta <- subset(
     abc$cell_metadata,
-    brain_section_label == "Zhuang-ABCA-4.002" & neurotransmitter == "GABA"
+    brain_section_label == "Zhuang-ABCA-4.002" &
+        neurotransmitter == "GABA"
 )
 
-cells <- head(selected_meta$cell_label, 100)
+cells <- selected_meta$cell_label
 length(cells)
 ```
 
-Please note, the downstream functions rely on the cell IDs contained in the `cell_label` column of the metadata.
+`cell_label` contains the cell identifiers used by `plan_fetch()` and
+`fetch_data()`.
 
-### 4. Check what will be downloaded
+### 5. Inspect the request
 
-`plan_fetch()` is optional, but useful before working with large Atlas datasets.
-It reports the source files needed for the selected cells, their cache status,
-and the expected disk requirements.
+`plan_fetch()` shows which expression files are required, whether they are
+already available locally, and the storage associated with the request.
+It is optional, but recommended before larger requests.
 
 ```r
 plan_fetch(
@@ -119,10 +130,11 @@ plan_fetch(
 )
 ```
 
-### 5. Retrieve the expression matrix
+### 6. Retrieve the expression matrix
 
-`fetch_data()` returns a matrix bundle by default. By default, **all genes available for this expression dataset are
-returned**, giving a matrix suitable for downstream single-cell workflows.
+`fetch_data()` returns an `abc_matrix` by default. When `genes` is not
+specified, all genes available for the selected expression representation are
+returned.
 
 ```r
 x <- fetch_data(
@@ -142,38 +154,49 @@ head(x$cell_metadata)
 head(x$gene_data)
 ```
 
-The returned `abc_matrix` contains:
+The main components are:
 
 - `x$expression`: sparse `dgCMatrix`, genes x cells;
 - `x$cell_metadata`: metadata aligned to matrix columns;
 - `x$gene_data`: gene metadata aligned to matrix rows;
-- `x$data_type`: the source expression representation;
-- `x$provenance`: dataset, release, modality, and request provenance.
+- `x$data_type`: expression representation returned by the Atlas;
+- `x$provenance`: dataset, release, modality, and request information.
 
-If your question concerns only a defined gene panel, `fetch_data()` also
-accepts a `genes` argument. Gene filtering is optional; leaving `genes = NULL`
-(the default) returns all available genes. Note that Atlas expression source
-files are downloaded whole, so selecting fewer genes mainly reduces the size
-of the returned matrix rather than the size of an uncached source download.
-
-`ABCatlasR` returns expression values as published by the ABC Atlas and does
-not normalize or transform them internally.
+`ABCatlasR` returns the expression representation published by the ABC Atlas;
+it does not normalize or transform the values internally.
 
 ## Other return types
 
-Sparse matrix is the default. When useful, the same request can return standard Bioconductor
-containers by setting:
+The sparse matrix bundle is the default output. The same request can be
+returned in standard Bioconductor containers:
 
-Use `return_type = "sce"` for a `SingleCellExperiment`, or
-`return_type = "spatial"` for a `SpatialExperiment` in `fetch_data()`.
+```r
+sce <- fetch_data(
+    abc,
+    cell_ids = cells,
+    data_type = "raw",
+    return_type = "sce"
+)
+```
 
-Raw expression is stored in a `counts` assay. Other source representations are
-stored in an assay named after the data type.
+For datasets with spatial coordinates:
+
+```r
+spe <- fetch_data(
+    abc,
+    cell_ids = cells,
+    data_type = "raw",
+    return_type = "spatial"
+)
+```
+
+Use `list_datasets()` to identify spatial datasets and the expression
+representations available for each route.
 
 ## Using the matrix with Seurat or Monocle 3
 
-`ABCatlasR` does not depend on Seurat or Monocle 3. The default raw matrix can
-be passed to either framework when those packages are installed.
+`ABCatlasR` does not depend on Seurat or Monocle 3, but the default matrix can
+be passed directly to either framework when those packages are installed.
 
 ### Seurat
 
@@ -183,9 +206,6 @@ seu <- SeuratObject::CreateSeuratObject(
     meta.data = x$cell_metadata
 )
 ```
-
-Seurat may sanitize some feature names internally. `x$gene_data` retains the
-original ABC Atlas gene identifiers and symbols.
 
 ### Monocle 3
 
@@ -200,42 +220,15 @@ cds <- monocle3::new_cell_data_set(
 )
 ```
 
-For count-based downstream workflows, retrieve `data_type = "raw"` as in the
-example above.
+For count-based downstream workflows, retrieve `data_type = "raw"` when raw
+counts are available for the selected dataset.
 
-## Downloads, caching, and reproducibility
+## Learn more
 
-Atlas files are downloaded on first use and cached locally. Cached files are
-reused automatically, and interrupted downloads can be resumed.
-
-Set a cache location with:
-
-```r
-options(ABCatlasR.download_base = "/path/to/abc_atlas_cache")
-abc_download_dir()
-```
-
-After the required files have been cached, `offline = TRUE` prevents network
-access and makes missing files an explicit error.
-
-```r
-abc <- load_data("Zhuang4", release = "20261130", offline = TRUE)
-
-x <- fetch_data(
-    abc,
-    cell_ids = cells,
-    data_type = "raw",
-    offline = TRUE
-)
-```
-
-Pinning the ABC Atlas release makes the source layout and provenance explicit.
-
-## Learn more in the vignette
-
-The vignette provides a more detailed guide to choosing a
-dataset, selecting cells from metadata, retrieving matrices, spatial use
-cases, downstream analysis, and reproducible release-aware workflows.
+The vignette provides a more complete description of the datasets and
+functions in `ABCatlasR`, including dataset selection, metadata exploration,
+expression representations, return types, release-aware caching, offline use,
+and HPC installation.
 
 **[Read the ABCatlasR vignette](vignettes/ABCatlasR.Rmd)**
 
@@ -244,16 +237,3 @@ After installation:
 ```r
 vignette("ABCatlasR", package = "ABCatlasR")
 ```
-
-
-## Getting help
-
-```r
-?list_datasets
-?load_data
-?plan_fetch
-?fetch_data
-```
-
-Please report package issues at
-<https://github.com/me37uday/ABCatlasR/issues>.
