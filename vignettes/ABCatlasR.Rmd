@@ -485,7 +485,7 @@ values or unambiguous gene symbols:
 x_panel <- fetch_data(
     abc,
     cell_ids = cells,
-    genes = c("Gad1", "Gad2", "Slc17a7"),
+    genes = c("Gad2", "Slc32a1", "Slc17a7"),
     data_type = "raw"
 )
 ```
