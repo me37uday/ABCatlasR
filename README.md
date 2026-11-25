@@ -1,8 +1,3 @@
----
-output:
-  pdf_document: default
-  html_document: default
----
 # ABCatlasR
 
 `ABCatlasR` is an R-native interface to the
@@ -79,7 +74,7 @@ datasets
 
 `load_data()` loads the cell and gene metadata for a dataset. Expression data
 are not retrieved at this stage, so the metadata can first be used to define
-the cells relevant to the biological question.The examples below use Zhuang4, 
+the cells relevant to the biological question. The examples below use Zhuang4,
 a spatial mouse-brain resource.
 
 ```r
