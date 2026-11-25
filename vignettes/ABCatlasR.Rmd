@@ -213,8 +213,6 @@ conda activate abcatlasr
 ```
 
 This Conda environment is intended for running `ABCatlasR` on HPC systems.
-Bioconductor submission checks should still be performed separately in the
-current Bioconductor development environment.
 
 # Choosing a dataset
 
