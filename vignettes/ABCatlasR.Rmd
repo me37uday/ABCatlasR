@@ -25,9 +25,13 @@ vignette: >
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-    eval = FALSE
+    collapse = TRUE,
+    comment = "#>"
 )
-options(ABCatlasR.download_progress = FALSE)
+options(
+    ABCatlasR.download_progress = FALSE,
+    ABCatlasR.download_base = file.path(tempdir(), "ABCatlasR-cache")
+)
 ```
 
 # Introduction
@@ -65,14 +69,24 @@ out with Bioconductor or other single-cell analysis frameworks.
 
 The main user-facing functions form a short workflow:
 
-| Function | Purpose |
-| --- | --- |
-| `abc_download_dir()` | View the directory used to store Atlas files. |
-| `list_datasets()` | List the ABC Atlas routes supported by the installed package. |
-| `load_data()` | Load and assemble cell and gene metadata for one dataset. |
-| `plan_fetch()` | Inspect the expression files and storage associated with a request. |
-| `fetch_data()` | Retrieve expression for selected cells and optionally selected genes. |
-| `abc_cache_connect()` | Open the release-aware cache for lower-level file access. |
+```{r function-overview, echo=FALSE, eval=TRUE}
+functions <- data.frame(
+    Function = c(
+        "`abc_download_dir()`", "`list_datasets()`", "`load_data()`",
+        "`plan_fetch()`", "`fetch_data()`", "`abc_cache_connect()`"
+    ),
+    Purpose = c(
+        "View the directory used to store Atlas files.",
+        "List the ABC Atlas routes supported by the installed package.",
+        "Load and assemble cell and gene metadata for one dataset.",
+        "Inspect the expression files and storage associated with a request.",
+        "Retrieve expression for selected cells and optionally selected genes.",
+        "Open the release-aware cache for lower-level file access."
+    ),
+    stringsAsFactors = FALSE
+)
+knitr::kable(functions)
+```
 
 Most analyses use `abc_download_dir()`, `list_datasets()`, `load_data()`,
 `plan_fetch()`, and `fetch_data()`. `abc_cache_connect()` is a lower-level
@@ -117,7 +131,7 @@ runtime used by `ABCatlasR`, including `SingleCellExperiment`, and
 
 The following sequence can be used on a new cluster.
 
-### 1. Obtain the package source
+### Obtain the package source
 
 Before the package is available through Bioconductor, clone the repository and
 enter the package directory:
@@ -127,7 +141,7 @@ git clone https://github.com/me37uday/ABCatlasR.git
 cd ABCatlasR
 ```
 
-### 2. Create the Conda environment from the supplied YAML file
+### Create the Conda environment from the supplied YAML file
 
 The YAML file is the recommended installation route because it keeps the
 runtime definition with the package source:
@@ -147,7 +161,7 @@ conda config --add channels conda-forge
 conda config --set channel_priority strict
 ```
 
-### 3. Confirm that the active R belongs to the Conda environment
+### Confirm that the active R belongs to the Conda environment
 
 ```{bash hpc-r-path, eval=FALSE}
 which R
@@ -159,7 +173,7 @@ echo "$CONDA_PREFIX"
 `which R` and `which Rscript` should resolve inside the active
 `abcatlasr` environment.
 
-### 4. Install ABCatlasR into the active environment
+### Install ABCatlasR into the active environment
 
 Because the YAML file already installs the package dependencies, install the
 checked-out package source without asking R to resolve another dependency
@@ -293,7 +307,7 @@ After choosing a dataset, the central workflow is:
 The examples below use `Zhuang4`, a spatial mouse-brain resource from the
 published whole-mouse-brain spatial atlas [3].
 
-## 1. Choose where Atlas files will be stored
+## Choose where Atlas files will be stored
 
 `ABCatlasR` keeps downloaded ABC Atlas files in a persistent local cache so
 that later requests can reuse them. For an interactive local session, a
@@ -310,12 +324,12 @@ one-off workflow, while `ABC_ATLAS_CACHE` is convenient for shell scripts,
 HPC jobs, and other environment-managed workflows. If none of these are set,
 `ABCatlasR` uses its per-user cache directory.
 
-## 2. Load metadata
+## Load metadata
 
 `load_data()` assembles the cell metadata, gene metadata, and available
 annotations for a dataset. It does not retrieve expression matrices.
 
-```{r load-data, eval=FALSE}
+```{r load-data, eval=TRUE}
 abc <- load_data(
     dataset = "Zhuang4",
     release = "20261130"
@@ -334,12 +348,12 @@ The returned `abc_data` object contains:
 - `download_base`: the cache location;
 - `release`: the ABC Atlas release used to assemble the object.
 
-## 3. Explore annotations and select cells
+## Explore annotations and select cells
 
 The annotations available for biological selection differ among datasets.
 Inspect the metadata before defining the cells of interest:
 
-```{r inspect-metadata, eval=FALSE}
+```{r inspect-metadata, eval=TRUE}
 names(abc$cell_metadata)
 head(abc$cell_metadata)
 ```
@@ -350,7 +364,7 @@ sections, or other dataset-specific information.
 
 For example, select GABAergic cells from one `Zhuang4` brain section:
 
-```{r select-cells, eval=FALSE}
+```{r select-cells, eval=TRUE}
 selected_meta <- subset(
     abc$cell_metadata,
     brain_section_label == "Zhuang-ABCA-4.002" &
@@ -364,13 +378,13 @@ length(cells)
 `cell_label` contains the identifiers expected by `plan_fetch()` and
 `fetch_data()`.
 
-## 4. Inspect the expression request
+## Inspect the expression request
 
 `plan_fetch()` reports the expression source files associated with the
 selected cells, their local cache status, and the storage associated with the
 request.
 
-```{r plan-fetch, eval=FALSE}
+```{r plan-fetch, eval=TRUE}
 plan_fetch(
     abc,
     cell_ids = cells,
@@ -385,12 +399,12 @@ already cached, and the storage associated with the request. This makes it
 easy to confirm that the selected cache location is appropriate before
 retrieval begins.
 
-## 5. Retrieve the matrix
+## Retrieve the matrix
 
 `fetch_data()` retrieves expression for the selected cells. The default return
 type is `"matrix"`, so it does not need to be specified explicitly.
 
-```{r fetch-matrix, eval=FALSE}
+```{r fetch-matrix, eval=TRUE}
 x <- fetch_data(
     abc,
     cell_ids = cells,
@@ -412,7 +426,7 @@ The default `abc_matrix` contains:
 
 The alignment can be verified directly:
 
-```{r inspect-matrix, eval=FALSE}
+```{r inspect-matrix, eval=TRUE}
 dim(x$expression)
 class(x$expression)
 
@@ -467,7 +481,7 @@ selected expression representation are returned.
 For a targeted analysis, `genes` can contain canonical `gene_identifier`
 values or unambiguous gene symbols:
 
-```{r gene-selection, eval=FALSE}
+```{r gene-selection, eval=TRUE}
 x_panel <- fetch_data(
     abc,
     cell_ids = cells,
@@ -490,7 +504,7 @@ reducing the size of an uncached download.
 
 The default return type is the `abc_matrix` described above:
 
-```{r matrix-return, eval=FALSE}
+```{r matrix-return, eval=TRUE}
 x <- fetch_data(
     abc,
     cell_ids = cells,
@@ -505,7 +519,7 @@ to another single-cell framework.
 
 Use `return_type = "sce"` to obtain a `SingleCellExperiment`:
 
-```{r sce-return, eval=FALSE}
+```{r sce-return, eval=TRUE}
 sce <- fetch_data(
     abc,
     cell_ids = cells,
@@ -569,7 +583,7 @@ same local copy instead of downloading it again.
 
 The directory currently used by the package can be checked with:
 
-```{r download-dir, eval=FALSE}
+```{r download-dir, eval=TRUE}
 abc_download_dir()
 ```
 
@@ -591,7 +605,7 @@ directory automatically.
 
 For reproducible analyses, the ABC Atlas release can be pinned explicitly:
 
-```{r release-pin, eval=FALSE}
+```{r release-pin, eval=TRUE}
 abc <- load_data(
     "Zhuang4",
     release = "20261130"
@@ -616,7 +630,7 @@ Most users do not need to call `abc_cache_connect()` directly because
 For workflows that need access to individual files listed in an ABC Atlas
 release manifest, a cache connection can be opened explicitly:
 
-```{r cache-connect, eval=FALSE}
+```{r cache-connect, eval=TRUE}
 cache <- abc_cache_connect(
     download_base = abc_download_dir(),
     release = "20261130"
@@ -627,7 +641,10 @@ cache
 The returned `abc_cache` object records the release manifest and provides
 helpers for locating or reading files in that release.
 
-# References
+<!-- Two spaces after "#": BiocStyle adds an "Appendix" header after a
+heading that starts with "# References" when anything follows it. -->
+
+#  References
 
 1. Allen Institute for Brain Science. *Allen Brain Cell Atlas*
    (RRID:SCR_024440).
