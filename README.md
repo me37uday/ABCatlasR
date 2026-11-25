@@ -12,7 +12,7 @@ returned as a `SingleCellExperiment` or `SpatialExperiment`.
 
 ## Installation
 
-After Bioconductor acceptance, install with:
+Upon availability in Bioconductor, install with:
 
 ```r
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
